@@ -73,8 +73,8 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
 
   return (
     <>
-      {sidebarOpen && <div style={{ display:'block', position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:99 }} onClick={onClose} />}
-      <nav className={`sidebar${sidebarOpen ? ' open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {sidebarOpen && <div style={{ display:'block', position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:999 }} onClick={onClose} />}
+      <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         {/* Brand */}
         <div className="sidebar-brand" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)' }}>
           <img 
