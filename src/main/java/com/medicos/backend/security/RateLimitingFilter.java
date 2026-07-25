@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 120;
-    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 20;
+    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 2000;
+    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 100;
 
     private final Map<String, RequestBucket> generalBuckets = new ConcurrentHashMap<>();
     private final Map<String, RequestBucket> authBuckets = new ConcurrentHashMap<>();
@@ -32,14 +32,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String clientIp = getClientIp(request);
 
-        // Skip rate limiting for static resources and health checks
-        if (path.startsWith("/static") || path.startsWith("/assets") || path.endsWith(".css") || path.endsWith(".js") || path.equals("/api/health")) {
+        // Skip rate limiting for localhost / local dev, static resources, sync, and health checks
+        if (clientIp.equals("127.0.0.1") || clientIp.equals("0:0:0:0:0:0:0:1") || clientIp.equals("localhost")
+                || path.startsWith("/static") || path.startsWith("/assets") || path.endsWith(".css") || path.endsWith(".js")
+                || path.startsWith("/api/sync") || path.startsWith("/api/notifications") || path.equals("/api/health")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String clientIp = getClientIp(request);
         boolean isAuthEndpoint = path.startsWith("/api/auth/");
 
         RequestBucket bucket = isAuthEndpoint
