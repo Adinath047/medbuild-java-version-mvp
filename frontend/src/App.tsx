@@ -311,21 +311,20 @@ export default function App() {
     }
 
     function connect() {
-      const getWsURL = (): string => {
+      const getWsURL = (): string | null => {
         const _env = (import.meta as any).env ?? {};
-        const override = _env.VITE_WS_URL || _env.VITE_API_URL;
+        const override = _env.VITE_WS_URL;
         if (override) {
           return override.replace(/^http/, 'ws');
         }
-        const { protocol, host } = window.location;
-        const wsProto = protocol === 'https:' ? 'wss:' : 'ws:';
-        if (host.includes('localhost') || host.includes('127.0.0.1')) {
-          return `${wsProto}//localhost:4000`;
-        }
-        return `${wsProto}//${host}/api`;
+        return null;
       };
 
       const url = getWsURL();
+      if (!url) {
+        setUsePolling(true);
+        return;
+      }
       console.log('[ws] Connecting to:', url);
       socket = new WebSocket(url);
 
