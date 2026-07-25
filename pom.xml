@@ -68,6 +68,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- H2 Database for Zero-Config Cloud Run Fallback -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- GCP Cloud SQL PostgreSQL Connector -->
         <dependency>
             <groupId>com.google.cloud.sql</groupId>
