@@ -52,13 +52,13 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.deny())
                 .xssProtection(xss -> xss.disable())
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:;"
+                    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' ws: wss: http: https:;"
                 ))
                 .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/index.html", "/favicon.ico", "/*.jpg", "/*.jpeg", "/*.png", "/*.svg", "/*.ico", "/*.json", "/static/**", "/css/**", "/js/**", "/assets/**", "/fonts/**", "/portal/**", "/app/**", "/doctor/**", "/patient/**", "/admin/**", "/super-admin/**", "/_vercel/**", "/sw.js", "/registerSW.js", "/workbox-*.js").permitAll()
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/*.jpg", "/*.jpeg", "/*.png", "/*.svg", "/*.ico", "/*.json", "/manifest.webmanifest", "/*.webmanifest", "/static/**", "/css/**", "/js/**", "/assets/**", "/fonts/**", "/portal/**", "/app/**", "/doctor/**", "/patient/**", "/admin/**", "/super-admin/**", "/_vercel/**", "/sw.js", "/registerSW.js", "/workbox-*.js").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/health").permitAll()
                 .requestMatchers("/api/system/status").permitAll()

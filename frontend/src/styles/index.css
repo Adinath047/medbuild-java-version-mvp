@@ -157,3 +157,36 @@ ul { list-style: none; }
   padding: 36px; box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; gap: 20px;
 }
+
+/* ── Mobile & Responsive Screen Adjustments ───────────────────────────── */
+@media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+  .sidebar {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .nav-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+  .main-content {
+    padding: 16px;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+}

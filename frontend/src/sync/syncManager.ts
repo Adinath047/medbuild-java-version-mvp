@@ -195,8 +195,8 @@ async function pullFromServer(): Promise<void> {
 
   try {
     const res = await apiClient.get('/sync/pull', { params: { since: lastSync } });
-    data      = res.data.data;
-    pulledAt  = res.data.pulledAt;
+    data      = res.data?.data || res.data || {};
+    pulledAt  = res.data?.pulledAt || new Date().toISOString();
   } catch (err: any) {
     console.error('[sync] Pull failed:', err?.response?.data || err?.message);
     throw err;
