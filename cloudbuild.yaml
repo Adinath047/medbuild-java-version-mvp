@@ -1,0 +1,27 @@
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/medbuild:$COMMIT_SHA', '-t', 'gcr.io/$PROJECT_ID/medbuild:latest', '.']
+
+  # Step 2: Push the Docker image to Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/medbuild:latest']
+
+  # Step 3: Deploy container to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'medbuild'
+      - '--image=gcr.io/$PROJECT_ID/medbuild:latest'
+      - '--region=asia-south1'
+      - '--platform=managed'
+      - '--port=8080'
+      - '--memory=1Gi'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/medbuild:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/medbuild:latest'
+

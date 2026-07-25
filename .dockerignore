@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+target/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+*.log
+.DS_Store
+README.md
