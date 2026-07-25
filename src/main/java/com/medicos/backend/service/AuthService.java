@@ -4,6 +4,8 @@ import com.medicos.backend.dto.AuthDTO;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.UnauthorizedException;
+import com.medicos.backend.entity.Hospital;
+import com.medicos.backend.repository.HospitalRepository;
 import com.medicos.backend.repository.UserRepository;
 import com.medicos.backend.security.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
@@ -12,19 +14,23 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final HospitalRepository hospitalRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
+    public AuthService(UserRepository userRepository, HospitalRepository hospitalRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
         this.userRepository = userRepository;
+        this.hospitalRepository = hospitalRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
     }
@@ -124,6 +130,34 @@ public class AuthService {
         response.addCookie(cookie);
 
         return Map.of("message", "Logged out successfully");
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getHospitalStaff(String code) {
+        String hospitalId = (code != null && !code.trim().isEmpty()) ? code.trim() : "hsp-001";
+        Hospital hospital = hospitalRepository.findById(hospitalId)
+                .orElseGet(() -> {
+                    Hospital h = new Hospital();
+                    h.setId(hospitalId);
+                    h.setName("City General Hospital (" + hospitalId + ")");
+                    h.setType("General");
+                    return h;
+                });
+
+        List<User> users = userRepository.findAll();
+        List<AuthDTO.UserDTO> staff = users.stream()
+                .filter(u -> u.getIsActive() == null || u.getIsActive() != 0)
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+
+        return Map.of(
+                "hospital", Map.of(
+                        "id", hospital.getId(),
+                        "name", hospital.getName() != null ? hospital.getName() : "City General Hospital",
+                        "type", hospital.getType() != null ? hospital.getType() : "General"
+                ),
+                "staff", staff
+        );
     }
 
     public AuthDTO.UserDTO mapToDTO(User user) {

@@ -21,6 +21,12 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @GetMapping("/hospital/{code}/staff")
+    public ResponseEntity<?> getHospitalStaff(@PathVariable String code) {
+        Map<String, Object> result = authService.getHospitalStaff(code);
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthDTO.LoginRequest request, HttpServletResponse response) {
         Map<String, Object> result = authService.login(request, response);
