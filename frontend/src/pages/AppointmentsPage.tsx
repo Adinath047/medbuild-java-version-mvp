@@ -199,7 +199,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
   const grouped = appts.reduce((acc:any,a:any)=>{ const k=a.doctor_name||'Doctor'; if(!acc[k])acc[k]=[]; acc[k].push(a); return acc; },{});
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
       {showAdd && (
         <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
@@ -292,15 +292,13 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
           />
         </div>
 
-        {user?.role !== 'doctor' && (
-          <button 
-            className="btn btn-primary" 
-            style={{ background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} 
-            onClick={()=>setShowAdd(true)}
-          >
-            <span>+ New Appointment</span>
-          </button>
-        )}
+        <button 
+          className="btn btn-primary" 
+          style={{ background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} 
+          onClick={()=>setShowAdd(true)}
+        >
+          <span>+ New Appointment</span>
+        </button>
       </div>
 
       {/* Tabs list (Today, Upcoming, Completed, Cancelled, All) */}
@@ -353,8 +351,8 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
               if (a.status !== 'Cancelled') return false;
             }
 
-            if (searchText) {
-              const query = searchText.toLowerCase();
+            if (searchText.trim()) {
+              const query = searchText.toLowerCase().trim();
               const pName = (a.patient_name || '').toLowerCase();
               const dName = (a.doctor_name || '').toLowerCase();
               const reason = (a.reason || '').toLowerCase();
@@ -366,10 +364,17 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
 
           if (filtered.length === 0) {
             return (
-              <div className="empty-state" style={{ padding: '60px 24px' }}>
+              <div className="empty-state" style={{ padding: '60px 24px', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
                 <span className="empty-icon">📅</span>
                 <h3>No appointments found</h3>
                 <p>No appointments match the current status filter or search query.</p>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ marginTop: 16, background: 'var(--primary)', border: 'none', fontWeight: 600 }}
+                  onClick={() => setShowAdd(true)}
+                >
+                  + Book New Appointment
+                </button>
               </div>
             );
           }
@@ -536,6 +541,6 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
           );
         })()
       )}
-    </>
+    </div>
   );
 }
