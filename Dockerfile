@@ -17,8 +17,8 @@ WORKDIR /app
 # Security: Create non-root user for Cloud Run compliance
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy built artifact dynamically
-COPY --from=build /app/target/*.jar app.jar
+# Copy built Spring Boot executable jar explicitly (avoids copying original-*.jar)
+COPY --from=build /app/target/medicos-java-backend-1.0.0-SNAPSHOT.jar app.jar
 RUN chown -R appuser:appgroup /app
 
 USER appuser
