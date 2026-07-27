@@ -5,6 +5,9 @@ import com.medicos.backend.entity.*;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.*;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,7 @@ public class PatientService {
         this.appointmentRepository = appointmentRepository;
     }
 
+    @Cacheable(value = "patients", key = "(#search != null ? #search : 'ALL') + '_' + #limit")
     @Transactional(readOnly = true)
     public PatientDTO.PatientListResponse getPatients(String search, int limit) {
         List<Patient> list = Optional.ofNullable(search)
@@ -42,12 +46,14 @@ public class PatientService {
         return new PatientDTO.PatientListResponse(list, total);
     }
 
+    @Cacheable(value = "patient_by_id", key = "#id")
     @Transactional(readOnly = true)
     public Patient getPatientById(String id) {
         return patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
     }
 
+    @Cacheable(value = "patient_summary", key = "#id")
     @Transactional(readOnly = true)
     public PatientDTO.PatientSummaryResponse getPatientSummary(String id) {
         Patient patient = patientRepository.findById(id)
@@ -77,6 +83,7 @@ public class PatientService {
         return vitalRepository.findByPatientIdOrderByRecordedAtDesc(id);
     }
 
+    @CacheEvict(value = "patients", allEntries = true)
     @Transactional
     public Patient createPatient(Patient patient, User currentUser) {
         Optional.ofNullable(patient.getName())
@@ -96,11 +103,23 @@ public class PatientService {
             patient.setHospitalId(Optional.ofNullable(currentUser).map(User::getHospitalId).orElse("hsp-001"));
         }
 
+        if (patient.getConsentGiven() == null) {
+            patient.setConsentGiven(true);
+        }
+        if (Boolean.TRUE.equals(patient.getConsentGiven()) && patient.getConsentGivenAt() == null) {
+            patient.setConsentGivenAt(java.time.LocalDateTime.now());
+        }
+
         Optional.ofNullable(currentUser).ifPresent(u -> patient.setRegisteredBy(u.getId()));
 
         return patientRepository.save(patient);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "patients", allEntries = true),
+            @CacheEvict(value = "patient_by_id", key = "#id"),
+            @CacheEvict(value = "patient_summary", key = "#id")
+    })
     @Transactional
     public Patient updatePatient(String id, Patient updated) {
         Patient p = patientRepository.findById(id)

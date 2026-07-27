@@ -227,7 +227,7 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
       {showAdd && (
         <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
           <div className="modal" style={{maxWidth:640}} onClick={e=>e.stopPropagation()}>
@@ -707,6 +707,6 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

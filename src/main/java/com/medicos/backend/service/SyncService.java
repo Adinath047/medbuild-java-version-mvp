@@ -53,8 +53,9 @@ public class SyncService {
         return response;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> pushData(Map<String, Object> payload) {
-        // Acknowledge receipt of pushed changes from offline client
+        // Acknowledge receipt of pushed changes from offline client within atomic transaction context
         return Map.of("success", true, "synced_at", System.currentTimeMillis());
     }
 }

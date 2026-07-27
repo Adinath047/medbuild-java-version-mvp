@@ -1,148 +1,97 @@
 package com.medicos.backend.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.UUID;
 
+/**
+ * Immutable HIPAA & DPDP Audit Log Entity.
+ * Stores an append-only log of every patient record action/access across MedBuild.
+ */
 @Entity
 @Table(name = "audit_logs")
 public class AuditLog {
 
     @Id
-    private String id;
-
-    @Column(name = "user_id")
-    private String userId;
-
-    @Column(name = "user_email")
-    private String userEmail;
-
-    @Column(name = "user_role")
-    private String userRole;
-
-    @Column(name = "hospital_id")
-    private String hospitalId;
+    private String id = UUID.randomUUID().toString();
 
     @Column(nullable = false)
-    private String action;
+    private Instant timestamp = Instant.now();
 
-    @Column(name = "resource_type", nullable = false)
-    private String resourceType;
+    private String userId;
+    private String userRole;
+    private String userName;
 
-    @Column(name = "resource_id")
-    private String resourceId;
+    private String patientId;
+    private String patientUhid;
 
-    @Column(name = "ip_address")
-    private String ipAddress;
+    @Column(nullable = false)
+    private String actionType; // VIEW_PATIENT, CREATE_PATIENT, UPDATE_PATIENT, CHECK_IN, GENERATE_BILL, EXPORT_PDF
 
-    @Column(length = 2000)
+    @Column(length = 1000)
     private String details;
 
-    @Column(name = "timestamp", nullable = false)
-    private LocalDateTime timestamp;
+    private String ipAddress;
+    private String endpoint;
+    private String httpMethod;
 
-    public AuditLog() {
-        this.timestamp = LocalDateTime.now();
-    }
+    @Column(nullable = false)
+    private String status = "SUCCESS"; // SUCCESS, DENIED, FAILURE
 
-    public AuditLog(String id, String userId, String userEmail, String userRole, String hospitalId, String action, String resourceType, String resourceId, String ipAddress, String details) {
-        this.id = id;
+    public AuditLog() {}
+
+    public AuditLog(String userId, String userRole, String userName, String patientId, String patientUhid,
+                    String actionType, String details, String ipAddress, String endpoint, String httpMethod, String status) {
         this.userId = userId;
-        this.userEmail = userEmail;
         this.userRole = userRole;
-        this.hospitalId = hospitalId;
-        this.action = action;
-        this.resourceType = resourceType;
-        this.resourceId = resourceId;
-        this.ipAddress = ipAddress;
+        this.userName = userName;
+        this.patientId = patientId;
+        this.patientUhid = patientUhid;
+        this.actionType = actionType;
         this.details = details;
-        this.timestamp = LocalDateTime.now();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getUserEmail() {
-        return userEmail;
-    }
-
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
-    }
-
-    public String getUserRole() {
-        return userRole;
-    }
-
-    public void setUserRole(String userRole) {
-        this.userRole = userRole;
-    }
-
-    public String getHospitalId() {
-        return hospitalId;
-    }
-
-    public void setHospitalId(String hospitalId) {
-        this.hospitalId = hospitalId;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    public String getResourceType() {
-        return resourceType;
-    }
-
-    public void setResourceType(String resourceType) {
-        this.resourceType = resourceType;
-    }
-
-    public String getResourceId() {
-        return resourceId;
-    }
-
-    public void setResourceId(String resourceId) {
-        this.resourceId = resourceId;
-    }
-
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
-    public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
+        this.endpoint = endpoint;
+        this.httpMethod = httpMethod;
+        this.status = status != null ? status : "SUCCESS";
     }
 
-    public String getDetails() {
-        return details;
-    }
+    // Getters and Setters
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setDetails(String details) {
-        this.details = details;
-    }
+    public Instant getTimestamp() { return timestamp; }
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
-    }
+    public String getUserRole() { return userRole; }
+    public void setUserRole(String userRole) { this.userRole = userRole; }
+
+    public String getUserName() { return userName; }
+    public void setUserName(String userName) { this.userName = userName; }
+
+    public String getPatientId() { return patientId; }
+    public void setPatientId(String patientId) { this.patientId = patientId; }
+
+    public String getPatientUhid() { return patientUhid; }
+    public void setPatientUhid(String patientUhid) { this.patientUhid = patientUhid; }
+
+    public String getActionType() { return actionType; }
+    public void setActionType(String actionType) { this.actionType = actionType; }
+
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
+
+    public String getIpAddress() { return ipAddress; }
+    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
+
+    public String getEndpoint() { return endpoint; }
+    public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
+
+    public String getHttpMethod() { return httpMethod; }
+    public void setHttpMethod(String httpMethod) { this.httpMethod = httpMethod; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

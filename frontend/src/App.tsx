@@ -621,14 +621,16 @@ export default function App() {
       <Sidebar page={page} onNav={navigate} user={user} sidebarOpen={sidebarOpen} onClose={() => setSidebar(false)} />
       <div className="main-area">
         <header className="topbar">
-          <button className="topbar-hamburger" onClick={() => setSidebar(o => !o)}>
-            <span/><span/><span/>
-          </button>
-          <div className="topbar-title">{PAGE_TITLES[page] ?? 'EMR'}</div>
+          <div className="topbar-left">
+            <button className="topbar-hamburger" onClick={() => setSidebar(o => !o)}>
+              <span/><span/><span/>
+            </button>
+            <div className="topbar-title">{PAGE_TITLES[page] ?? 'EMR'}</div>
+          </div>
           
           {/* Patient Search Bar */}
           {user && (
-            <div style={{ position: 'relative', width: 280, margin: '0 16px' }} className="no-print">
+            <div style={{ position: 'relative', width: '100%', maxWidth: 360, margin: '0 16px' }} className="no-print">
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 12px' }}>
                 <span style={{ marginRight: 6, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

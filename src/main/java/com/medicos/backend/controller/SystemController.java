@@ -29,4 +29,14 @@ public class SystemController {
         Map<String, Object> status = systemService.getSystemStatus();
         return ResponseEntity.ok(status);
     }
+
+    @GetMapping("/system/privacy-policy")
+    public ResponseEntity<?> privacyPolicy() {
+        return ResponseEntity.ok(systemService.getPrivacyPolicy());
+    }
+
+    @GetMapping("/system/terms")
+    public ResponseEntity<?> termsOfService() {
+        return ResponseEntity.ok(systemService.getTermsOfService());
+    }
 }

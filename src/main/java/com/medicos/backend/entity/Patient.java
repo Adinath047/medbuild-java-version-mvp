@@ -96,6 +96,12 @@ public class Patient {
     @Column(name = "abha_status")
     private String abhaStatus;
 
+    @Column(name = "consent_given")
+    private Boolean consentGiven = true;
+
+    @Column(name = "consent_given_at")
+    private LocalDateTime consentGivenAt = LocalDateTime.now();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -214,6 +220,12 @@ public class Patient {
 
     public String getAbhaStatus() { return abhaStatus; }
     public void setAbhaStatus(String abhaStatus) { this.abhaStatus = abhaStatus; }
+
+    public Boolean getConsentGiven() { return consentGiven; }
+    public void setConsentGiven(Boolean consentGiven) { this.consentGiven = consentGiven; }
+
+    public LocalDateTime getConsentGivenAt() { return consentGivenAt; }
+    public void setConsentGivenAt(LocalDateTime consentGivenAt) { this.consentGivenAt = consentGivenAt; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

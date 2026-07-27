@@ -450,8 +450,8 @@ export function printPrescriptionSlip(opts: {
   .sig-name { font-size:${Math.max(printFontSize, 11)}pt; font-weight:bold; color:#0f172a; }
   .sig-sub { font-size:${printFontSize - 2}pt; color:#475569; font-weight:600; }
  
-  .bottom-footer { margin-top:24px; border-top:1.5px solid #cbd5e1; padding-top:8px; display:flex; justify-content:flex-end; align-items:center; }
-  .powered { font-size:${printFontSize - 3}pt; color:#94a3b8; font-weight:600; }
+  .bottom-footer { margin-top:24px; border-top:1.5px solid #cbd5e1; padding-top:8px; display:flex; justify-content:space-between; align-items:center; }
+  .powered { font-size:${printFontSize - 3}pt; color:#64748b; font-weight:600; }
  
   .print-content { padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm; display:block; }
 
@@ -462,7 +462,11 @@ export function printPrescriptionSlip(opts: {
     margin-left: 0mm;
     margin-right: 0mm;
   }
-  @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+  @media print {
+    body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    .soap-container, .rx-table, .advice-block, .sig-section { page-break-inside: avoid !important; break-inside: avoid !important; }
+  }
 </style>
 </head><body>
 <div class="page">
@@ -553,7 +557,17 @@ export function printPrescriptionSlip(opts: {
   </div>
  
   <div class="bottom-footer">
-    <div class="powered">Powered by Rotstruck Pvt Ltd</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      ${slipToken ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/prescriptions/slip/' + slipToken : 'https://medicos.app/' + slipToken)}" style="width: 44px; height: 44px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="Scan to Verify Digital Rx" />` : ''}
+      <div style="font-size: ${printFontSize - 3}pt; color: #475569; line-height: 1.3;">
+        <strong>Scan to Verify Digital Rx & Consent Records</strong><br/>
+        <span>🔒 DPDP Act 2023 & ABDM Compliant EMR</span>
+      </div>
+    </div>
+    <div class="powered" style="text-align: right;">
+      <span>Powered by Medicos EMR</span><br/>
+      <span style="font-size: ${printFontSize - 3.5}pt; color: #94a3b8;">Rotstruck Pvt Ltd</span>
+    </div>
   </div>
 </div>
 </body></html>`);

@@ -7,6 +7,8 @@ import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.BedAdmissionRepository;
 import com.medicos.backend.repository.BedRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,16 +26,19 @@ public class BedService {
         this.admissionRepository = admissionRepository;
     }
 
+    @Cacheable(value = "beds", key = "'ALL'")
     @Transactional(readOnly = true)
     public List<Bed> getAllBeds() {
         return bedRepository.findAll();
     }
 
+    @Cacheable(value = "bed_history", key = "'ALL'")
     @Transactional(readOnly = true)
     public List<BedAdmission> getBedHistory() {
         return admissionRepository.findAll();
     }
 
+    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
     @Transactional
     public Bed createBed(Bed bed, User user) {
         Optional.ofNullable(bed.getBedNumber())
@@ -55,6 +60,7 @@ public class BedService {
         return bedRepository.save(bed);
     }
 
+    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
     @Transactional
     public Map<String, Object> allocateBed(String id, Map<String, String> body, User user) {
         Bed bed = bedRepository.findById(id)
@@ -86,6 +92,7 @@ public class BedService {
         return Map.of("message", "Bed allocated successfully", "bed", bed);
     }
 
+    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
     @Transactional
     public Map<String, Object> releaseBed(String id) {
         Bed bed = bedRepository.findById(id)

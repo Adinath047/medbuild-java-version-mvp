@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { db, markPending } from '../db/localDB';
 import { apiClient } from '../api/client';
 import { printPrescriptionSlip } from '../utils/printTemplates';
+import AuditLogViewer from '../components/AuditLogViewer';
 
 const ROLES = ['doctor','nurse','receptionist','admin'] as const;
 const SPECIALIZATIONS = [
@@ -370,7 +371,7 @@ export default function SettingsPage() {
   const isAdmin = user?.role === 'admin';
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'users'|'system'|'medicines'|'health'>(isAdmin ? 'users' : 'system');
+  const [activeTab, setActiveTab] = useState<'users'|'system'|'medicines'|'health'|'audit'>(isAdmin ? 'users' : 'system');
 
   // System Monitor tab state
   const [healthData, setHealthData] = useState<any>(null);
@@ -747,7 +748,17 @@ export default function SettingsPage() {
         <button className={`tab${activeTab==='health'?' active':''}`} onClick={()=>setActiveTab('health')}>
           🛡️ API Health Monitor
         </button>
+        {(isAdmin || user?.role === 'doctor') && (
+          <button className={`tab${activeTab==='audit'?' active':''}`} onClick={()=>setActiveTab('audit')}>
+            📜 HIPAA / DPDP Audit Logs
+          </button>
+        )}
       </div>
+
+      {/* ── Audit Logs tab ── */}
+      {activeTab === 'audit' && (
+        <AuditLogViewer />
+      )}
 
       {/* ── Staff Management tab ── */}
       {activeTab === 'users' && isAdmin && (

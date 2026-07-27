@@ -5,6 +5,8 @@ import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.AppointmentRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ public class AppointmentService {
         this.appointmentRepository = appointmentRepository;
     }
 
+    @Cacheable(value = "appointments", key = "'p_' + (#patientId != null ? #patientId : 'null') + '_d_' + (#doctorId != null ? #doctorId : 'null') + '_dt_' + (#date != null ? #date : 'null')")
     @Transactional(readOnly = true)
     public List<Appointment> getAppointments(String patientId, String doctorId, String date) {
         if (patientId != null && !patientId.isEmpty()) {
@@ -34,12 +37,14 @@ public class AppointmentService {
         }
     }
 
+    @Cacheable(value = "today_appointments", key = "T(java.time.LocalDate).now().toString()")
     @Transactional(readOnly = true)
     public List<Appointment> getTodayAppointments() {
         String todayStr = LocalDate.now().toString();
         return appointmentRepository.findByDate(todayStr);
     }
 
+    @CacheEvict(value = {"appointments", "today_appointments"}, allEntries = true)
     @Transactional
     public Appointment createAppointment(Appointment appt, User user) {
         Optional.ofNullable(appt.getPatientId())
@@ -72,6 +77,7 @@ public class AppointmentService {
         return appointmentRepository.save(appt);
     }
 
+    @CacheEvict(value = {"appointments", "today_appointments"}, allEntries = true)
     @Transactional
     public Appointment updateAppointmentStatus(String id, Map<String, String> body) {
         Appointment appt = appointmentRepository.findById(id)

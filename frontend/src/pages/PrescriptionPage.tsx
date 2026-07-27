@@ -1581,6 +1581,20 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     });
   }
 
+  function printCalibrationTest() {
+    printPrescriptionSlip({
+      doctor: { name: user?.name ?? 'Doctor', role: user?.role ?? '' },
+      patient: { name: 'Calibration Test', uhid: 'TEST-000' },
+      medicines: [],
+      slipToken: 'CALIBRATION',
+      isCalibrationTest: true,
+      printMarginTop: user?.printMarginTop,
+      printMarginBottom: user?.printMarginBottom,
+      printMarginLeftRight: user?.printMarginLeftRight,
+      printFontSize: user?.printFontSize
+    });
+  }
+
   // ── Success screen ──
   if (success) return (
     <div className="card" style={{maxWidth:520, margin:'40px auto'}}>
@@ -2078,6 +2092,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
  
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingBottom: 16, marginTop: 10 }}>
         <button type="button" className="btn btn-ghost" onClick={() => onNavigate('patients')} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)' }}>Cancel</button>
+        <button type="button" className="btn btn-ghost" onClick={printCalibrationTest} style={{ border: '1px dashed var(--primary)', background: 'var(--bg-surface, #f8fafc)', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 600, color: 'var(--primary, #0f766e)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>📐 Test Alignment</button>
         <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>🖨 Print Draft</button>
         <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = false; }} style={{ borderRadius: '8px', padding: '8px 20px', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {saving ? <><div className="spinner spinner-sm" />Saving…</> : 'Save Prescription'}

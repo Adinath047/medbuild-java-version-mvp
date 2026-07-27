@@ -1,7 +1,7 @@
-// client/src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
+import { PrivacyTermsModal } from '../components/PrivacyTermsModal';
 
 const ROLE_LABELS: Record<string, string> = {
   admin:          'Administrator',
@@ -15,6 +15,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function LoginPage() {
   const { login } = useAuthStore();
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   
   // Hospital Verification
   const [hospitalCode, setHospitalCode] = useState('');
@@ -255,10 +256,37 @@ export default function LoginPage() {
           marginTop: 20,
           fontWeight: 600,
           letterSpacing: '0.4px',
-          textTransform: 'uppercase'
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 12
         }}>
-          Powered by Rotstruck Pvt Ltd
+          <span>Powered by Rotstruck Pvt Ltd</span>
+          <span>•</span>
+          <button 
+            type="button" 
+            onClick={() => setShowPrivacyModal(true)} 
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: 0, textDecoration: 'underline' }}
+          >
+            🛡️ Privacy Policy & Terms
+          </button>
         </div>
+
+        <div style={{
+          marginTop: 16,
+          padding: '10px 14px',
+          borderRadius: 8,
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+          fontSize: 11,
+          color: 'var(--text-sec)',
+          lineHeight: 1.45,
+          textAlign: 'center'
+        }}>
+          <strong>⚖️ Medical & Legal Disclaimer:</strong> Medicos is a clinical workflow assistance tool. It does not replace professional medical judgment, diagnosis, or treatment decisions.
+        </div>
+
+        <PrivacyTermsModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
       </div>
     </div>
   );

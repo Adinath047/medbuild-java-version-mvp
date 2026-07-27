@@ -834,7 +834,7 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
   });
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
       {showAdd && !isDoctor && <AddPatientModal onClose={()=>setShowAdd(false)} onDone={p=>{ setPatients(x=>[p,...x]); setShowAdd(false); }} />}
       {checkInPatient && (
         <div className="modal-overlay" onClick={() => setCheckInPatient(null)}>
@@ -1122,6 +1122,6 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

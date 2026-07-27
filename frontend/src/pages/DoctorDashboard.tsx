@@ -129,15 +129,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
   const displayedUpcoming = upcomingList.slice(0, 3);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
-      
-      {/* Title Header Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.3px', color: 'var(--text)' }}>Home</h2>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Your daily clinical overview</span>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Doctor Greetings Banner Card */}
       <div style={{

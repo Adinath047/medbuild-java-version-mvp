@@ -4,6 +4,8 @@ import com.medicos.backend.entity.Medicine;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.repository.MedicineRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ public class MedicineService {
         this.medicineRepository = medicineRepository;
     }
 
+    @Cacheable(value = "medicines", key = "#search != null ? #search : 'ALL'")
     @Transactional(readOnly = true)
     public List<Medicine> getMedicines(String search) {
         return Optional.ofNullable(search)
@@ -26,6 +29,7 @@ public class MedicineService {
                 .orElseGet(medicineRepository::findAll);
     }
 
+    @CacheEvict(value = "medicines", allEntries = true)
     @Transactional
     public Medicine createMedicine(Medicine medicine, User user) {
         Optional.ofNullable(medicine.getName())
