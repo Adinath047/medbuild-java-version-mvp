@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tenant-silo-isolation-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: medicos-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress strictly from Ingress Controller / Load Balancer within the same tenant namespace
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app: utho-global-lb
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Allow egress only to PostgreSQL DB port (5432) and DNS (53)
+    - ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 6379

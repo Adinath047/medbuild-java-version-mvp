@@ -2,6 +2,7 @@ package com.medicos.backend.config;
 
 import com.medicos.backend.security.JwtAuthenticationFilter;
 import com.medicos.backend.security.RateLimitingFilter;
+import com.medicos.backend.security.TenantContextFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,13 +30,17 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitingFilter rateLimitingFilter;
+    private final TenantContextFilter tenantContextFilter;
 
     @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://localhost:4000,http://127.0.0.1:5173,http://127.0.0.1:3000}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, RateLimitingFilter rateLimitingFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          RateLimitingFilter rateLimitingFilter,
+                          TenantContextFilter tenantContextFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitingFilter = rateLimitingFilter;
+        this.tenantContextFilter = tenantContextFilter;
     }
 
     @Bean
@@ -68,6 +73,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(tenantContextFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

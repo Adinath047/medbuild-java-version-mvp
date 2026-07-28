@@ -31,3 +31,7 @@ Thumbs.db
 .env.*.local
 *.pem
 *.key
+
+# Playwright reports & test outputs
+frontend/playwright-report/
+frontend/test-results/

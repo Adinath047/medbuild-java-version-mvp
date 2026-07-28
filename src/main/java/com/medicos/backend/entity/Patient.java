@@ -1,5 +1,6 @@
 package com.medicos.backend.entity;
 
+import com.medicos.backend.security.CryptoConverter;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -60,12 +61,14 @@ public class Patient {
     @Column(name = "govt_id_type")
     private String govtIdType;
 
+    @Convert(converter = CryptoConverter.class)
     @Column(name = "govt_id_number")
     private String govtIdNumber;
 
     @Column(name = "insurance_provider")
     private String insuranceProvider;
 
+    @Convert(converter = CryptoConverter.class)
     @Column(name = "insurance_number")
     private String insuranceNumber;
 
@@ -75,6 +78,7 @@ public class Patient {
     @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
 
+    @Convert(converter = CryptoConverter.class)
     @Column(name = "past_history", columnDefinition = "TEXT")
     private String pastHistory;
 

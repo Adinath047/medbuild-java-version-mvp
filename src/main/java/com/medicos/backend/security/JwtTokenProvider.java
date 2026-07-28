@@ -13,10 +13,10 @@ import java.util.Date;
 public class JwtTokenProvider {
 
     @Value("${jwt.secret:MedicosSecretKeySuperSecureJwtTokenSignatureKey2026WithAtLeast256BitsSecretKey!}")
-    private String jwtSecret;
+    private String jwtSecret = "MedicosSecretKeySuperSecureJwtTokenSignatureKey2026WithAtLeast256BitsSecretKey!";
 
     @Value("${jwt.expiration-ms:86400000}")
-    private long jwtExpirationMs;
+    private long jwtExpirationMs = 86400000L;
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
@@ -24,6 +24,10 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String userId, String email, String role, String hospitalId) {
+        return generateToken(userId, email, role, hospitalId, true);
+    }
+
+    public String generateToken(String userId, String email, String role, String hospitalId, boolean mfaVerified) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -32,6 +36,7 @@ public class JwtTokenProvider {
                 .claim("email", email)
                 .claim("role", role)
                 .claim("hospitalId", hospitalId)
+                .claim("mfaVerified", mfaVerified)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
@@ -39,21 +44,32 @@ public class JwtTokenProvider {
     }
 
     public String getUserIdFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        Claims claims = getClaims(token);
         return claims.getSubject();
     }
 
     public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parser()
+        Claims claims = getClaims(token);
+        return claims.get("email", String.class);
+    }
+
+    public String getHospitalIdFromToken(String token) {
+        Claims claims = getClaims(token);
+        return claims.get("hospitalId", String.class);
+    }
+
+    public boolean isMfaVerifiedFromToken(String token) {
+        Claims claims = getClaims(token);
+        Boolean mfa = claims.get("mfaVerified", Boolean.class);
+        return Boolean.TRUE.equals(mfa);
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return claims.get("email", String.class);
     }
 
     public boolean validateToken(String token) {

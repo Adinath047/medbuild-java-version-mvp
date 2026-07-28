@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: utho-tenant-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-min-version: "1.3"
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    nginx.ingress.kubernetes.io/auth-tls-secret: "default/utho-ca-secret"
+spec:
+  tls:
+    - hosts:
+        - tenant-a.medbuild.utho.io
+      secretName: utho-tenant-a-tls
+  rules:
+    - host: tenant-a.medbuild.utho.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: medicos-backend-service
+                port:
+                  number: 8080
