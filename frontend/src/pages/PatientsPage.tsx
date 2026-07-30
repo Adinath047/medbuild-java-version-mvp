@@ -85,7 +85,7 @@ function AbhaVerificationModal({ onClose, onLinked }: { onClose: () => void; onL
       <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>🇮🇳</span> NHA Sandbox Verification
+            NHA Sandbox Verification
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
@@ -111,7 +111,7 @@ function AbhaVerificationModal({ onClose, onLinked }: { onClose: () => void; onL
               </button>
             </div>
 
-            {error && <div className="alert alert-danger" style={{ fontSize: 12, padding: '8px 12px', margin: 0 }}>⚠️ {error}</div>}
+            {error && <div className="alert alert-danger" style={{ fontSize: 12, padding: '8px 12px', margin: 0 }}>{error}</div>}
 
             {mode === 'create' ? (
               <div className="form-group" style={{ margin: 0 }}>

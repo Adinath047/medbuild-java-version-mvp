@@ -134,18 +134,24 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getHospitalStaff(String code) {
-        String hospitalId = (code != null && !code.trim().isEmpty()) ? code.trim() : "hsp-001";
-        Hospital hospital = hospitalRepository.findById(hospitalId)
+        final String hospitalId = (code != null && !code.trim().isEmpty()) ? code.trim() : "hsp-001";
+        
+        // Find hospital case-insensitively or return default fallback
+        Hospital hospital = hospitalRepository.findAll().stream()
+                .filter(h -> h.getId() != null && h.getId().equalsIgnoreCase(hospitalId))
+                .findFirst()
                 .orElseGet(() -> {
                     Hospital h = new Hospital();
                     h.setId(hospitalId);
-                    h.setName("City General Hospital (" + hospitalId + ")");
+                    h.setName("Hospital (" + hospitalId.toUpperCase() + ")");
                     h.setType("General");
                     return h;
                 });
 
+        // Filter staff by hospital ID case-insensitively
         List<User> users = userRepository.findAll();
         List<AuthDTO.UserDTO> staff = users.stream()
+                .filter(u -> u.getHospitalId() != null && u.getHospitalId().equalsIgnoreCase(hospitalId))
                 .filter(u -> u.getIsActive() == null || u.getIsActive() != 0)
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());

@@ -1609,7 +1609,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           Print on pre-printed letterhead paper (leaves blank spacing at top)
         </label>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}}>
-          <button className="btn btn-primary" onClick={printSlip}>🖨 Print Slip</button>
+          <button className="btn btn-primary" onClick={printSlip}>Print Slip</button>
           <button className="btn btn-secondary" onClick={() => onNavigate('patient_detail', { patientId, ts: Date.now() })}>View Patient</button>
           <button className="btn btn-ghost" onClick={() => { setSuccess(null); setMeds([{...EMPTY_MED}]); setAdvice(''); setFollowUp(''); setPatientId(patientId); }}>+ New Prescription</button>
         </div>
@@ -1661,7 +1661,6 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         width: 'fit-content',
         marginBottom: 4
       }}>
-        <span>💊</span>
         <strong>New Prescription</strong>
         <span style={{ color: '#0d9488', opacity: 0.8 }}>•</span>
         <span style={{ color: '#111827', fontWeight: 600 }}>Written by Dr. {user?.name || 'Aarav Mehta'} {user?.specialization ? ` - ${user.specialization}` : ''}</span>
@@ -1674,14 +1673,12 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         </div>
         <div style={{display:'flex',gap:8}}>
           <button type="button" className="btn btn-ghost" onClick={() => onNavigate('prescriptions')}>← Back</button>
-          <button type="button" className="btn btn-secondary" onClick={printDraftSlip}>🖨 Print</button>
+          <button type="button" className="btn btn-secondary" onClick={printDraftSlip}>Print</button>
           <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = true; }}>
             {saving ? <><div className="spinner spinner-sm"/>Saving…</> : 'Save & Print'}
           </button>
         </div>
       </div>
-
-
 
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -1692,7 +1689,20 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           background:'#fef2f2', border:'2px solid #f87171',
           display:'flex', alignItems:'flex-start', gap:12,
         }}>
-          <span style={{ fontSize:20, flexShrink:0, lineHeight:1, marginTop:1 }}>🚨</span>
+          <div style={{
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            background: '#dc2626',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            marginTop: 2
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:700, fontSize:13, color:'#991b1b', marginBottom:2 }}>
               Allergy Warning — Review Required

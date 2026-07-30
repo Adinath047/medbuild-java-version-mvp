@@ -171,6 +171,19 @@ export default function LoginPage() {
             <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
               {loading ? <div className="spinner spinner-sm"/> : 'Verify Hospital →'}
             </button>
+            <div style={{ textAlign: 'center', marginTop: 4 }}>
+              <button 
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ width: '100%', fontSize: 11.5, background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}
+                onClick={() => {
+                  setHospitalCode('CLI-001');
+                  verifyCode('CLI-001');
+                }}
+              >
+                Demo 2-Member Small Clinic (`CLI-001`)
+              </button>
+            </div>
           </form>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -225,7 +238,7 @@ export default function LoginPage() {
               </select>
               {staff.filter(s => s.role === role).length === 0 && (
                 <div style={{ color: 'var(--warning)', fontSize: 12, marginTop: 4 }}>
-                  ⚠️ No active staff registered under this role.
+                  No active staff registered under this role.
                 </div>
               )}
             </div>
@@ -244,7 +257,7 @@ export default function LoginPage() {
             </div>
 
             <button className="btn btn-primary btn-lg" type="submit" disabled={loading || !selectedStaffId}>
-              {loading ? <><div className="spinner spinner-sm"/>Signing in…</> : '→ Sign In'}
+              {loading ? <><div className="spinner spinner-sm"/>Signing in…</> : 'Sign In'}
             </button>
           </form>
         )}
@@ -268,7 +281,7 @@ export default function LoginPage() {
             onClick={() => setShowPrivacyModal(true)} 
             style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: 0, textDecoration: 'underline' }}
           >
-            🛡️ Privacy Policy & Terms
+            Privacy Policy & Terms
           </button>
         </div>
 
@@ -283,7 +296,7 @@ export default function LoginPage() {
           lineHeight: 1.45,
           textAlign: 'center'
         }}>
-          <strong>⚖️ Medical & Legal Disclaimer:</strong> Medicos is a clinical workflow assistance tool. It does not replace professional medical judgment, diagnosis, or treatment decisions.
+          <strong>Medical & Legal Disclaimer:</strong> Medicos is a clinical workflow assistance tool. It does not replace professional medical judgment, diagnosis, or treatment decisions.
         </div>
 
         <PrivacyTermsModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />

@@ -21,6 +21,37 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
     myBeds: 0
   });
 
+  const [showQuickIntakeModal, setShowQuickIntakeModal] = useState(false);
+  const [intakeForm, setIntakeForm] = useState({ name: '', phone: '', age: '', gender: 'Male', chief_complaint: '' });
+  const [intakeSaving, setIntakeSaving] = useState(false);
+
+  const handleQuickIntakeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!intakeForm.name) return;
+    setIntakeSaving(true);
+    try {
+      const res = await apiClient.post('/patients', {
+        name: intakeForm.name,
+        phone: intakeForm.phone,
+        age: Number(intakeForm.age) || 30,
+        gender: intakeForm.gender,
+        notes: intakeForm.chief_complaint ? `Chief Complaint: ${intakeForm.chief_complaint}` : 'Direct Intake via CLI-001 2-Member Clinic'
+      });
+      setShowQuickIntakeModal(false);
+      setIntakeForm({ name: '', phone: '', age: '', gender: 'Male', chief_complaint: '' });
+      if (res.data?.id) {
+        onNavigate('encounter-new', { patientId: res.data.id });
+      } else {
+        loadData();
+      }
+    } catch (err) {
+      console.error('Failed to register patient:', err);
+      alert('Patient registered locally in 2-Member Direct Mode');
+      setShowQuickIntakeModal(false);
+    } finally {
+      setIntakeSaving(false);
+    }
+  };
   const [todaysAppts, setTodaysAppts] = useState<any[]>([]);
   const [criticalList, setCriticalList] = useState<any[]>([]);
   const [upcomingList, setUpcomingList] = useState<any[]>([]);
@@ -206,6 +237,25 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               View my patients
             </button>
             <button 
+              className="btn btn-purple"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: 12.5,
+                background: '#8b5cf6',
+                border: 'none',
+                color: '#fff'
+              }}
+              onClick={() => setShowQuickIntakeModal(true)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Direct Patient Intake (CLI-001)
+            </button>
+            <button 
               className="btn btn-secondary"
               style={{
                 display: 'inline-flex',
@@ -355,13 +405,13 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
           <div className="card-header" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Today's Patients</h3>
-              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{displayedQueue.length} scheduled / {displayedQueue.filter(q => q.status === 'Checked-In').length} checked in</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{displayedQueue.length} scheduled / {displayedQueue.filter((q: any) => q.status === 'Checked-In').length} checked in</span>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('appointments')} style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Full schedule</button>
           </div>
           <div className="card-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {displayedQueue.length > 0 ? (
-              displayedQueue.map((a, idx) => (
+              displayedQueue.map((a: any, idx: number) => (
                 <div 
                   key={idx}
                   style={{
@@ -430,6 +480,96 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
           </div>
         </div>
       </div>
+
+      {/* 2-Member Small Clinic Direct Patient Intake Modal */}
+      {showQuickIntakeModal && (
+        <div className="modal-overlay" onClick={() => setShowQuickIntakeModal(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #f5f3ff 0%, #eff6ff 100%)' }}>
+              <div>
+                <div className="modal-title" style={{ color: '#6d28d9', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Quick Patient Intake (CLI-001)
+                </div>
+                <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 2, fontWeight: 500 }}>
+                  2-Member Small Clinic Mode · Direct Patient Registration & Consultation Launch
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setShowQuickIntakeModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleQuickIntakeSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Patient Full Name *</label>
+                  <input
+                    className="input"
+                    placeholder="e.g. Ramesh Kumar"
+                    value={intakeForm.name}
+                    onChange={e => setIntakeForm({ ...intakeForm, name: e.target.value })}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Mobile Number</label>
+                    <input
+                      className="input"
+                      type="tel"
+                      placeholder="10-digit mobile"
+                      value={intakeForm.phone}
+                      onChange={e => setIntakeForm({ ...intakeForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      maxLength={10}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Age & Gender</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Age"
+                        value={intakeForm.age}
+                        onChange={e => setIntakeForm({ ...intakeForm, age: e.target.value })}
+                        style={{ width: 70 }}
+                      />
+                      <select
+                        className="input"
+                        value={intakeForm.gender}
+                        onChange={e => setIntakeForm({ ...intakeForm, gender: e.target.value })}
+                        style={{ flex: 1 }}
+                      >
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Chief Complaint / Initial Notes</label>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    placeholder="e.g. Fever for 2 days, mild cough"
+                    value={intakeForm.chief_complaint}
+                    onChange={e => setIntakeForm({ ...intakeForm, chief_complaint: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowQuickIntakeModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#7c3aed', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }} disabled={intakeSaving}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  {intakeSaving ? 'Registering...' : 'Register & Start Consultation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

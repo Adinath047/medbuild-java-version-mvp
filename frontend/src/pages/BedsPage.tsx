@@ -508,7 +508,7 @@ export default function BedsPage() {
             let bannerColor = '';
 
             if (!vitals.recorded_at) {
-              bannerText = '⚠️ No vitals recorded yet';
+              bannerText = 'No vitals recorded yet';
               bannerBg = '#fffbeb';
               bannerBorder = '1px solid #fde68a';
               bannerColor = '#b45309';
@@ -529,12 +529,12 @@ export default function BedsPage() {
 
               // Overdue threshold is 4 hours
               if (diffMs >= 4 * 3600 * 1000) {
-                bannerText = `⚠️ Vitals overdue – last recorded ${timeStr}`;
+                bannerText = `Vitals overdue – last recorded ${timeStr}`;
                 bannerBg = '#fffbeb';
                 bannerBorder = '1px solid #fde68a';
                 bannerColor = '#b45309';
               } else {
-                bannerText = `🟢 Vitals updated recently (${timeStr})`;
+                bannerText = `Vitals updated recently (${timeStr})`;
                 bannerBg = '#f0fdf4';
                 bannerBorder = '1px solid #bbf7d0';
                 bannerColor = '#15803d';
@@ -579,7 +579,7 @@ export default function BedsPage() {
                         setEditBedError('');
                       }}
                     >
-                      ✏️
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
                   </div>
                   
