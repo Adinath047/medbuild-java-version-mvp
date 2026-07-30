@@ -366,7 +366,7 @@ function EditMedicineModal({ medicine, onClose, onDone, onDelete }: { medicine:a
 }
 
 // ── Main Settings Page ────────────────────────────────────────────────
-export default function SettingsPage() {
+export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, d?: any) => void } = {}) {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
@@ -746,11 +746,11 @@ export default function SettingsPage() {
           System
         </button>
         <button className={`tab${activeTab==='health'?' active':''}`} onClick={()=>setActiveTab('health')}>
-          🛡️ API Health Monitor
+          API Health Monitor
         </button>
         {(isAdmin || user?.role === 'doctor') && (
           <button className={`tab${activeTab==='audit'?' active':''}`} onClick={()=>setActiveTab('audit')}>
-            📜 HIPAA / DPDP Audit Logs
+            HIPAA / DPDP Audit Logs
           </button>
         )}
       </div>

@@ -42,7 +42,7 @@ function sortBedsList(list: Bed[]) {
   });
 }
 
-export default function BedsPage() {
+export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: any) => void } = {}) {
   const { user } = useAuthStore();
   const { syncCount } = useSync();
   const [beds, setBeds] = useState<Bed[]>([]);

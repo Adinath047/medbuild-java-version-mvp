@@ -1647,35 +1647,24 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
 
   return (
     <form onSubmit={submit} style={{ ...styleVariables, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{
-        background: '#f0fdfa',
-        border: '1px solid #ccfbf1',
-        color: '#0f766e',
-        padding: '6px 14px',
-        borderRadius: '9999px',
-        fontSize: 12,
-        fontWeight: 500,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        width: 'fit-content',
-        marginBottom: 4
-      }}>
-        <strong>New Prescription</strong>
-        <span style={{ color: '#0d9488', opacity: 0.8 }}>•</span>
-        <span style={{ color: '#111827', fontWeight: 600 }}>Written by {user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Dr. Aarav Mehta'} {user?.specialization ? ` - ${user.specialization}` : ''}</span>
-      </div>
-
-      <div className="page-header" style={{ marginTop: 0 }}>
+      <div className="page-header" style={{ margin: 0, paddingBottom: 12, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div className="page-title">Write Prescription</div>
-          <div className="page-sub">{meds.length} medicine{meds.length!==1?'s':''} added</div>
+          <div className="page-title" style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>Write Prescription</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary-dark)', padding: '3px 10px', borderRadius: 9999 }}>
+              {user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Dr. Aarav Mehta'}
+              {user?.specialization ? ` (${user.specialization})` : ''}
+            </span>
+          </div>
+          <div className="page-sub" style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4 }}>
+            {meds.length} medicine{meds.length !== 1 ? 's' : ''} added
+          </div>
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <button type="button" className="btn btn-ghost" onClick={() => onNavigate('prescriptions')}>← Back</button>
-          <button type="button" className="btn btn-secondary" onClick={printDraftSlip}>Print</button>
-          <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = true; }}>
-            {saving ? <><div className="spinner spinner-sm"/>Saving…</> : 'Save & Print'}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button type="button" className="btn btn-ghost" onClick={() => onNavigate('prescriptions')} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>← Back</button>
+          <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>Print Draft</button>
+          <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = true; }} style={{ borderRadius: '8px', padding: '8px 18px', fontSize: 13, fontWeight: 600 }}>
+            {saving ? <><div className="spinner spinner-sm" />Saving…</> : 'Save & Print'}
           </button>
         </div>
       </div>
@@ -1883,7 +1872,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           {favorites.length > 0 && (
             <div style={{ marginBottom: 12, background: 'var(--surface-alt)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-lg)', padding: '12px 14px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                ⭐ Quick-Pick Favorites (Frequent Drugs)
+                Quick-Pick Favorites (Frequent Drugs)
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {favorites.map(fav => (
@@ -1915,7 +1904,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           {/* Shorthand / Voice Input Area */}
           <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 14, marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-sec)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>✍️ Shorthand or Paste Notes (One drug per line)</span>
+              <span>Shorthand or Paste Notes (One drug per line)</span>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 'normal' }}>e.g. Amoxicillin 500mg od 5 days</span>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
@@ -1924,7 +1913,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                 rows={shorthandText.includes('\n') ? 3 : 1}
                 style={{
                   resize: 'vertical',
-                  fontFamily: 'monospace',
+                  fontFamily: 'inherit',
                   fontSize: 13,
                   lineHeight: '1.4',
                   padding: '8px 12px',
@@ -1932,7 +1921,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                   border: '1px solid var(--border)',
                   flex: 1
                 }}
-                placeholder="Type shorthand, paste lines of notes, or click 🎙️ voice..."
+                placeholder="Type shorthand, paste lines of notes, or click microphone..."
                 value={shorthandText}
                 onChange={e => setShorthandText(e.target.value)}
               />
@@ -1944,7 +1933,6 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                   alignItems: 'center',
                   justifyContent: 'center',
                   width: 44,
-                  fontSize: 18,
                   padding: 0,
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
@@ -1954,7 +1942,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                 onClick={toggleListening}
                 title={listening ? "Stop listening" : "Start Voice Input"}
               >
-                {listening ? '🔴' : '🎙️'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </button>
             </div>
             
@@ -1973,13 +1961,13 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                 <div style={{ fontSize: 12.5, color: 'var(--text-sec)', lineHeight: 1.4 }}>
                   {shorthandText.trim().includes('\n') ? (
                     <div>
-                      <strong>📝 Bulk Import Preview:</strong>
+                      <strong>Bulk Import Preview:</strong>
                       {shorthandText.split('\n').map(l => l.trim()).filter(Boolean).map((line, idx) => {
                         const parsed = parseShorthand(line);
                         const isClean = !!(parsed.name && (parsed.strength || parsed.frequency || parsed.duration));
                         return (
                           <div key={idx} style={{ fontSize: 11.5, marginTop: 3 }}>
-                            {isClean ? '✅' : '⚠️'} Line {idx+1}: {parsed.name || 'Unknown'} 
+                            {isClean ? '✓' : '!'} Line {idx+1}: {parsed.name || 'Unknown'} 
                             {parsed.strength && ` · ${parsed.strength}`}
                             {parsed.frequency && ` · ${parsed.frequency}`}
                             {parsed.duration && ` · ${parsed.duration}`}
@@ -1990,7 +1978,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                     </div>
                   ) : (
                     <div>
-                      <strong>🔍 Parsed:</strong> {parsedPreview.name || 'Drug name'}{' '}
+                      <strong>Parsed:</strong> {parsedPreview.name || 'Drug name'}{' '}
                       {parsedPreview.strength && ` · ${parsedPreview.strength}`}{' '}
                       {parsedPreview.frequency && ` · ${parsedPreview.frequency}`}{' '}
                       {parsedPreview.duration && ` · ${parsedPreview.duration}`}
@@ -2062,7 +2050,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                   onClick={() => setSaveComboInputOpen(true)}
                   disabled={meds.some(m => !m.name.trim())}
                 >
-                  💾 Save current rows as combo
+                  Save current rows as combo
                 </button>
               )}
             </div>
@@ -2090,7 +2078,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       {/* Print Settings */}
       <div className="card" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
         <div className="card-header" style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid var(--border-light)' }}>
-          <div className="card-title" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-sec)' }}>🖨 Print Settings</div>
+          <div className="card-title" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-sec)' }}>Print Settings</div>
         </div>
         <div className="card-body" style={{ padding: '16px' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)', cursor: 'pointer', userSelect: 'none' }}>
@@ -2099,11 +2087,11 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           </label>
         </div>
       </div>
- 
+
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingBottom: 16, marginTop: 10 }}>
         <button type="button" className="btn btn-ghost" onClick={() => onNavigate('patients')} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)' }}>Cancel</button>
-        <button type="button" className="btn btn-ghost" onClick={printCalibrationTest} style={{ border: '1px dashed var(--primary)', background: 'var(--bg-surface, #f8fafc)', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 600, color: 'var(--primary, #0f766e)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>📐 Test Alignment</button>
-        <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>🖨 Print Draft</button>
+        <button type="button" className="btn btn-ghost" onClick={printCalibrationTest} style={{ border: '1px dashed var(--primary)', background: 'var(--bg-surface, #f8fafc)', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 600, color: 'var(--primary, #0f766e)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Test Alignment</button>
+        <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 16px', fontSize: 13.5, fontWeight: 500, color: 'var(--text-sec)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>Print Draft</button>
         <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = false; }} style={{ borderRadius: '8px', padding: '8px 20px', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {saving ? <><div className="spinner spinner-sm" />Saving…</> : 'Save Prescription'}
         </button>

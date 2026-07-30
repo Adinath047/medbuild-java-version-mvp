@@ -548,7 +548,7 @@ export default function AdminPortal() {
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:'#f8fafc', display:'flex', flexDirection:'column' }}>
+    <div style={{ width:'100%', flex:1, background:'#f8fafc', display:'flex', flexDirection:'column' }}>
       {showAdd && <AddModal onClose={() => setShowAdd(false)} onDone={u => { setStaff(s => [u, ...s]); setShowAdd(false); }} />}
       {editing  && <EditModal staff={editing} onClose={() => setEditing(null)} onDone={updated => {
         if (updated._deleted) {

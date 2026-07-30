@@ -121,10 +121,13 @@ ul { list-style: none; }
 .topbar-title { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
 .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
-.main-content {
-  flex: 1; overflow-y: auto; padding: 24px;
+.main-content, .page-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
   background: var(--bg);
   width: 100%;
+  min-height: 0;
 }
 
 /* ── Card Containers ────────────────────────────────────────────────── */
@@ -341,4 +344,42 @@ table.data-table tr:hover td { background: var(--surface-alt); }
   .topbar {
     padding: 0 16px;
   }
+}
+
+/* ── Tabs Navigation ──────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tab {
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition);
+  outline: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--primary-light);
+  font-weight: 700;
 }

@@ -34,7 +34,9 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
   });
 
   function printSlip(rx: Rx) {
-    const meds = Array.isArray(rx.medicines) ? rx.medicines : [];
+    const meds = Array.isArray(rx.medicines)
+      ? rx.medicines
+      : (typeof rx.medicines === 'string' ? (() => { try { return JSON.parse(rx.medicines); } catch { return []; } })() : []);
     printPrescriptionSlip({
       doctor: {
         name: rx.doctor_name,
@@ -52,7 +54,7 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
         blood_group: (rx as any).blood_group,
         allergies: (rx as any).allergies
       },
-      medicines: meds.map(m => ({
+      medicines: meds.map((m: any) => ({
         name: m.name,
         strength: m.strength || '',
         dose: m.dose || m.dosage || '',
@@ -153,7 +155,9 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
                   </thead>
                   <tbody>
                     {visible.map(rx => {
-                      const meds = Array.isArray(rx.medicines) ? rx.medicines : [];
+                      const meds = Array.isArray(rx.medicines)
+                        ? rx.medicines
+                        : (typeof rx.medicines === 'string' ? (() => { try { return JSON.parse(rx.medicines); } catch { return []; } })() : []);
                       return (
                         <tr key={rx.id} style={{ cursor: 'pointer' }} onClick={() => onNavigate('patient_detail', { patientId: rx.id })}>
                           <td><code style={{ fontSize: 11, background: 'var(--surface-alt)', padding: '2px 6px', borderRadius: 4 }}>{rx.slip_token}</code></td>
