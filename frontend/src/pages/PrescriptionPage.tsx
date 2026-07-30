@@ -1663,7 +1663,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       }}>
         <strong>New Prescription</strong>
         <span style={{ color: '#0d9488', opacity: 0.8 }}>•</span>
-        <span style={{ color: '#111827', fontWeight: 600 }}>Written by Dr. {user?.name || 'Aarav Mehta'} {user?.specialization ? ` - ${user.specialization}` : ''}</span>
+        <span style={{ color: '#111827', fontWeight: 600 }}>Written by {user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Dr. Aarav Mehta'} {user?.specialization ? ` - ${user.specialization}` : ''}</span>
       </div>
 
       <div className="page-header" style={{ marginTop: 0 }}>
@@ -1730,11 +1730,11 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 600, color: 'var(--text-sec)', marginBottom: 6 }}>Select Patient *</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div className="search-bar" style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-light)' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input placeholder="Name, UHID or phone…" value={patientSearch} onChange={e=>setPatSearch(e.target.value)} style={{ fontSize: 13.5 }} />
+              <div className="search-bar" style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff', display: 'flex', alignItems: 'center', padding: '0 12px', height: 38 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-light)', flexShrink: 0, marginRight: 8 }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input placeholder="Name, UHID or phone…" value={patientSearch} onChange={e=>setPatSearch(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13.5, width: '100%', padding: 0 }} />
               </div>
-              <select className="input" value={patientId} onChange={e=>setPatientId(e.target.value)} required style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff', padding: '8px 12px', fontSize: 13.5 }}>
+              <select className="input" value={patientId} onChange={e=>setPatientId(e.target.value)} required style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff', padding: '8px 12px', fontSize: 13.5, height: 38 }}>
                 <option value="">— Select patient —</option>
                 {filteredPatients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.uhid})</option>)}
               </select>

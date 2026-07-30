@@ -102,7 +102,7 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">💊 Prescriptions</div>
+          <div className="page-title">Prescriptions</div>
           <div className="page-sub">{visible.length} prescription{visible.length !== 1 ? 's' : ''}</div>
         </div>
         <button className="btn btn-primary" onClick={() => onNavigate('new_prescription')}>+ Write Prescription</button>
@@ -123,7 +123,29 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
         {loading
           ? <div className="loading-screen" style={{ height: 200 }}><div className="spinner" /></div>
           : visible.length === 0
-            ? <div className="empty-state"><span className="empty-icon">💊</span><p>No prescriptions found</p></div>
+            ? (
+              <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'var(--primary-light)',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px'
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, fontWeight: 500 }}>No prescriptions found</p>
+              </div>
+            )
             : <div className="table-wrap">
                 <table>
                   <thead>
