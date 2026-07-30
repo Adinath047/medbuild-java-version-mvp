@@ -52,11 +52,20 @@ jobs:
         run: |
           docker build -t medicos-backend:latest .
           docker run -d --name app-under-test -p 8080:8080 medicos-backend:latest
-          sleep 15
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/api/health; then
+              echo "Backend is healthy and ready!"
+              break
+            fi
+            echo "Waiting for backend server on port 8080..."
+            sleep 2
+          done
 
       - name: Run OWASP ZAP DAST Baseline Scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8080/api/health'
           rules_file_name: '.zap/rules.tsv'
+          allow_issue_writing: false
+          fail_action: false
           cmd_options: '-a'

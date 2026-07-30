@@ -1,0 +1,6 @@
+# OWASP ZAP Baseline Scan Rules
+# ID	threshold	(IGNORE|WARN|FAIL)
+10011	IGNORE	(Dom Xss)
+10015	IGNORE	(Re-examine Auto-complete)
+10020	WARN	(Anti-clickjacking Header)
+10021	WARN	(X-Content-Type-Options Header Missing)

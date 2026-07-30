@@ -1296,19 +1296,19 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
 
                         <div>
                           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                            Body Font Size: {profileForm.printFontSize} pt
+                            Body Font Size: {profileForm.printFontSize || 11} pt
                           </label>
                           <input
                             type="range"
                             min="8"
                             max="16"
                             step="0.5"
-                            value={profileForm.printFontSize}
+                            value={profileForm.printFontSize || 11}
                             onChange={e => setProfileForm(f => ({ ...f, printFontSize: Number(e.target.value) }))}
                             style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
                           />
                           <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                            Base font size for printed text.
+                            Base font size for printed text (A4 standard: 11pt).
                           </small>
                         </div>
                       </div>
@@ -1470,79 +1470,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                        Top Header / Blank Zone: {profileForm.printMarginTop} mm
-                      </label>
-                      <input
-                        type="range"
-                        min="15"
-                        max="120"
-                        step="1"
-                        value={profileForm.printMarginTop}
-                        onChange={e => setProfileForm(f => ({ ...f, printMarginTop: Number(e.target.value) }))}
-                        style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                      />
-                      <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        Height reserved at the top for pre-printed branding.
-                      </small>
-                    </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                        Left/Right Margins: {profileForm.printMarginLeftRight} mm
-                      </label>
-                      <input
-                        type="range"
-                        min="10"
-                        max="30"
-                        step="1"
-                        value={profileForm.printMarginLeftRight}
-                        onChange={e => setProfileForm(f => ({ ...f, printMarginLeftRight: Number(e.target.value) }))}
-                        style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                      />
-                      <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        Safety spacing from left and right edges (15mm-20mm recommended).
-                      </small>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                        Bottom Margin: {profileForm.printMarginBottom} mm
-                      </label>
-                      <input
-                        type="range"
-                        min="15"
-                        max="45"
-                        step="1"
-                        value={profileForm.printMarginBottom}
-                        onChange={e => setProfileForm(f => ({ ...f, printMarginBottom: Number(e.target.value) }))}
-                        style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                      />
-                      <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        Safety spacing from the bottom edge (15mm minimum).
-                      </small>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                        Body Font Size: {profileForm.printFontSize} pt
-                      </label>
-                      <input
-                        type="range"
-                        min="8"
-                        max="16"
-                        step="0.5"
-                        value={profileForm.printFontSize}
-                        onChange={e => setProfileForm(f => ({ ...f, printFontSize: Number(e.target.value) }))}
-                        style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                      />
-                      <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        Base font size for printed text.
-                      </small>
-                    </div>
-                  </div>
 
                   <div style={{ marginTop: 8 }}>
                     <button
