@@ -123,8 +123,8 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (u: any) =
                 <div style={{ gridColumn:'1/-1' }} className="form-group">
                   <label className="form-label">Staff Function *</label>
                   <select className="input" value={form.staff_type} onChange={e => set('staff_type', e.target.value)}>
-                    <option value="front_desk">🖥️ Front Desk (Patients, Appointments, Billing)</option>
-                    <option value="pharmacy">💊 Pharmacy (Medicine dispensing only)</option>
+                    <option value="front_desk">Front Desk (Patients, Appointments, Billing)</option>
+                    <option value="pharmacy">Pharmacy (Medicine dispensing only)</option>
                   </select>
                 </div>
               )}
@@ -254,8 +254,8 @@ function EditModal({ staff, onClose, onDone }: { staff: any; onClose: () => void
                 <div style={{ gridColumn:'1/-1' }} className="form-group">
                   <label className="form-label">Staff Function</label>
                   <select className="input" value={form.staff_type} onChange={e => set('staff_type', e.target.value)}>
-                    <option value="front_desk">🖥️ Front Desk</option>
-                    <option value="pharmacy">💊 Pharmacy</option>
+                    <option value="front_desk">Front Desk</option>
+                    <option value="pharmacy">Pharmacy</option>
                   </select>
                 </div>
               )}
@@ -315,7 +315,7 @@ function EditModal({ staff, onClose, onDone }: { staff: any; onClose: () => void
                     setSaving(false);
                   }
                 }}>
-                🗑️ Delete
+                Delete
               </button>
               {error && error.includes('records') && (
                 <button type="button" className="btn btn-secondary" 
@@ -330,7 +330,7 @@ function EditModal({ staff, onClose, onDone }: { staff: any; onClose: () => void
                       setSaving(false);
                     }
                   }}>
-                  ⏹️ Deactivate Instead
+                  Deactivate Instead
                 </button>
               )}
             </div>
@@ -401,11 +401,11 @@ function PatientErasureTab() {
   return (
     <div>
       <div className="alert alert-warning" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
-        <strong>⚖️ Indian DPDP Act 2023 Compliance Portal</strong>
+        <strong>Indian DPDP Act 2023 Compliance Portal</strong>
         <span>Section 12: Right to Erasure ("Right to be Forgotten"). Hospital Master Admin may permanently delete patient profiles and associated medical history upon verified request.</span>
       </div>
 
-      {actionError && <div className="alert alert-danger">⚠️ {actionError}</div>}
+      {actionError && <div className="alert alert-danger">{actionError}</div>}
       {successMsg && <div className="alert alert-success">✓ {successMsg}</div>}
 
       <div style={{ display:'flex', gap:10, marginBottom:16, alignItems:'center' }}>
@@ -420,7 +420,6 @@ function PatientErasureTab() {
           <div style={{ padding:60, textAlign:'center' }}><div className="spinner" style={{ margin:'0 auto' }}/></div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <span className="empty-icon">👥</span>
             <h3>No patients found</h3>
             <p>Try a different search query or select another patient.</p>
           </div>
@@ -447,14 +446,14 @@ function PatientErasureTab() {
                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{p.uhid}</td>
                     <td>{p.sex} · {p.age ? `${p.age}y` : '—'}</td>
                     <td>{p.phone || '—'}</td>
-                    <td>{p.abha_number ? `🇮🇳 ${p.abha_number}` : 'Not Linked'}</td>
+                    <td>{p.abha_number ? `${p.abha_number}` : 'Not Linked'}</td>
                     <td>
                       <button 
                         className="btn btn-secondary btn-sm" 
                         style={{ color: 'var(--danger)', borderColor: 'var(--danger)', background: 'none' }}
                         onClick={() => { setErasingPat(p); setActionError(''); setSuccessMsg(''); }}
                       >
-                        🗑️ Erase Data
+                        Erase Data
                       </button>
                     </td>
                   </tr>
@@ -469,7 +468,7 @@ function PatientErasureTab() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
-              <div className="modal-title" style={{ color: 'var(--danger)' }}>🚨 Critical: Right to Erasure</div>
+              <div className="modal-title" style={{ color: 'var(--danger)' }}>Critical: Right to Erasure</div>
               <button className="modal-close" onClick={() => setErasingPat(null)}>✕</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 10 }}>
@@ -564,8 +563,8 @@ export default function AdminPortal() {
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <img src="/logo.jpg" alt="MedBuilds Logo" style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6 }} />
           <div>
-            <div style={{ fontWeight:800, fontSize:15, color:'var(--text)', lineHeight:1 }}>MedBuilds</div>
-            <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:1 }}>Admin · Staff Management</div>
+            <div style={{ fontWeight:800, fontSize:15, color:'var(--text)', lineHeight:1 }}>ClinicalHub</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:1 }}>ADMIN CONSOLE</div>
           </div>
         </div>
 
@@ -599,7 +598,7 @@ export default function AdminPortal() {
               outline: 'none'
             }}
           >
-            👥 Staff Directory
+            Staff Directory
           </button>
           <button 
             type="button"
@@ -617,7 +616,7 @@ export default function AdminPortal() {
               outline: 'none'
             }}
           >
-            ⚖️ Patient Erasure (DPDP)
+            Patient Erasure (DPDP)
           </button>
         </div>
 
