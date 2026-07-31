@@ -6,15 +6,29 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   sast-scan:
     name: Static Application Security Testing (SAST)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
+        if: matrix.language == 'java-kotlin'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -22,19 +36,20 @@ jobs:
           cache: maven
 
       - name: Run Snyk Open Source & Dependency Scan
+        if: matrix.language == 'java-kotlin'
         uses: snyk/actions/maven@master
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Initialize CodeQL (SAST)
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
-          languages: 'java-kotlin, javascript-typescript'
-          build-mode: 'none'
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
   dast-scan:
     name: Dynamic Application Security Testing (DAST)
