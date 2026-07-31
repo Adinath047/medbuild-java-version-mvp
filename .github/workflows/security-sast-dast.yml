@@ -30,12 +30,8 @@ jobs:
       - name: Initialize CodeQL (SAST)
         uses: github/codeql-action/init@v3
         with:
-          languages: 'java, javascript'
-          build-mode: 'manual'
-
-      - name: Build Java Application for CodeQL Tracing
-        run: |
-          mvn clean compile -DskipTests
+          languages: 'java-kotlin, javascript-typescript'
+          build-mode: 'none'
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
