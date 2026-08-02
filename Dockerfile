@@ -28,5 +28,5 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Cloud Run requirement: Use 'exec' so SIGTERM is forwarded directly to the Java process
-ENTRYPOINT ["sh", "-c", "exec java -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-8080} -Djava.security.egd=file:/dev/./urandom -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-8080} -Djava.security.egd=file:/dev/./urandom -Dio.netty.noUnsafe=true --add-opens=java.base/sun.misc=ALL-UNNAMED -jar app.jar"]
 

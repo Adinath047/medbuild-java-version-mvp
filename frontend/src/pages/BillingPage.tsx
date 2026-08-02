@@ -130,7 +130,7 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
       finally { setLoading(false); }
     })();
     (async()=>{
-      try { const r=await apiClient.get('/patients',{params:{limit:200}}); setPatients(r.data.patients); }
+      try { const r=await apiClient.get('/patients',{params:{limit:200}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
       catch { setPatients(await db.patients.toArray()); }
     })();
   },[]);
@@ -148,7 +148,8 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
 
         // Get doctor details (includes consultation_fee)
         const usersRes = await apiClient.get('/users');
-        const doctor = usersRes.data.users?.find((u: any) => u.id === enc.doctor_id);
+        const usersList = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data?.users || []);
+        const doctor = usersList.find((u: any) => u.id === enc.doctor_id);
         if (!doctor) { setDoctorInfo(null); return; }
 
         setDoctorInfo(doctor);
@@ -465,7 +466,10 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             transition: 'all 0.15s ease'
           }}
         >
-          📄 Outpatient (OPD) Invoices
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Outpatient (OPD) Invoices
+          </span>
         </button>
         <button
           type="button"
@@ -622,7 +626,7 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                                 onClick={() => handlePrint(b)} 
                                 title="Print Invoice"
                               >
-                                🖨️
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                               </button>
                             </div>
                           </td>

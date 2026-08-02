@@ -17,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.medicos.backend.service.PrescriptionPdfService;
+
 public class PrescriptionServiceTest {
 
     private PrescriptionRepository prescriptionRepository;
@@ -24,6 +26,7 @@ public class PrescriptionServiceTest {
     private UserRepository userRepository;
     private EncounterRepository encounterRepository;
     private VitalRepository vitalRepository;
+    private PrescriptionPdfService prescriptionPdfService;
     private ObjectMapper objectMapper;
     private PrescriptionService prescriptionService;
 
@@ -34,6 +37,7 @@ public class PrescriptionServiceTest {
         userRepository = mock(UserRepository.class);
         encounterRepository = mock(EncounterRepository.class);
         vitalRepository = mock(VitalRepository.class);
+        prescriptionPdfService = new PrescriptionPdfService(null);
         objectMapper = new ObjectMapper();
 
         prescriptionService = new PrescriptionService(
@@ -42,6 +46,7 @@ public class PrescriptionServiceTest {
                 userRepository,
                 encounterRepository,
                 vitalRepository,
+                prescriptionPdfService,
                 objectMapper
         );
     }

@@ -1,0 +1,23 @@
+{
+  "projectId": "medicos-emr-v1",
+  "name": "Medicos Hospital EMR Fullstack App",
+  "description": "Google Stitch AI UI project for Medicos Hospital EMR",
+  "provider": "Google Labs Stitch (Gemini 2.5 Flash)",
+  "screens": {
+    "doctor-dashboard": {
+      "id": "screen-doc-dash",
+      "deviceType": "DESKTOP",
+      "status": "integrated"
+    },
+    "bed-allocation": {
+      "id": "screen-bed-alloc",
+      "deviceType": "DESKTOP",
+      "status": "integrated"
+    },
+    "prescription-writer": {
+      "id": "screen-rx-writer",
+      "deviceType": "DESKTOP",
+      "status": "integrated"
+    }
+  }
+}

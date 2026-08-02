@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { triggerSyncBroadcast } from '../sync/syncManager';
 import { v4 as uuid } from 'uuid';
 import { printPrescriptionSlip } from '../utils/printTemplates';
+import { sendPrintRequestToReceptionist } from '../utils/printRequest';
 import { searchMedicines, findMedicineByName, MEDICINES, type Medicine } from '../utils/medicines';
 import { jsPDF } from 'jspdf';
 import { getSpecialtyCode, SPECIALTY_THEMES, SPECIALTY_TEMPLATES, getMedicineSpecialty } from '../utils/specialtyUtils';
@@ -44,9 +45,13 @@ function checkAllergyConflict(medName: string, allergies: string[], medicinesLis
   return null;
 }
 
-const FREQ = ['Once daily','Twice daily','Thrice daily','Every 8h','Every 6h','At bedtime','Before meals','After meals','As needed','Weekly'];
-const DUR  = ['1 day','3 days','5 days','7 days','10 days','14 days','1 month','2 months','3 months','Ongoing'];
-const INST = ['After meals','Before meals','With meals','Empty stomach','At bedtime','In the morning','With warm water','With milk','Dissolve in water','As directed','Avoid in pregnancy','Avoid alcohol'];
+const FREQ = ['Once daily', 'Twice daily', 'Thrice daily', 'Four times daily', 'Every 8h', 'Every 6h', 'As needed (SOS)', 'Weekly'];
+const DUR  = ['1 day', '3 days', '5 days', '7 days', '10 days', '14 days', '1 month', '2 months', '3 months', 'Ongoing'];
+const INST = ['After meals', 'Before meals', 'With meals', 'Empty stomach', 'At bedtime', 'In the morning', 'With warm water', 'With milk', 'Dissolve in water', 'As directed', 'Avoid in pregnancy', 'Avoid alcohol'];
+
+const STANDARD_STRENGTHS = ['100mg', '250mg', '500mg', '650mg', '1g', '2g', '1mg', '2mg', '5mg', '10mg', '20mg', '40mg', '80mg', '2.5ml', '5ml', '10ml', '15ml', '100IU', '500IU'];
+const STANDARD_DOSES = ['1 tablet', '1/2 tablet', '2 tablets', '1 capsule', '2 capsules', '5 ml', '10 ml', '15 ml', '1 drop', '2 drops', '1 puff', '2 puffs', '1 sachet', '1 application', '1 injection', 'As directed'];
+
 const EMPTY_MED = { name:'', strength:'', dose:'1 tablet', frequency:'Once daily', duration:'7 days', instructions:'After meals', isFlagged: false };
 
 // ── Tablet quantity calculator ─────────────────────────────────────────
@@ -56,12 +61,11 @@ function freqPerDay(freq: string): number | null {
   if (f.includes('once') || f === 'at bedtime' || f.includes('morning')) return 1;
   if (f.includes('twice'))  return 2;
   if (f.includes('thrice') || f.includes('three')) return 3;
+  if (f.includes('four') || f.includes('every 6h')) return 4;
   if (f.includes('every 8h'))  return 3;
-  if (f.includes('every 6h'))  return 4;
   if (f.includes('weekly'))    return 1 / 7;
-  if (f.includes('as needed')) return null; // can't compute
-  if (f.includes('before meals') || f.includes('after meals') || f.includes('with meals')) return 3; // assume 3 meals
-  return null;
+  if (f.includes('as needed') || f.includes('sos')) return null; // can't compute
+  return 1;
 }
 
 /** How many days does a duration string represent? */
@@ -365,7 +369,7 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
         }}>
           {/* Section header */}
           <div style={{ padding:'6px 12px 4px', fontSize:10, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'1px solid #f3f4f6', background:'#fafafa', borderRadius:'10px 10px 0 0' }}>
-            {isPopular ? '⭐ Common drugs — or type to search' : `${displayed.length} result${displayed.length !== 1 ? 's' : ''} for "${value}"`}
+            {isPopular ? 'Common drugs — or type to search' : `${displayed.length} result${displayed.length !== 1 ? 's' : ''} for "${value}"`}
           </div>
 
           {displayed.length === 0 && value.length > 0 ? (
@@ -470,7 +474,7 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
               background:'#fee2e2', border:'1px solid #fca5a5',
               borderRadius:8, display:'flex', alignItems:'flex-start', gap:8,
             }}>
-              <span style={{ fontSize:16, lineHeight:1, flexShrink:0 }}>⚠️</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991b1b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <div>
                 <div style={{ fontWeight:700, fontSize:12, color:'#991b1b' }}>
                   Allergy Conflict Detected
@@ -489,7 +493,7 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
               background:'#fffbeb', border:'1px solid #fde68a',
               borderRadius:8, display:'flex', alignItems:'flex-start', gap:8,
             }}>
-              <span style={{ fontSize:16, lineHeight:1, flexShrink:0 }}>⚠️</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <div>
                 <div style={{ fontWeight:700, fontSize:12, color:'#b45309' }}>
                   Shorthand Parsing Unclear
@@ -508,18 +512,56 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
         </div>
         <div className="form-group">
           <label className="form-label" style={{ fontWeight: 600, color: 'var(--text-sec)' }}>Strength</label>
-          {drugInfo && drugInfo.strengths.length > 1 ? (
-            <select className="input" value={med.strength} onChange={e => onUpdate('strength', e.target.value)} style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff' }}>
-              <option value="">— select —</option>
-              {drugInfo.strengths.map(s => <option key={s}>{s}</option>)}
-            </select>
-          ) : (
-            <input className="input" placeholder="e.g. 500mg" value={med.strength} onChange={e => onUpdate('strength', e.target.value)} style={{ borderRadius: '8px', border: '1px solid var(--border)' }} />
+          <select
+            className="input"
+            value={STANDARD_STRENGTHS.concat(drugInfo?.strengths || []).includes(med.strength) ? med.strength : (med.strength ? 'custom' : '')}
+            onChange={e => {
+              if (e.target.value !== 'custom') {
+                onUpdate('strength', e.target.value);
+              }
+            }}
+            style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff' }}
+          >
+            <option value="">— Select Strength —</option>
+            {Array.from(new Set([...(drugInfo?.strengths || []), ...STANDARD_STRENGTHS])).map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+            <option value="custom">Custom / Type manually...</option>
+          </select>
+          {(!Array.from(new Set([...(drugInfo?.strengths || []), ...STANDARD_STRENGTHS])).includes(med.strength)) && (
+            <input
+              className="input"
+              placeholder="e.g. 500mg"
+              value={med.strength}
+              onChange={e => onUpdate('strength', e.target.value)}
+              style={{ borderRadius: '8px', border: '1px solid var(--border)', marginTop: 4 }}
+            />
           )}
         </div>
         <div className="form-group">
           <label className="form-label" style={{ fontWeight: 600, color: 'var(--text-sec)' }}>Dose</label>
-          <input className="input" placeholder="1 tablet" value={med.dose} onChange={e => onUpdate('dose', e.target.value)} style={{ borderRadius: '8px', border: '1px solid var(--border)' }} />
+          <select
+            className="input"
+            value={STANDARD_DOSES.includes(med.dose) ? med.dose : (med.dose ? 'custom' : '1 tablet')}
+            onChange={e => {
+              if (e.target.value !== 'custom') {
+                onUpdate('dose', e.target.value);
+              }
+            }}
+            style={{ borderRadius: '8px', border: '1px solid var(--border)', background: '#fff' }}
+          >
+            {STANDARD_DOSES.map(d => <option key={d} value={d}>{d}</option>)}
+            <option value="custom">Custom / Type manually...</option>
+          </select>
+          {(!STANDARD_DOSES.includes(med.dose)) && (
+            <input
+              className="input"
+              placeholder="e.g. 1 tablet"
+              value={med.dose}
+              onChange={e => onUpdate('dose', e.target.value)}
+              style={{ borderRadius: '8px', border: '1px solid var(--border)', marginTop: 4 }}
+            />
+          )}
         </div>
       </div>
 
@@ -556,7 +598,7 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
             background: result ? '#f0fdf4' : '#f8fafc',
             border: `1px solid ${result ? '#86efac' : '#e2e8f0'}`,
           }}>
-            <span style={{ fontSize: 13 }}>🧮</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               Total quantity to dispense:
             </span>
@@ -990,7 +1032,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
 
   useEffect(() => {
     (async () => {
-      try { const r = await apiClient.get('/patients',{params:{limit:500}}); setPatients(r.data.patients); }
+      try { const r = await apiClient.get('/patients',{params:{limit:500}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
       catch { setPatients(await db.patients.toArray()); }
     })();
   }, []);
@@ -1100,7 +1142,12 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
 
   const copyPreviousPrescription = () => {
     if (!lastPrescription || !lastPrescription.medicines) return;
-    const clonedMeds = lastPrescription.medicines.map((m: any) => ({
+    let rawMeds = lastPrescription.medicines;
+    if (typeof rawMeds === 'string') {
+      try { rawMeds = JSON.parse(rawMeds); } catch { rawMeds = []; }
+    }
+    if (!Array.isArray(rawMeds)) return;
+    const clonedMeds = rawMeds.map((m: any) => ({
       name: m.name || '',
       strength: m.strength || '',
       dose: m.dose || '1 tablet',
@@ -1157,44 +1204,70 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     setShorthandText('');
   };
 
-  const toggleListening = () => {
+  const toggleListening = async () => {
     if (listening) {
-      recognitionRef.current?.stop();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
       setListening(false);
       return;
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Browser speech recognition is not supported in this browser. Please use Chrome or Safari.");
+      alert("Speech recognition is not supported by your current browser. Please use Google Chrome, Edge, or Safari.");
       return;
     }
 
-    const rec = new SpeechRecognition();
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.lang = 'en-IN';
-
-    rec.onstart = () => {
-      setListening(true);
-    };
-
-    rec.onresult = (event: any) => {
-      const text = event.results[0][0].transcript;
-      setShorthandText(text);
-    };
-
-    rec.onerror = (e: any) => {
-      console.error(e);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    } catch (err: any) {
+      console.warn("Microphone access error:", err);
+      alert("Microphone permission was denied. Please allow microphone access in your browser settings to use voice dictation.");
       setListening(false);
-    };
+      return;
+    }
 
-    rec.onend = () => {
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = window.navigator.language || 'en-IN';
+
+      rec.onstart = () => {
+        setListening(true);
+      };
+
+      rec.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setShorthandText(prev => (prev ? prev + ' ' + transcript : transcript));
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        console.error("Speech Recognition Error:", e);
+        setListening(false);
+        if (e.error === 'not-allowed') {
+          alert("Microphone access denied. Please click the camera/mic icon in your address bar to enable microphone access.");
+        }
+      };
+
+      rec.onend = () => {
+        setListening(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
       setListening(false);
-    };
-
-    recognitionRef.current = rec;
-    rec.start();
+    }
   };
 
   const saveCustomCombo = async (name: string, medicineList: any[]) => {
@@ -1234,7 +1307,8 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
   async function submit(e:React.FormEvent) {
     e.preventDefault();
     if (!patientId) { setError('Please select a patient'); return; }
-    if (meds.some(m => !m.name.trim())) { setError('All medicines need a name'); return; }
+    const validMeds = meds.filter(m => m.name && m.name.trim().length > 0);
+    if (validMeds.length === 0) { setError('Please enter at least one medicine name'); return; }
 
     // ── Allergy guard ─────────────────────────────────────────────────
     if (hasAllergyConflict && !allergyOverride) {
@@ -1243,7 +1317,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         .filter(Boolean)
         .join(', ');
       const confirmed = window.confirm(
-        `⚠️ ALLERGY CONFLICT\n\n` +
+        `ALLERGY CONFLICT\n\n` +
         `The following medicines may conflict with the patient's known allergies:\n` +
         `${conflictNames}\n\n` +
         `Do you want to override and save anyway?\n` +
@@ -1306,7 +1380,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         id, hospital_id: user?.hospitalId||'hsp-001',
         patient_id: patientId, doctor_id: user?.id,
         encounter_id: encounterId,
-        medicines: meds.map(m => ({...m, name:m.name.trim()})),
+        medicines: validMeds.map(m => ({...m, name:m.name.trim()})),
         advice: advice||null, follow_up_date: followUp||null,
         patient_weight: patientWeight||null, slip_token: slipToken,
         created_by_role: user?.role||'doctor', created_at: now,
@@ -1595,9 +1669,55 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     });
   }
 
+  async function handleSendPrintToReceptionist() {
+    const patient = patients.find((p: any) => p.id === patientId) || selectedPatient;
+    if (!patient && !selectedPatient) {
+      alert('Please select a patient first.');
+      return;
+    }
+    const targetPatient = selectedPatient || patient;
+    const hNum = parseFloat(height);
+    const wNum = parseFloat(patientWeight);
+    const bmiVal = (hNum > 0 && wNum > 0) ? (wNum / ((hNum / 100) ** 2)).toFixed(2) : undefined;
+
+    await sendPrintRequestToReceptionist({
+      patient_name: targetPatient?.name || '—',
+      uhid: targetPatient?.uhid || '—',
+      age: targetPatient?.age,
+      sex: targetPatient?.sex,
+      blood_group: targetPatient?.blood_group,
+      doctor_name: user?.name || 'Doctor',
+      doctor_role: user?.role || 'Doctor',
+      doctor_qualification: user?.qualification || undefined,
+      doctor_reg: user?.registrationNumber || undefined,
+      slip_token: success?.slip_token || (targetPatient ? 'RX-' + targetPatient.uhid : 'RX-SLIP'),
+      medicines: meds.map(m => ({
+        name: m.name.trim(),
+        strength: m.strength || '',
+        dose: m.dose || '',
+        frequency: m.frequency || '',
+        duration: m.duration || '',
+        instructions: m.instructions || ''
+      })),
+      advice: advice || undefined,
+      follow_up: followUp || undefined,
+      weight: patientWeight || undefined,
+      diagnosis: diagnosis || undefined,
+      vitals: (systolic || diastolic || pulse || height || patientWeight) ? {
+        bp: systolic && diastolic ? `${systolic}/${diastolic}` : undefined,
+        pulse: pulse || undefined,
+        height: height || undefined,
+        weight: patientWeight || undefined,
+        bmi: bmiVal
+      } : undefined
+    });
+
+    alert('🖨️ Print request sent to Receptionist desk successfully!');
+  }
+
   // ── Success screen ──
   if (success) return (
-    <div className="card" style={{maxWidth:520, margin:'40px auto'}}>
+    <div className="card" style={{maxWidth:540, margin:'40px auto'}}>
       <div className="card-body" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:16,padding:40,textAlign:'center'}}>
         <div style={{width:60,height:60,borderRadius:'50%',background:'#f0fdf4',border:'2px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>✓</div>
         <div>
@@ -1609,7 +1729,10 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           Print on pre-printed letterhead paper (leaves blank spacing at top)
         </label>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}}>
-          <button className="btn btn-primary" onClick={printSlip}>Print Slip</button>
+          <button className="btn btn-primary" onClick={printSlip}>Print Slip Now</button>
+          <button className="btn btn-secondary" onClick={handleSendPrintToReceptionist} style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e', fontWeight: 600 }}>
+            🖨️ Send Print Alert to Receptionist
+          </button>
           <button className="btn btn-secondary" onClick={() => onNavigate('patient_detail', { patientId, ts: Date.now() })}>View Patient</button>
           <button className="btn btn-ghost" onClick={() => { setSuccess(null); setMeds([{...EMPTY_MED}]); setAdvice(''); setFollowUp(''); setPatientId(patientId); }}>+ New Prescription</button>
         </div>
@@ -1663,6 +1786,9 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button type="button" className="btn btn-ghost" onClick={() => onNavigate('prescriptions')} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>← Back</button>
           <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>Print Draft</button>
+          <button type="button" className="btn btn-secondary" onClick={handleSendPrintToReceptionist} style={{ border: '1px solid #99f6e4', background: '#f0fdfa', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            🖨️ Send to Receptionist
+          </button>
           <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = true; }} style={{ borderRadius: '8px', padding: '8px 18px', fontSize: 13, fontWeight: 600 }}>
             {saving ? <><div className="spinner spinner-sm" />Saving…</> : 'Save & Print'}
           </button>
@@ -1773,7 +1899,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                   
                   {patientAllergies.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                      <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600 }}>⚠️ Allergic to:</span>
+                      <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600 }}>Allergic to:</span>
                       <span className="badge badge-danger" style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4 }}>{patientAllergies.join(', ')}</span>
                     </div>
                   )}

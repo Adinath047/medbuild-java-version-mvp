@@ -454,7 +454,10 @@ function AddPatientModal({ onClose, onDone }: { onClose: ()=>void; onDone: (p:an
                     background: '#fff',
                     margin: 0
                   }}>
-                    📷 Select Photo
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Select Photo
+                    </span>
                     <input
                       type="file"
                       accept="image/*"
@@ -805,7 +808,7 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
     if (!isSilent) setLoading(true);
     try {
       const res = await apiClient.get('/patients', { params: { q: search || undefined, limit: 200 } });
-      setPatients(res.data.patients); setSource('server');
+      setPatients(Array.isArray(res.data) ? res.data : (res.data?.patients || [])); setSource('server');
     } catch {
       let q = db.patients.orderBy('created_at').reverse();
       if (search) {

@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.medicos.backend.dto.PrescriptionPdfData;
+
 @Service
 public class PrescriptionService {
 
@@ -21,6 +23,7 @@ public class PrescriptionService {
     private final UserRepository userRepository;
     private final EncounterRepository encounterRepository;
     private final VitalRepository vitalRepository;
+    private final PrescriptionPdfService prescriptionPdfService;
     private final ObjectMapper objectMapper;
 
     public PrescriptionService(PrescriptionRepository prescriptionRepository,
@@ -28,12 +31,14 @@ public class PrescriptionService {
                                UserRepository userRepository,
                                EncounterRepository encounterRepository,
                                VitalRepository vitalRepository,
+                               PrescriptionPdfService prescriptionPdfService,
                                ObjectMapper objectMapper) {
         this.prescriptionRepository = prescriptionRepository;
         this.patientRepository = patientRepository;
         this.userRepository = userRepository;
         this.encounterRepository = encounterRepository;
         this.vitalRepository = vitalRepository;
+        this.prescriptionPdfService = prescriptionPdfService;
         this.objectMapper = objectMapper;
     }
 
@@ -271,6 +276,103 @@ public class PrescriptionService {
         }
 
         return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generatePrescriptionPdf(String id) {
+        PrescriptionDTO dto = getPrescriptionById(id);
+        PrescriptionPdfData data = mapToPdfData(dto);
+        try {
+            return prescriptionPdfService.generatePdf(data);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate PDF for prescription " + id + ": " + e.getMessage(), e);
+        }
+    }
+
+    public PrescriptionPdfData mapToPdfData(PrescriptionDTO dto) {
+        PrescriptionPdfData data = new PrescriptionPdfData();
+        data.setHospitalName("Medicos Hospital");
+        data.setHospitalTagline("Compassionate Care · Advanced Medicine");
+        data.setHospitalAddress("LAN Ward, Main Building, Healthcare Complex");
+        data.setHospitalPhone(dto.getDoctorPhone() != null ? dto.getDoctorPhone() : "+91-XXXX-XXXXXX");
+
+        String docName = dto.getDoctorName();
+        if (docName != null && !docName.trim().isEmpty()) {
+            if (!docName.toLowerCase().startsWith("dr.") && !docName.toLowerCase().startsWith("dr ")) {
+                docName = "Dr. " + docName;
+            }
+        } else {
+            docName = "Dr. Attending Physician";
+        }
+        data.setDoctorName(docName);
+        data.setDoctorQualification(dto.getDoctorQualification() != null ? dto.getDoctorQualification() : "MBBS, MD");
+
+        data.setPatientName(dto.getPatientName() != null ? dto.getPatientName() : "Patient");
+        StringBuilder meta = new StringBuilder();
+        if (dto.getAge() != null) meta.append(dto.getAge()).append(" yrs");
+        if (dto.getSex() != null) {
+            if (meta.length() > 0) meta.append(" / ");
+            meta.append(dto.getSex());
+        }
+        if (dto.getUhid() != null) {
+            if (meta.length() > 0) meta.append(" / ");
+            meta.append("UHID-").append(dto.getUhid());
+        }
+        data.setPatientMeta(meta.length() > 0 ? meta.toString() : null);
+
+        data.setVisitDateTime(dto.getCreatedAt() != null ? dto.getCreatedAt() : LocalDateTime.now().toString());
+
+        if (dto.getBpSystolic() != null && dto.getBpDiastolic() != null) {
+            data.setBp(dto.getBpSystolic() + "/" + dto.getBpDiastolic() + " mmHg");
+        }
+        if (dto.getHeartRate() != null) data.setPulse(dto.getHeartRate() + " bpm");
+        if (dto.getVitHeight() != null) data.setHeightCm(dto.getVitHeight() + " cm");
+        if (dto.getVitWeight() != null) data.setWeightKg(dto.getVitWeight() + " kg");
+        else if (dto.getPatientWeight() != null) data.setWeightKg(dto.getPatientWeight() + " kg");
+        if (dto.getBmi() != null) data.setBmi(dto.getBmi() + " Kg/m²");
+
+        if (dto.getChiefComplaint() != null && !dto.getChiefComplaint().trim().isEmpty()) {
+            List<String> list = Arrays.stream(dto.getChiefComplaint().split("\n"))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+            data.setComplaints(list);
+        }
+        data.setHistory(dto.getHistory());
+        data.setDiagnosis(dto.getEncounterDiagnosis());
+        data.setSystemicExamination(dto.getExamination());
+
+        // Map Medicines List
+        List<PrescriptionPdfData.MedicineItem> pdfMeds = new ArrayList<>();
+        if (dto.getMedicines() instanceof List) {
+            List<?> rawList = (List<?>) dto.getMedicines();
+            for (Object obj : rawList) {
+                if (obj instanceof Map) {
+                    Map<?, ?> m = (Map<?, ?>) obj;
+                    String name = m.containsKey("name") && m.get("name") != null ? String.valueOf(m.get("name")) : "";
+                    String str = m.containsKey("strength") && m.get("strength") != null ? String.valueOf(m.get("strength")) : "";
+                    if (!str.isEmpty()) name += " (" + str + ")";
+                    String comp = m.containsKey("composition") && m.get("composition") != null ? String.valueOf(m.get("composition")) : "";
+                    String dose = m.containsKey("dose") && m.get("dose") != null ? String.valueOf(m.get("dose")) : (m.containsKey("dosage") && m.get("dosage") != null ? String.valueOf(m.get("dosage")) : "1 tablet");
+                    String freq = m.containsKey("frequency") && m.get("frequency") != null ? String.valueOf(m.get("frequency")) : "Once daily";
+                    String dur = m.containsKey("duration") && m.get("duration") != null ? String.valueOf(m.get("duration")) : "5 days";
+                    String timing = m.containsKey("instructions") && m.get("instructions") != null ? String.valueOf(m.get("instructions")) : "After meals";
+                    String qty = m.containsKey("qty") && m.get("qty") != null ? String.valueOf(m.get("qty")) : "";
+
+                    pdfMeds.add(new PrescriptionPdfData.MedicineItem(
+                            name, comp.isEmpty() ? null : comp, dose, freq + " (" + dur + ")", timing.isEmpty() ? null : timing, qty
+                    ));
+                }
+            }
+        }
+        data.setMedicines(pdfMeds);
+
+        data.setAdvice(dto.getAdvice());
+        data.setFollowUp(dto.getFollowUpDate());
+        data.setDoctorSignName(docName);
+        data.setDoctorSignQualification(data.getDoctorQualification());
+
+        return data;
     }
 
     private String getString(Map<String, Object> map, String... keys) {

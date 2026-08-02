@@ -30,7 +30,7 @@ interface AuthState {
   user:           AuthUser | null;
   isLoading:      boolean;
   loginError:     string | null;
-  login:          (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, hospitalId?: string) => Promise<boolean>;
   logout:         () => void;
   restoreSession: () => Promise<void>;
 }
@@ -95,10 +95,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email, password) => {
+  login: async (email, password, hospitalId) => {
     set({ loginError: null });
     try {
-      const res = await apiClient.post('/auth/login', { email, password });
+      const res = await apiClient.post('/auth/login', { email, password, hospitalId });
       const { user, token } = res.data as { user: AuthUser; token?: string };
 
       persistLocalAuth(user, token);
@@ -127,6 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return true;
     } catch (err: any) {
       const message: string =
+        err?.response?.data?.message ||
         err?.response?.data?.error ||
         (err?.message === 'Network Error'
           ? 'Cannot reach Spring Boot server. Check your connection.'

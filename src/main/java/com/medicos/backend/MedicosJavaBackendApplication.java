@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 public class MedicosJavaBackendApplication {
 
     public static void main(String[] args) {
+        System.setProperty("io.netty.noUnsafe", "true");
         SpringApplication.run(MedicosJavaBackendApplication.class, args);
         System.out.println("\n" +
                 "======================================================================\n" +

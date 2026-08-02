@@ -519,51 +519,6 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
-  const [letterheadScan, setLetterheadScan] = useState<string>('');
-  const [fullBleed, setFullBleed] = useState(localStorage.getItem('print_letterhead_full_bleed_' + user?.id) === 'true');
-
-  useEffect(() => {
-    if (user?.id) {
-      setFullBleed(localStorage.getItem('print_letterhead_full_bleed_' + user.id) === 'true');
-    }
-  }, [user?.id]);
-  const [isDraggingLine, setIsDraggingLine] = useState(false);
-
-  // Load stored letterhead scan reference from local storage on mount/user change
-  useEffect(() => {
-    if (user?.id) {
-      const storedScan = localStorage.getItem(`letterhead_scan_${user.id}`);
-      if (storedScan) {
-        setLetterheadScan(storedScan);
-      }
-    }
-  }, [user?.id]);
-
-  const handleUploadLetterheadScan = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-      setProfileError('Letterhead scan/photo must be under 3MB.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setLetterheadScan(base64);
-      if (user?.id) {
-        localStorage.setItem(`letterhead_scan_${user.id}`, base64);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleClearLetterheadScan = () => {
-    setLetterheadScan('');
-    if (user?.id) {
-      localStorage.removeItem(`letterhead_scan_${user.id}`);
-    }
-  };
-
   const handleDoctorPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -576,31 +531,6 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
       setProfileForm(f => ({ ...f, photoUrl: reader.result as string }));
     };
     reader.readAsDataURL(file);
-  };
-
-  // Drag-and-drop pointer handlers for the calibration line
-  const startDrag = (e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setIsDraggingLine(true);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingLine) return;
-    const container = document.getElementById('letterhead-calibrator-container');
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const relativeY = Math.max(0, Math.min(453, e.clientY - rect.top));
-    // Convert 453px to 297mm (A4 page height)
-    const marginMm = Math.round(relativeY * (297 / 453));
-    // Bound top margin between 15mm and 120mm to prevent covering too much
-    const boundedMm = Math.max(15, Math.min(120, marginMm));
-    setProfileForm(f => ({ ...f, printMarginTop: boundedMm }));
-  };
-
-  const stopDrag = (e: React.PointerEvent) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    setIsDraggingLine(false);
   };
 
   // Sync profileForm state if user loads/updates
@@ -663,32 +593,6 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     }
   }
 
-  function handlePrintCalibrationSheet() {
-    printPrescriptionSlip({
-      doctor: {
-        name: user?.name ?? 'Practitioner',
-        role: user?.role ?? 'Doctor',
-        letterhead: profileForm.letterhead || undefined,
-        qualification: profileForm.qualification || undefined,
-        regNo: profileForm.registrationNumber || undefined,
-      },
-      patient: {
-        name: 'Calibration Test Page',
-        uhid: 'CAL-00000',
-        age: 35,
-        sex: 'M',
-        allergies: []
-      },
-      medicines: [],
-      slipToken: 'CALIBRATION',
-      printMarginTop: Number(profileForm.printMarginTop),
-      printMarginBottom: Number(profileForm.printMarginBottom),
-      printMarginLeftRight: Number(profileForm.printMarginLeftRight),
-      printFontSize: Number(profileForm.printFontSize),
-      isCalibrationTest: true
-    });
-  }
-
   // User management state
   const [staff, setStaff]       = useState<any[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -705,20 +609,21 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     setLoadingStaff(true); setStaffError('');
     try {
       const res = await apiClient.get('/users');
-      setStaff(res.data.users);
+      const usersList = Array.isArray(res.data) ? res.data : (res.data?.users || []);
+      setStaff(usersList);
     } catch (e:any) {
       setStaffError(e?.response?.data?.error || 'Cannot load staff — is the server running?');
     } finally { setLoadingStaff(false); }
   }
 
-  const filteredStaff = roleFilter === 'all' ? staff : staff.filter(s => s.role === roleFilter);
+  const filteredStaff = roleFilter === 'all' ? (staff || []) : (staff || []).filter(s => s.role === roleFilter);
 
   const staffByRole = {
-    all: staff.length,
-    doctor: staff.filter(s=>s.role==='doctor').length,
-    nurse: staff.filter(s=>s.role==='nurse').length,
-    receptionist: staff.filter(s=>s.role==='receptionist').length,
-    admin: staff.filter(s=>s.role==='admin').length,
+    all: (staff || []).length,
+    doctor: (staff || []).filter(s=>s.role==='doctor').length,
+    nurse: (staff || []).filter(s=>s.role==='nurse').length,
+    receptionist: (staff || []).filter(s=>s.role==='receptionist').length,
+    admin: (staff || []).filter(s=>s.role==='admin').length,
   };
 
   return (
@@ -841,9 +746,14 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                             <td style={{fontSize:12,color:'var(--text-muted)'}}>{s.specialization || '—'}</td>
                             <td style={{fontSize:12,color:'var(--text-muted)'}}>{s.phone || '—'}</td>
                             <td>
-                              <span className={`badge ${s.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                                {s.is_active ? 'Active' : 'Inactive'}
-                              </span>
+                              {(() => {
+                                const active = s.is_active !== undefined ? (s.is_active === 1 || s.is_active === true) : (s.isActive !== undefined ? (s.isActive === 1 || s.isActive === true) : true);
+                                return (
+                                  <span className={`badge ${active ? 'badge-success' : 'badge-neutral'}`}>
+                                    {active ? 'Active' : 'Inactive'}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td>
                               <button className="btn btn-ghost btn-sm" onClick={()=>setEditUser(s)}>Edit</button>
@@ -951,7 +861,10 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                           background: '#fff',
                           margin: 0
                         }}>
-                          📷 Select Photo
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                            Select Photo
+                          </span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1158,332 +1071,6 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                       />
                       <span>Show Patient Vitals (BP, Pulse, Weight, Height, BMI) on printed prescriptions</span>
                     </label>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Print Layout Calibration & Margins</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>
-                    Calibrate margins to match your clinic's pre-printed letterhead pads. Upload a scan of your letterhead below to drag-and-set coordinates visually.
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 24, alignItems: 'start', marginTop: 8 }}>
-                    {/* Left Column: Settings and Uploader */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      {/* Step 1: Upload photo */}
-                      <div className="card-body" style={{ background: '#f8fafc', border: '1px dashed var(--border)', borderRadius: 'var(--radius-xl)', padding: 16 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', marginBottom: 6 }}>1. Upload Reference Letterhead Photo/Scan</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: 11.5, lineHeight: '15px', marginBottom: 12 }}>
-                          Take a straight-on photo of a blank sheet of your clinic letterhead lying flat. Upload it to drag the margins visually.
-                        </p>
-                        
-                        {!letterheadScan ? (
-                          <label style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '20px 10px',
-                            background: '#fff',
-                            border: '1px dashed var(--border)',
-                            borderRadius: 'var(--radius-lg)',
-                            cursor: 'pointer',
-                            textAlign: 'center'
-                          }}>
-                            <span style={{ fontSize: 24, marginBottom: 6 }}>📷</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>Choose Letterhead Photo</span>
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>JPG, PNG under 3MB</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              style={{ display: 'none' }}
-                              onChange={handleUploadLetterheadScan}
-                            />
-                          </label>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 18 }}>📄</span>
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Reference Scan Active</div>
-                                <div style={{ fontSize: 10, color: 'var(--success)' }}>Visual backdrop loaded</div>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              style={{ padding: '4px 8px', minHeight: 'auto', color: 'var(--danger)', fontSize: 11 }}
-                              onClick={handleClearLetterheadScan}
-                            >
-                              Reset Photo
-                            </button>
-                          </div>
-                        )}
-                        
-                        {letterheadScan && (
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, cursor: 'pointer', userSelect: 'none', marginTop: 12 }}>
-                            <input
-                              type="checkbox"
-                              checked={fullBleed}
-                              onChange={e => {
-                                setFullBleed(e.target.checked);
-                                if (user?.id) {
-                                  localStorage.setItem('print_letterhead_full_bleed_' + user.id, String(e.target.checked));
-                                }
-                              }}
-                              style={{ width: 16, height: 16, accentColor: 'var(--primary)' }}
-                            />
-                            <span><strong>Full-Bleed Letterhead Banner:</strong> Stretch reference scan edge-to-edge of paper</span>
-                          </label>
-                        )}
-                      </div>
-
-                      {/* Step 2: Slider Adjustments */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                            Top Margin / Blank Zone: {profileForm.printMarginTop} mm
-                          </label>
-                          <input
-                            type="range"
-                            min="15"
-                            max="120"
-                            step="1"
-                            value={profileForm.printMarginTop}
-                            onChange={e => setProfileForm(f => ({ ...f, printMarginTop: Number(e.target.value) }))}
-                            style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                          />
-                          <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                            Reserved blank height for your letterhead logo and header artwork.
-                          </small>
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                            Left/Right Margins: {profileForm.printMarginLeftRight} mm
-                          </label>
-                          <input
-                            type="range"
-                            min="10"
-                            max="30"
-                            step="1"
-                            value={profileForm.printMarginLeftRight}
-                            onChange={e => setProfileForm(f => ({ ...f, printMarginLeftRight: Number(e.target.value) }))}
-                            style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                          />
-                          <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                            Safety padding from left/right edges (18mm recommended).
-                          </small>
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                            Bottom Margin: {profileForm.printMarginBottom} mm
-                          </label>
-                          <input
-                            type="range"
-                            min="15"
-                            max="45"
-                            step="1"
-                            value={profileForm.printMarginBottom}
-                            onChange={e => setProfileForm(f => ({ ...f, printMarginBottom: Number(e.target.value) }))}
-                            style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                          />
-                          <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                            Safety padding from the bottom edge (15mm minimum).
-                          </small>
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                            Body Font Size: {profileForm.printFontSize || 11} pt
-                          </label>
-                          <input
-                            type="range"
-                            min="8"
-                            max="16"
-                            step="0.5"
-                            value={profileForm.printFontSize || 11}
-                            onChange={e => setProfileForm(f => ({ ...f, printFontSize: Number(e.target.value) }))}
-                            style={{ width: '100%', height: 6, borderRadius: 3, accentColor: 'var(--primary)' }}
-                          />
-                          <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                            Base font size for printed text (A4 standard: 11pt).
-                          </small>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Interactive Visual A4 page calibrator */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-sec)', marginBottom: 8 }}>
-                        2. Drag Visual Red Line to Clear Your Header:
-                      </div>
-                      
-                      <div
-                        id="letterhead-calibrator-container"
-                        onPointerMove={handlePointerMove}
-                        style={{
-                          position: 'relative',
-                          width: 320,
-                          height: 453, // A4 aspect ratio (320x453 px representing 210x297 mm)
-                          background: '#fff',
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          boxShadow: 'var(--shadow-md)',
-                          overflow: 'hidden',
-                          userSelect: 'none'
-                        }}
-                      >
-                        {/* Letterhead Scan Image (Full Bleed or Centered aligned to margins) */}
-                        {letterheadScan && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: fullBleed ? 0 : profileForm.printMarginLeftRight * (320 / 210),
-                            right: fullBleed ? 0 : profileForm.printMarginLeftRight * (320 / 210),
-                            height: profileForm.printMarginTop * (453 / 297),
-                            backgroundImage: `url(${letterheadScan})`,
-                            backgroundSize: 'contain',
-                            backgroundPosition: 'center top',
-                            backgroundRepeat: 'no-repeat',
-                            opacity: 0.85,
-                            transition: 'left 0.05s ease, right 0.05s ease, height 0.05s ease'
-                          }} />
-                        )}
-                        {/* Background Overlay: if no scan uploaded, show a hatched indicator in the header space */}
-                        {!letterheadScan && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: profileForm.printMarginTop * (453 / 297),
-                            background: 'repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 10px, #f8fafc 10px, #f8fafc 20px)',
-                            borderBottom: '1px solid var(--border)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--text-muted)',
-                            opacity: 0.85,
-                            transition: 'height 0.05s ease'
-                          }}>
-                            <span style={{ fontSize: 16 }}>🏢</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4 }}>Pre-Printed Header Space</span>
-                            <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>({profileForm.printMarginTop} mm reserved)</span>
-                          </div>
-                        )}
-
-                        {/* Interactive Drag Line */}
-                        <div
-                          onPointerDown={startDrag}
-                          onPointerUp={stopDrag}
-                          style={{
-                            position: 'absolute',
-                            left: 0,
-                            right: 0,
-                            top: profileForm.printMarginTop * (453 / 297),
-                            height: 6,
-                            background: 'rgba(239, 68, 68, 0.2)',
-                            borderTop: '2px dashed #ef4444',
-                            borderBottom: '2px dashed #ef4444',
-                            cursor: 'ns-resize',
-                            zIndex: 20,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transform: 'translateY(-3px)'
-                          }}
-                        >
-                          <div style={{
-                            background: '#ef4444',
-                            color: '#fff',
-                            fontSize: 9.5,
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: 10,
-                            boxShadow: 'var(--shadow-sm)',
-                            whiteSpace: 'nowrap',
-                            pointerEvents: 'none',
-                            transform: 'translateY(-1px)'
-                          }}>
-                            ↕ {profileForm.printMarginTop} mm (Drag me)
-                          </div>
-                        </div>
-
-                        {/* Mock Prescription Content (Always pushed down by top margin) */}
-                        <div style={{
-                          position: 'absolute',
-                          left: profileForm.printMarginLeftRight * (320 / 210),
-                          right: profileForm.printMarginLeftRight * (320 / 210),
-                          bottom: profileForm.printMarginBottom * (453 / 297),
-                          top: profileForm.printMarginTop * (453 / 297),
-                          paddingTop: 10,
-                          fontSize: 9.5,
-                          color: '#334155',
-                          fontFamily: 'system-ui, sans-serif',
-                          lineHeight: '13px',
-                          pointerEvents: 'none',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          borderLeft: '1px dotted #cbd5e1',
-                          borderRight: '1px dotted #cbd5e1',
-                          borderBottom: '1px dotted #cbd5e1',
-                          background: 'rgba(255,255,255,0.85)',
-                          transition: 'top 0.05s ease, left 0.05s ease, right 0.05s ease, bottom 0.05s ease'
-                        }}>
-                          {/* Rx Header */}
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: 3, marginBottom: 6, fontWeight: 600, fontSize: 8.5 }}>
-                              <span>Jane Doe · F/32</span>
-                              <span>UHID: Med-100223</span>
-                            </div>
-
-                            {/* Rx Symbol */}
-                            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--primary)', marginBottom: 4 }}>Rx</div>
-
-                            {/* Medicine list */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <strong>1. Tab. Paracetamol 650mg</strong>
-                                <span>1-0-1 · 5 days</span>
-                              </div>
-                              <div style={{ fontSize: 7.5, color: '#64748b', paddingLeft: 8 }}>Take after meals</div>
-                              
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <strong>2. Cap. Amoxicillin 500mg</strong>
-                                <span>1-1-1 · 7 days</span>
-                              </div>
-                              <div style={{ fontSize: 7.5, color: '#64748b', paddingLeft: 8 }}>Complete the full course</div>
-                            </div>
-                          </div>
-
-                          {/* Footer details */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 4, fontSize: 8, color: '#475569', fontWeight: 600 }}>
-                            <span>Dr. Aarav Mehta (Specialist)</span>
-                            <span>Signature: [Verified]</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-
-
-                  <div style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={handlePrintCalibrationSheet}
-                      style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      🖨️ Print Layout Calibration Sheet
-                    </button>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-                      Prints a dashed boundary box corresponding exactly to these margins to verify alignment.
-                    </div>
                   </div>
                 </div>
               </>

@@ -52,6 +52,10 @@ export default function LoginPage() {
         throw new Error('Invalid response format from server');
       }
 
+      if (res.data.staff.length === 0) {
+        throw new Error(`Hospital Code '${codeToVerify}' has no active registered staff members.`);
+      }
+
       setHospitalName(res.data.hospital.name);
       setStaff(res.data.staff);
       setStep('auth');
@@ -68,7 +72,7 @@ export default function LoginPage() {
         setSelectedStaffId('');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Invalid Hospital Code or connection error.');
+      setError(err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Invalid Hospital Code or connection error.');
       if (!saveToLocal) {
         // Clear corrupt/invalid saved code
         localStorage.removeItem('last_hospital_code');
@@ -120,7 +124,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const ok = await login(selectedUser.email, password);
+    const ok = await login(selectedUser.email, password, hospitalCode);
     setLoading(false);
     if (!ok) {
       setError('Incorrect password. Please try again.');
@@ -148,7 +152,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {error && <div className="alert alert-danger">⚠️ {error}</div>}
+        {error && <div className="alert alert-danger">{error}</div>}
 
         {step === 'hospital' ? (
           <form onSubmit={handleVerifyHospital} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -157,7 +161,7 @@ export default function LoginPage() {
               <input
                 className="input"
                 type="text"
-                placeholder="e.g. hsp-001"
+                placeholder="Enter Clinic or Hospital Code"
                 value={hospitalCode}
                 onChange={e => setHospitalCode(e.target.value.toLowerCase().trim())}
                 required
@@ -171,19 +175,6 @@ export default function LoginPage() {
             <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
               {loading ? <div className="spinner spinner-sm"/> : 'Verify Hospital →'}
             </button>
-            <div style={{ textAlign: 'center', marginTop: 4 }}>
-              <button 
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ width: '100%', fontSize: 11.5, background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}
-                onClick={() => {
-                  setHospitalCode('CLI-001');
-                  verifyCode('CLI-001');
-                }}
-              >
-                Demo 2-Member Small Clinic (`CLI-001`)
-              </button>
-            </div>
           </form>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -229,14 +220,14 @@ export default function LoginPage() {
                 required
               >
                 <option value="">— Select Staff Member —</option>
-                {staff
+                {(Array.isArray(staff) ? staff : [])
                   .filter(s => s.role === role)
                   .map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))
                 }
               </select>
-              {staff.filter(s => s.role === role).length === 0 && (
+              {(Array.isArray(staff) ? staff : []).filter(s => s.role === role).length === 0 && (
                 <div style={{ color: 'var(--warning)', fontSize: 12, marginTop: 4 }}>
                   No active staff registered under this role.
                 </div>

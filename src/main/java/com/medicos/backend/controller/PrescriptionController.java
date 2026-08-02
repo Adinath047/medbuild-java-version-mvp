@@ -50,4 +50,13 @@ public class PrescriptionController {
         PrescriptionDTO updated = prescriptionService.updatePrescription(id, body);
         return ResponseEntity.ok(updated);
     }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> getPrescriptionPdf(@PathVariable("id") String id) {
+        byte[] pdfBytes = prescriptionService.generatePrescriptionPdf(id);
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+        headers.add(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=prescription-" + id + ".pdf");
+        return ResponseEntity.ok().headers(headers).body(pdfBytes);
+    }
 }

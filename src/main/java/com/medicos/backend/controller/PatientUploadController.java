@@ -31,4 +31,10 @@ public class PatientUploadController {
         PatientUpload saved = patientUploadService.uploadDocument(upload, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUpload(@PathVariable("id") String id, @AuthenticationPrincipal User user) {
+        patientUploadService.deleteUpload(id, user);
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Upload deleted successfully"));
+    }
 }

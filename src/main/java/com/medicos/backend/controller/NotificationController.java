@@ -40,7 +40,19 @@ public class NotificationController {
     }
 
     @PostMapping("/{id}/read")
-    public ResponseEntity<?> markAsRead(@PathVariable("id") String id) {
+    public ResponseEntity<?> markAsReadPost(@PathVariable("id") String id) {
+        Map<String, Boolean> result = notificationService.markAsRead(id);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/{id}/read")
+    public ResponseEntity<?> markAsReadPut(@PathVariable("id") String id) {
+        Map<String, Boolean> result = notificationService.markAsRead(id);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateNotification(@PathVariable("id") String id) {
         Map<String, Boolean> result = notificationService.markAsRead(id);
         return ResponseEntity.ok(result);
     }

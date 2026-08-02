@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Prescription</title>
+    <style>
+        /* Page size + margins for the generated PDF */
+        @page {
+            size: A4;
+            margin: 14mm 12mm;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10.5pt;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- Letterhead: two columns via CSS table, NOT flexbox --- */
+        .letterhead {
+            display: table;
+            width: 100%;
+            border-bottom: 3px solid #2b6cb0;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+        }
+        .letterhead .hospital-block {
+            display: table-cell;
+            width: 60%;
+            vertical-align: top;
+        }
+        .letterhead .doctor-block {
+            display: table-cell;
+            width: 40%;
+            vertical-align: top;
+            text-align: right;
+            border-left: 1px solid #cccccc;
+            padding-left: 10px;
+        }
+        .hospital-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #2b6cb0;
+            margin: 0 0 2px 0;
+        }
+        .hospital-tagline {
+            font-size: 10pt;
+            margin: 0 0 4px 0;
+        }
+        .hospital-address {
+            font-size: 8.5pt;
+            color: #444444;
+            line-height: 1.4;
+        }
+        .doctor-name {
+            font-size: 11pt;
+            font-weight: bold;
+            margin: 0 0 2px 0;
+        }
+        .doctor-qualification {
+            font-size: 8pt;
+            color: #444444;
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+
+        /* --- Patient / visit meta row --- */
+        .meta-row {
+            display: table;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .patient-info {
+            display: table-cell;
+            width: 65%;
+            font-size: 10.5pt;
+        }
+        .visit-date {
+            display: table-cell;
+            width: 35%;
+            text-align: right;
+            font-size: 9.5pt;
+        }
+
+        /* --- Vitals bar --- */
+        .vitals-bar {
+            border: 1px solid #999999;
+            border-radius: 4px;
+            padding: 6px 10px;
+            margin: 8px 0 14px 0;
+            font-size: 9.5pt;
+        }
+        .vitals-bar .sep {
+            color: #999999;
+            margin: 0 6px;
+        }
+
+        /* --- Generic section blocks --- */
+        .section {
+            margin-bottom: 10px;
+        }
+        .section-title {
+            font-weight: bold;
+            text-decoration: underline;
+            margin-bottom: 3px;
+        }
+        .section-body {
+            font-size: 9.5pt;
+            line-height: 1.5;
+        }
+        ul.complaints {
+            margin: 2px 0;
+            padding-left: 18px;
+        }
+
+        /* --- Rx table --- */
+        table.rx-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+        }
+        table.rx-table th {
+            background-color: #eef2f7;
+            border: 1px solid #cccccc;
+            padding: 5px 6px;
+            text-align: left;
+            font-size: 9pt;
+        }
+        table.rx-table td {
+            border: 1px solid #cccccc;
+            padding: 5px 6px;
+            font-size: 9pt;
+            vertical-align: top;
+        }
+        .med-name {
+            font-weight: bold;
+        }
+        .med-sub {
+            font-size: 8pt;
+            color: #555555;
+            margin-top: 2px;
+        }
+
+        /* --- Footer / signature --- */
+        .footer-section {
+            margin-top: 16px;
+        }
+        .signature-block {
+            margin-top: 40px;
+            float: right;
+            text-align: center;
+            width: 220px;
+        }
+        .signature-line {
+            border-top: 1px solid #333333;
+            margin-bottom: 4px;
+        }
+        .clearfix::after {
+            content: "";
+            display: block;
+            clear: both;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Letterhead -->
+    <div class="letterhead">
+        <div class="hospital-block">
+            <p class="hospital-name" th:text="${hospitalName}">Hospital Name</p>
+            <p class="hospital-tagline" th:text="${hospitalTagline}">Department / Tagline</p>
+            <p class="hospital-address">
+                <span th:text="${hospitalAddress}">Street, City, PIN</span><br/>
+                <span th:text="'Ph: ' + ${hospitalPhone}">Ph: 000-000-0000</span>
+            </p>
+        </div>
+        <div class="doctor-block">
+            <p class="doctor-name" th:text="${doctorName}">Dr. Name</p>
+            <p class="doctor-qualification" th:text="${doctorQualification}">Qualification</p>
+            <div th:if="${secondDoctorName != null}">
+                <p class="doctor-name" th:text="${secondDoctorName}">Dr. Second Name</p>
+                <p class="doctor-qualification" th:text="${secondDoctorQualification}">Qualification</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient + visit date/time -->
+    <div class="meta-row">
+        <div class="patient-info">
+            <strong th:text="${patientName}">Patient Name</strong>
+            <span th:if="${patientMeta != null}" th:text="' — ' + ${patientMeta}"></span>
+        </div>
+        <div class="visit-date">
+            <strong>Date &amp; Time:</strong> <span th:text="${visitDateTime}">--</span>
+        </div>
+    </div>
+
+    <!-- Vitals -->
+    <div class="vitals-bar">
+        <strong>BP</strong> <span th:text="${bp != null ? bp : '--'}">--</span> <span class="sep">|</span>
+        <strong>Pulse</strong> <span th:text="${pulse != null ? pulse : '--'}">--</span> <span class="sep">|</span>
+        <strong>Height</strong> <span th:text="${heightCm != null ? heightCm : '--'}">--</span> <span class="sep">|</span>
+        <strong>Weight</strong> <span th:text="${weightKg != null ? weightKg : '--'}">--</span> <span class="sep">|</span>
+        <strong>BMI</strong> <span th:text="${bmi != null ? bmi : '--'}">--</span>
+    </div>
+
+    <!-- Complaints -->
+    <div class="section" th:if="${complaints != null and !complaints.isEmpty()}">
+        <div class="section-title">Complaints:</div>
+        <ul class="complaints">
+            <li th:each="c : ${complaints}" th:text="${c}">Complaint</li>
+        </ul>
+    </div>
+
+    <!-- History -->
+    <div class="section" th:if="${history != null}">
+        <div class="section-title">History:</div>
+        <div class="section-body" th:text="${history}">History text</div>
+    </div>
+
+    <!-- Investigations -->
+    <div class="section" th:if="${investigations != null}">
+        <div class="section-title">Recent Investigations:</div>
+        <div class="section-body" th:text="${investigations}">Investigations</div>
+    </div>
+
+    <!-- Diagnosis -->
+    <div class="section" th:if="${diagnosis != null}">
+        <div class="section-title">Diagnosis:</div>
+        <div class="section-body" th:text="${diagnosis}">Diagnosis</div>
+    </div>
+
+    <!-- Systemic examination -->
+    <div class="section" th:if="${systemicExamination != null}">
+        <div class="section-title">Systemic Examination:</div>
+        <div class="section-body" th:text="${systemicExamination}">Examination notes</div>
+    </div>
+
+    <!-- Rx table -->
+    <div class="section">
+        <div class="section-title">Rx</div>
+        <table class="rx-table">
+            <thead>
+            <tr>
+                <th style="width:4%">#</th>
+                <th style="width:34%">Medicine</th>
+                <th style="width:20%">Dosage</th>
+                <th style="width:28%">Frequency / Duration</th>
+                <th style="width:6%">Qty</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="med, iter : ${medicines}">
+                <td th:text="${iter.count}">1</td>
+                <td>
+                    <div class="med-name" th:text="${med.name}">Medicine name</div>
+                    <div class="med-sub" th:if="${med.composition != null}" th:text="'Composition: ' + ${med.composition}">Composition</div>
+                    <div class="med-sub" th:if="${med.timing != null}" th:text="'Timing: ' + ${med.timing}">Timing</div>
+                </td>
+                <td th:text="${med.dosage}">Dosage</td>
+                <td th:text="${med.frequencyDuration}">Frequency</td>
+                <td th:text="${med.qty}">Qty</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Advice / follow-up -->
+    <div class="section" th:if="${advice != null}">
+        <div class="section-title">Advice:</div>
+        <div class="section-body" th:text="${advice}">Advice text</div>
+    </div>
+    <div class="section" th:if="${followUp != null}">
+        <div class="section-title">Follow-up:</div>
+        <div class="section-body" th:text="${followUp}">Follow-up text</div>
+    </div>
+
+    <!-- Signature -->
+    <div class="footer-section clearfix">
+        <div class="signature-block">
+            <div class="signature-line">&#160;</div>
+            <div th:text="${doctorSignName}">Dr. Name</div>
+            <div class="doctor-qualification" th:text="${doctorSignQualification}">Qualification</div>
+        </div>
+    </div>
+
+</body>
+</html>

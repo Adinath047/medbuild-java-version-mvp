@@ -36,4 +36,16 @@ public class SuperAdminController {
         List<User> users = superAdminService.getAllUsers();
         return ResponseEntity.ok(users);
     }
+
+    @PostMapping("/hospitals")
+    public ResponseEntity<?> createHospital(@RequestBody Map<String, Object> body) {
+        Hospital created = superAdminService.createHospital(body);
+        return ResponseEntity.status(201).body(created);
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<?> createStaffUser(@RequestBody Map<String, Object> body) {
+        User created = superAdminService.createStaffUser(body);
+        return ResponseEntity.status(201).body(created);
+    }
 }

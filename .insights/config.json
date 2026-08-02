@@ -1,0 +1,19 @@
+{
+  "provider": "Medicos Insights MCP Engine",
+  "version": "1.0.0",
+  "status": "active",
+  "features": {
+    "vitalsTrendAnalysis": true,
+    "patientRiskScoring": true,
+    "polypharmacyAlerts": true,
+    "bedOccupancyAnalytics": true
+  },
+  "thresholds": {
+    "bpSystolicHigh": 140,
+    "bpSystolicLow": 90,
+    "heartRateHigh": 100,
+    "heartRateLow": 60,
+    "spo2Low": 95,
+    "tempCelsiusHigh": 37.5
+  }
+}

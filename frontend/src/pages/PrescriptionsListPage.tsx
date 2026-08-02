@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { printPrescriptionSlip } from '../utils/printTemplates';
+import { sendPrintRequestToReceptionist } from '../utils/printRequest';
 import { useAuthStore } from '../store/authStore';
 
 interface Rx {
@@ -15,7 +16,6 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
   const [rxList, setRxList]   = useState<Rx[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
-  const [prePrinted, setPrePrinted] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,7 +67,6 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
       followUp: rx.follow_up_date,
       weight: (rx as any).weight,
       slipToken: rx.slip_token,
-      prePrinted,
       vitals: ((rx as any).bp_systolic || (rx as any).heart_rate || (rx as any).vit_height || (rx as any).vit_weight || (rx as any).bmi) ? {
         bp: (rx as any).bp_systolic && (rx as any).bp_diastolic ? `${(rx as any).bp_systolic}/${(rx as any).bp_diastolic}` : undefined,
         pulse: (rx as any).heart_rate ? String((rx as any).heart_rate) : undefined,
@@ -100,28 +99,62 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
     });
   }
 
+  async function handleSendToReceptionist(rx: Rx) {
+    const meds = Array.isArray(rx.medicines)
+      ? rx.medicines
+      : (typeof rx.medicines === 'string' ? (() => { try { return JSON.parse(rx.medicines); } catch { return []; } })() : []);
+
+    await sendPrintRequestToReceptionist({
+      patient_name: rx.patient_name || '—',
+      uhid: rx.uhid || '—',
+      age: (rx as any).age,
+      sex: (rx as any).sex,
+      blood_group: (rx as any).blood_group,
+      doctor_name: rx.doctor_name || user?.name || 'Doctor',
+      doctor_role: (rx as any).doctor_role || user?.role || 'Doctor',
+      doctor_qualification: (rx as any).doctor_qualification || user?.qualification || undefined,
+      doctor_reg: (rx as any).doctor_registration_number || user?.registrationNumber || undefined,
+      slip_token: rx.slip_token || 'RX-SLIP',
+      medicines: meds.map((m: any) => ({
+        name: m.name,
+        strength: m.strength || '',
+        dose: m.dose || m.dosage || '1 tablet',
+        frequency: m.frequency || 'Once daily',
+        duration: m.duration || (m.duration_days ? `${m.duration_days} days` : ''),
+        instructions: m.instructions || ''
+      })),
+      advice: rx.advice,
+      follow_up: rx.follow_up_date,
+      weight: (rx as any).weight
+    });
+
+    alert('🖨️ Print request sent to Receptionist desk successfully!');
+  }
+
   return (
     <>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div className="page-title">Prescriptions</div>
-          <div className="page-sub">{visible.length} prescription{visible.length !== 1 ? 's' : ''}</div>
+          <div className="page-title" style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>Prescriptions</div>
+          <div className="page-sub" style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>{visible.length} prescription{visible.length !== 1 ? 's' : ''} total</div>
         </div>
-        <button className="btn btn-primary" onClick={() => onNavigate('new_prescription')}>+ Write Prescription</button>
+        <button className="btn btn-primary" onClick={() => onNavigate('new_prescription')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 8, padding: '8px 16px', fontWeight: 600 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Write Prescription
+        </button>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-body" style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="form-input" placeholder="Search patient, UHID, doctor…" value={search}
-            onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 200, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', userSelect: 'none' }}>
-            <input type="checkbox" checked={prePrinted} onChange={e => setPrePrinted(e.target.checked)} />
-            Print on pre-printed letterhead paper
-          </label>
+      <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input className="form-input" placeholder="Search patient, UHID, doctor…" value={search}
+              onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '8px 12px 8px 34px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
+          </div>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ overflow: 'hidden' }}>
         {loading
           ? <div className="loading-screen" style={{ height: 200 }}><div className="spinner" /></div>
           : visible.length === 0
@@ -149,9 +182,17 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
               </div>
             )
             : <div className="table-wrap">
-                <table>
+                <table className="data-table">
                   <thead>
-                    <tr><th>Slip #</th><th>Patient</th><th>Doctor</th><th>Medicines</th><th>Follow-up</th><th>Date</th><th></th></tr>
+                    <tr>
+                      <th style={{ width: 140 }}>Slip #</th>
+                      <th style={{ minWidth: 160 }}>Patient</th>
+                      <th style={{ minWidth: 140 }}>Doctor</th>
+                      <th style={{ minWidth: 160 }}>Medicines</th>
+                      <th style={{ width: 110 }}>Follow-up</th>
+                      <th style={{ width: 140 }}>Date</th>
+                      <th style={{ width: 190, textAlign: 'right' }}>Actions</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {visible.map(rx => {
@@ -160,23 +201,29 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
                         : (typeof rx.medicines === 'string' ? (() => { try { return JSON.parse(rx.medicines); } catch { return []; } })() : []);
                       return (
                         <tr key={rx.id} style={{ cursor: 'pointer' }} onClick={() => onNavigate('patient_detail', { patientId: rx.id })}>
-                          <td><code style={{ fontSize: 11, background: 'var(--surface-alt)', padding: '2px 6px', borderRadius: 4 }}>{rx.slip_token}</code></td>
+                          <td><code style={{ fontSize: 11, background: 'var(--surface-alt)', padding: '3px 8px', borderRadius: 6, fontWeight: 600, color: 'var(--primary)' }}>{rx.slip_token}</code></td>
                           <td>
-                            <div style={{ fontWeight: 700 }}>{rx.patient_name}</div>
+                            <div style={{ fontWeight: 700, color: 'var(--text)' }}>{rx.patient_name}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{rx.uhid}</div>
                           </td>
-                          <td style={{ fontSize: 12 }}>{rx.doctor_name}</td>
-                          <td style={{ fontSize: 12 }}>
+                          <td style={{ fontSize: 13, fontWeight: 500 }}>{rx.doctor_name}</td>
+                          <td style={{ fontSize: 13, color: 'var(--text-sec)' }}>
                             {meds.slice(0, 2).map((m: any) => m.name).join(', ')}{meds.length > 2 ? ` +${meds.length - 2}` : ''}
                           </td>
-                          <td style={{ fontSize: 12 }}>{rx.follow_up_date || '—'}</td>
-                          <td style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          <td style={{ fontSize: 12.5 }}>{rx.follow_up_date || '—'}</td>
+                          <td style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                             {new Date(rx.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </td>
-                          <td>
-                            <button className="btn btn-ghost btn-sm" onClick={ev => { ev.stopPropagation(); printSlip(rx); }}>
-                              🖨 Print
-                            </button>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12 }} onClick={ev => { ev.stopPropagation(); printSlip(rx); }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Print
+                              </button>
+                              <button className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#0f766e', background: '#f0fdfa', border: '1px solid #99f6e4', fontWeight: 600, padding: '4px 10px', fontSize: 12 }} onClick={ev => { ev.stopPropagation(); handleSendToReceptionist(rx); }}>
+                                🖨️ Receptionist
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

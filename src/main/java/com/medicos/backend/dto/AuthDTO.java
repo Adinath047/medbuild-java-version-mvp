@@ -5,6 +5,7 @@ public class AuthDTO {
     public static class LoginRequest {
         private String email;
         private String password;
+        private String hospitalId;
 
         public LoginRequest() {}
 
@@ -13,6 +14,9 @@ public class AuthDTO {
 
         public String getPassword() { return password; }
         public void setPassword(String password) { this.password = password; }
+
+        public String getHospitalId() { return hospitalId; }
+        public void setHospitalId(String hospitalId) { this.hospitalId = hospitalId; }
     }
 
     public static class RegisterRequest {
@@ -52,6 +56,19 @@ public class AuthDTO {
         public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
     }
 
+    /**
+     * UserDTO — used by /api/auth/login, /api/auth/me, and /api/auth/hospital/{code}/staff.
+     *
+     * Field names are kept in camelCase intentionally: the authStore (AuthUser interface)
+     * and all pages reference user.hospitalId, user.licenseNumber, user.consultationFee,
+     * user.photoUrl, etc. in camelCase.
+     *
+     * DO NOT add @JsonProperty snake_case annotations here — that would break the frontend
+     * auth session and every page that reads user properties from the auth store.
+     *
+     * The raw User entity (returned by GET /api/users) has its own @JsonProperty annotations
+     * for snake_case, which is what the Admin portal's staff table needs.
+     */
     public static class UserDTO {
         private String id;
         private String name;
@@ -61,6 +78,11 @@ public class AuthDTO {
         private String phone;
         private String specialization;
         private String licenseNumber;
+        private String qualification;
+        private String registrationNumber;
+        private String letterhead;
+        private Double consultationFee;
+        private Double followupFee;
         private String photoUrl;
         private Integer isActive;
         private Integer showDiagnosisOnPrint;
@@ -99,6 +121,21 @@ public class AuthDTO {
 
         public String getPhotoUrl() { return photoUrl; }
         public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+        public String getQualification() { return qualification; }
+        public void setQualification(String qualification) { this.qualification = qualification; }
+
+        public String getRegistrationNumber() { return registrationNumber; }
+        public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
+
+        public String getLetterhead() { return letterhead; }
+        public void setLetterhead(String letterhead) { this.letterhead = letterhead; }
+
+        public Double getConsultationFee() { return consultationFee; }
+        public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
+
+        public Double getFollowupFee() { return followupFee; }
+        public void setFollowupFee(Double followupFee) { this.followupFee = followupFee; }
 
         public Integer getIsActive() { return isActive; }
         public void setIsActive(Integer isActive) { this.isActive = isActive; }
@@ -145,6 +182,8 @@ public class AuthDTO {
     public static class MessageResponse {
         private String message;
         private boolean success;
+
+        public MessageResponse() {}
 
         public MessageResponse(String message, boolean success) {
             this.message = message;

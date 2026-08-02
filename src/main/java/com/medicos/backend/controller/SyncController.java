@@ -20,14 +20,25 @@ public class SyncController {
 
     @GetMapping("/pull")
     @PostMapping("/pull")
-    public ResponseEntity<?> pullData(@AuthenticationPrincipal User user) {
-        Map<String, Object> response = syncService.pullData(user);
+    public ResponseEntity<?> pullData(@AuthenticationPrincipal User user,
+                                      @RequestParam(value = "since", required = false) String since,
+                                      @RequestParam(value = "tables", required = false) String tables) {
+        Map<String, Object> response = syncService.pullData(user, since, tables);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/push")
-    public ResponseEntity<?> pushData(@RequestBody Map<String, Object> payload) {
-        Map<String, Object> response = syncService.pushData(payload);
+    public ResponseEntity<?> pushData(@RequestBody Map<String, Object> payload, @AuthenticationPrincipal User user) {
+        Map<String, Object> response = syncService.pushData(payload, user);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<?> syncStatus() {
+        return ResponseEntity.ok(Map.of(
+                "serverTime", java.time.Instant.now().toString(),
+                "pendingQueue", 0,
+                "status", "online"
+        ));
     }
 }

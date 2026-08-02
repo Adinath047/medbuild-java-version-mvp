@@ -1,8 +1,9 @@
 // client/src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
+import { useRealtimeStore } from './store/realtimeStore';
 
-// Pages
+// Page components mapped to navigation keys
 import AdminPortal from './pages/AdminPortal';
 import PatientsPage from './pages/PatientsPage';
 import PatientDetail from './pages/PatientDetail';
@@ -21,6 +22,9 @@ import LoginPage from './pages/LoginPage';
 import BedsPage from './pages/BedsPage';
 import { apiClient } from './api/client';
 import { db } from './db/localDB';
+import PrintRequestModal, { PrintModalData } from './components/PrintRequestModal';
+import { useNotificationStore } from './store/notificationStore';
+import { EmergencyBanner, NotificationBell } from './components/NotificationUI';
 
 // ── SVG Icons (Matching ClinicalHub Screenshots) ─────────────────────
 const Icons: Record<string, JSX.Element> = {
@@ -58,7 +62,6 @@ function getNav(user: any) {
     { icon: 'patients',     label: 'My Patients',    page: 'patients' },
     { icon: 'beds',         label: 'My Beds & Vitals', page: 'beds' },
     { icon: 'appointments', label: 'Appointments',   page: 'appointments' },
-    { icon: 'calendar',     label: 'Calendar',       page: 'appointments' },
     { icon: 'prescription', label: 'Prescriptions',  page: 'prescriptions' },
     { icon: 'profile',      label: 'Profile',        page: 'settings' },
   ];
@@ -228,17 +231,51 @@ const PAGE_TITLES: Record<string, string> = {
 // ── App ───────────────────────────────────────────────────────────────
 export default function App() {
   const { user, isLoading, logout } = useAuthStore();
+  const { 
+    fetchNotifications, 
+    activePrintModalData, 
+    setActivePrintModalData, 
+    dismissPrintRequest 
+  } = useNotificationStore();
+
   const [page, setPage]         = useState('');
   const [pageData, setPageData] = useState<any>(null);
   const [sidebarOpen, setSidebar] = useState(false);
-  const [alerts, setAlerts] = useState<any[]>([]);
   const [showInactivityModal, setShowInactivityModal] = useState(false);
-  const [usePolling, setUsePolling] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
-  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+
+  // 🔔 Centralized Notification Store polling & real-time synchronization
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications(user.role);
+    const interval = setInterval(() => fetchNotifications(user.role), 4000);
+
+    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('emr-print-channel') : null;
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'PRINT_REQUEST' && event.data?.payload) {
+          if (['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(user.role)) {
+            setActivePrintModalData(event.data.payload);
+          }
+        }
+      };
+    }
+
+    const handleCustomEvent = (e: any) => {
+      if (e.detail && ['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(user.role)) {
+        setActivePrintModalData(e.detail);
+      }
+    };
+    window.addEventListener('emr:print-request', handleCustomEvent);
+
+    return () => {
+      clearInterval(interval);
+      if (channel) channel.close();
+      window.removeEventListener('emr:print-request', handleCustomEvent);
+    };
+  }, [user, fetchNotifications, setActivePrintModalData]);
 
   async function handleSearchChange(query: string) {
     setSearchQuery(query);
@@ -289,42 +326,16 @@ export default function App() {
     };
   }, [user, logout]);
 
-  useEffect(() => {
-    if (!user || user.role !== 'doctor') return;
-    
-    checkAlerts();
-    const interval = setInterval(checkAlerts, 10000);
-    return () => clearInterval(interval);
-
-    async function checkAlerts() {
-      try {
-        const res = await apiClient.get('/notifications/active');
-        setAlerts(res.data);
-      } catch (err) {
-        console.error('Failed to check alerts:', err);
-      }
-    }
-  }, [user]);
-
   // 🔌 Secure WebSocket connection for real-time changes
   useEffect(() => {
     if (!user) return;
 
+    // Fetch initial shared state into filing cabinet
+    useRealtimeStore.getState().fetchInitialData();
+
     let socket: WebSocket | null = null;
     let reconnectTimeout: any = null;
     let isIntentionalClose = false;
-    let hasConnectedOnce = false;
-
-    // Vercel serverless deployments do not support long-lived WebSocket connections.
-    // If we detect the app is deployed on vercel.app, we bypass WebSocket attempt
-    // entirely to avoid error spam in browser console.
-    const isVercel = window.location.hostname.endsWith('.vercel.app');
-
-    if (isVercel) {
-      console.log('[ws] Vercel serverless environment detected. Enabling real-time polling fallback.');
-      setUsePolling(true);
-      return;
-    }
 
     function connect() {
       const getWsURL = (): string | null => {
@@ -337,57 +348,41 @@ export default function App() {
       };
 
       const url = getWsURL();
-      if (!url) {
-        setUsePolling(true);
-        return;
-      }
+      if (!url) return;
+
       console.log('[ws] Connecting to:', url);
       socket = new WebSocket(url);
 
       socket.onopen = () => {
         console.log('[ws] Connected to real-time events.');
-        hasConnectedOnce = true;
-        setUsePolling(false);
       };
 
       socket.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
           if (payload.type === 'APPOINTMENT_UPDATE') {
-            console.log('[ws] Appointment update received for date:', payload.date);
+            if (payload.appointment) {
+              useRealtimeStore.getState().upsertAppointment(payload.appointment);
+            } else {
+              apiClient.get('/appointments/today')
+                .then(r => useRealtimeStore.getState().upsertAppointmentsBatch(r.data || []))
+                .catch(console.error);
+            }
             window.dispatchEvent(new CustomEvent('emr:appointments-update', {
               detail: { date: payload.date }
             }));
-
-            if (payload.action === 'CHECK_IN') {
-              const newNotif = {
-                id: Math.random().toString(),
-                type: 'check_in',
-                message: `Patient ${payload.patientName} (${payload.uhid}) checked in for Dr. ${payload.doctorName}`,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                read: false
-              };
-              setLiveNotifications(prev => [newNotif, ...prev]);
-            }
           } else if (payload.type === 'BED_UPDATE') {
+            if (payload.bed) {
+              useRealtimeStore.getState().upsertBed(payload.bed);
+            } else {
+              apiClient.get('/beds')
+                .then(r => useRealtimeStore.getState().upsertBedsBatch(r.data || []))
+                .catch(console.error);
+            }
             window.dispatchEvent(new CustomEvent('emr:beds-update'));
-            let msg = '';
-            if (payload.action === 'ALLOCATE') {
-              msg = `Bed ${payload.bedName} allocated to patient ${payload.patientName} (${payload.uhid})`;
-            } else if (payload.action === 'RELEASE') {
-              msg = `Bed ${payload.bedName} released (patient discharged)`;
-            }
-            if (msg) {
-              const newNotif = {
-                id: Math.random().toString(),
-                type: 'bed',
-                message: msg,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                read: false
-              };
-              setLiveNotifications(prev => [newNotif, ...prev]);
-            }
           }
+          // Refresh notifications in notificationStore
+          if (user) useNotificationStore.getState().fetchNotifications(user.role);
         } catch (e) {
           console.error('[ws] Failed to parse message:', e);
         }
@@ -396,21 +391,15 @@ export default function App() {
       socket.onclose = () => {
         console.log('[ws] Connection closed.');
         if (!isIntentionalClose) {
-          if (!hasConnectedOnce) {
-            console.log('[ws] Initial connection failed. Falling back to HTTP polling.');
-            setUsePolling(true);
-          } else {
-            reconnectTimeout = setTimeout(() => {
-              console.log('[ws] Reconnecting...');
-              connect();
-            }, 6000);
-          }
+          reconnectTimeout = setTimeout(() => {
+            console.log('[ws] Reconnecting...');
+            connect();
+          }, 6000);
         }
       };
 
       socket.onerror = (err) => {
-        // Log as a warning instead of error to keep the console cleaner on serverless/offline environments
-        console.warn('[ws] WebSocket connection error (likely serverless host or offline):', err);
+        console.warn('[ws] WebSocket connection error:', err);
       };
     }
 
@@ -423,117 +412,16 @@ export default function App() {
     };
   }, [user]);
 
-  // 🕒 Polling fallback for real-time changes when WebSocket is not available
-  const seenCheckedInAppts = React.useRef<Set<string>>(new Set());
-  const seenBedsState = React.useRef<Record<string, { status: string; patient_name?: string; bed_number: string }>>({});
-  const isFirstPoll = React.useRef(true);
-
-  useEffect(() => {
-    if (!user || !usePolling) return;
-
-    async function pollData() {
-      try {
-        // Poll appointments
-        const apptsRes = await apiClient.get('/appointments/today');
-        const currentAppts = apptsRes.data || [];
-        
-        // Poll beds
-        const bedsRes = await apiClient.get('/beds');
-        const currentBeds = bedsRes.data || [];
-
-        // Check for new Checked-In appointments
-        currentAppts.forEach((a: any) => {
-          if (a.status === 'Checked-In') {
-            if (!seenCheckedInAppts.current.has(a.id)) {
-              seenCheckedInAppts.current.add(a.id);
-              if (!isFirstPoll.current) {
-                const newNotif = {
-                  id: Math.random().toString(),
-                  type: 'check_in',
-                  message: `Patient ${a.patient_name || 'Patient'} (${a.uhid || '—'}) checked in for Dr. ${a.doctor_name || 'Doctor'}`,
-                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  read: false
-                };
-                setLiveNotifications(prev => [newNotif, ...prev]);
-              }
-            }
-          }
-        });
-
-        // Check for bed updates
-        currentBeds.forEach((b: any) => {
-          const prev = seenBedsState.current[b.id];
-          if (prev) {
-            if (prev.status !== b.status) {
-              let msg = '';
-              if (b.status === 'Occupied') {
-                msg = `Bed ${b.bed_number} allocated to patient ${b.patient_name || 'Patient'} (${b.uhid || '—'})`;
-              } else if (b.status === 'Available' && prev.status === 'Occupied') {
-                msg = `Bed ${b.bed_number} released (patient discharged)`;
-              }
-              if (msg && !isFirstPoll.current) {
-                const newNotif = {
-                  id: Math.random().toString(),
-                  type: 'bed',
-                  message: msg,
-                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  read: false
-                };
-                setLiveNotifications(prev => [newNotif, ...prev]);
-              }
-            }
-          }
-          seenBedsState.current[b.id] = { status: b.status, patient_name: b.patient_name, bed_number: b.bed_number };
-        });
-
-        if (isFirstPoll.current) {
-          isFirstPoll.current = false;
-        }
-
-        // Trigger updates in components
-        window.dispatchEvent(new CustomEvent('emr:appointments-update'));
-        window.dispatchEvent(new CustomEvent('emr:beds-update'));
-      } catch (err) {
-        console.error('[ws] Polling error:', err);
-      }
-    }
-
-    // Run first poll immediately
-    pollData();
-
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    console.log(`[ws] Starting background polling fallback (every ${isLocal ? '3s' : '20s'})...`);
-    const interval = setInterval(pollData, isLocal ? 3000 : 20000);
-
-    return () => clearInterval(interval);
-  }, [user, usePolling]);
-
   // Listen for manual notification events
   useEffect(() => {
     function handleManualNotification(e: any) {
-      if (e.detail) {
-        const newNotif = {
-          id: Math.random().toString(),
-          type: e.detail.type || 'vitals',
-          message: e.detail.message || 'Manual Notification Triggered: Vitals Alert',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          read: false
-        };
-        setLiveNotifications(prev => [newNotif, ...prev]);
+      if (e.detail && user) {
+        useNotificationStore.getState().fetchNotifications(user.role);
       }
     }
     window.addEventListener('emr:new-notification', handleManualNotification);
     return () => window.removeEventListener('emr:new-notification', handleManualNotification);
-  }, []);
-
-  async function handleDismissAlert(id: string) {
-    try {
-      await apiClient.post(`/notifications/${id}/read`);
-      setAlerts(prev => prev.filter(a => a.id !== id));
-    } catch (err) {
-      console.error('Failed to dismiss alert:', err);
-    }
-  }
+  }, [user]);
 
   // Set default page per role on login
   useEffect(() => {
@@ -643,321 +531,98 @@ export default function App() {
             </button>
             <div className="topbar-title">{PAGE_TITLES[page] ?? 'EMR'}</div>
           </div>
-          
-          {/* Patient Search Bar */}
-          {user && (
-            <div style={{ position: 'relative', width: '100%', maxWidth: 360, margin: '0 16px' }} className="no-print">
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 12px' }}>
-                <span style={{ marginRight: 6, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search patients..."
-                  value={searchQuery}
-                  onChange={e => handleSearchChange(e.target.value)}
-                  style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)', width: '100%' }}
-                />
-                {searchQuery && (
-                  <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>
-                    ✕
-                  </button>
-                )}
-              </div>
-              
-              {/* Search Results Dropdown */}
-              {searchResults.length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '105%',
-                  left: 0,
-                  right: 0,
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 1000,
-                  maxHeight: 250,
-                  overflowY: 'auto',
-                  padding: '4px 0'
-                }}>
-                  {searchResults.map((p: any) => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        navigate('patient_detail', { patientId: p.id });
-                        setSearchQuery('');
-                        setSearchResults([]);
-                      }}
-                      onMouseEnter={() => setHoveredId(p.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      style={{
-                        padding: '8px 12px',
-                        cursor: 'pointer',
-                        background: hoveredId === p.id ? 'var(--border-light)' : 'transparent',
-                        borderBottom: '1px solid var(--border-light)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 2,
-                        transition: 'background 0.15s'
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--text)' }}>{p.name}</div>
-                      <div style={{ display: 'flex', gap: 6, fontSize: 10.5, color: 'var(--text-muted)' }}>
-                        <span>{p.uhid}</span>
-                        <span>•</span>
-                        <span>{p.sex || 'Male'}, {p.age || '—'}y</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="topbar-right">
-            {/* Notification Bell */}
+            {/* Patient Search Bar */}
             {user && (
-              <div style={{ position: 'relative', marginRight: 8 }} className="no-print">
-                <button
-                  onClick={() => setShowNotificationPanel(o => !o)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: 18,
-                    cursor: 'pointer',
-                    position: 'relative',
-                    padding: 6,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--text-muted)',
-                    transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--border-light)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                  </svg>
-                  {(liveNotifications.length > 0 || alerts.length > 0) && (
-                    <span style={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      background: '#ef4444',
-                      color: '#fff',
-                      borderRadius: '50%',
-                      width: 14,
-                      height: 14,
-                      fontSize: 8,
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {liveNotifications.length + alerts.length}
-                    </span>
+              <div style={{ position: 'relative', width: 280, margin: '0 8px' }} className="no-print">
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 12px' }}>
+                  <span style={{ marginRight: 6, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search patients..."
+                    value={searchQuery}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 12.5, color: 'var(--text)', width: '100%' }}
+                  />
+                  {searchQuery && (
+                    <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>
+                      ✕
+                    </button>
                   )}
-                </button>
-
-                {showNotificationPanel && (
+                </div>
+                
+                {/* Search Results Dropdown */}
+                {searchResults.length > 0 && (
                   <div style={{
                     position: 'absolute',
-                    top: '125%',
+                    top: '105%',
+                    left: 0,
                     right: 0,
-                    width: 320,
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
-                    borderRadius: 12,
+                    borderRadius: 8,
                     boxShadow: 'var(--shadow-lg)',
                     zIndex: 1000,
-                    overflow: 'hidden'
+                    maxHeight: 250,
+                    overflowY: 'auto',
+                    padding: '4px 0'
                   }}>
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
-                      <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)' }}>Notifications</span>
-                      <button
+                    {searchResults.map((p: any) => (
+                      <div
+                        key={p.id}
                         onClick={() => {
-                          setLiveNotifications([]);
-                          // Dismiss all DB alerts
-                          Promise.all(alerts.map(a => apiClient.post(`/notifications/${a.id}/read`)))
-                            .then(() => setAlerts([]))
-                            .catch(err => console.error(err));
+                          navigate('patient_detail', { patientId: p.id });
+                          setSearchQuery('');
+                          setSearchResults([]);
                         }}
-                        style={{ background: 'none', border: 'none', fontSize: 11, color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}
+                        onMouseEnter={() => setHoveredId(p.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        style={{
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          background: hoveredId === p.id ? 'var(--border-light)' : 'transparent',
+                          borderBottom: '1px solid var(--border-light)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 2,
+                          transition: 'background 0.15s'
+                        }}
                       >
-                        Clear all
-                      </button>
-                    </div>
-                    <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                      {alerts.length === 0 && liveNotifications.length === 0 ? (
-                        <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
-                          No new notifications
+                        <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--text)' }}>{p.name}</div>
+                        <div style={{ display: 'flex', gap: 6, fontSize: 10.5, color: 'var(--text-muted)' }}>
+                          <span>{p.uhid}</span>
+                          <span>•</span>
+                          <span>{p.sex || 'Male'}, {p.age || '—'}y</span>
                         </div>
-                      ) : (
-                        <>
-                          {/* Render active emergency alerts first */}
-                          {alerts.map(a => (
-                            <div
-                              key={a.id}
-                              style={{
-                                padding: '10px 16px',
-                                borderBottom: '1px solid var(--border-light)',
-                                background: '#fef2f2',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 3
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 0.5 }}>🚨 Emergency Alert</span>
-                                <button
-                                  onClick={() => handleDismissAlert(a.id)}
-                                  style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                              <div style={{ fontSize: 12, color: '#991b1b', fontWeight: 600 }}>{a.message}</div>
-                              {a.patient_name && (
-                                <div style={{ fontSize: 10.5, color: '#b91c1c' }}>
-                                  Patient: <strong>{a.patient_name}</strong> ({a.patient_uhid})
-                                </div>
-                              )}
-                            </div>
-                          ))}
-
-                          {/* Render live real-time notifications */}
-                          {liveNotifications.map(n => (
-                            <div
-                              key={n.id}
-                              style={{
-                                padding: '10px 16px',
-                                borderBottom: '1px solid var(--border-light)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 2,
-                                position: 'relative'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: n.type === 'check_in' ? 'var(--primary)' : '#10b981',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: 0.5
-                                }}>
-                                  {n.type === 'check_in' ? 'Patient Flow' : 'Bed Update'}
-                                </span>
-                                <span style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{n.timestamp}</span>
-                              </div>
-                              <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{n.message}</div>
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )}
-
-            <div style={{
-              width:32,
-              height:32,
-              borderRadius:'50%',
-              background:'var(--primary-grad)',
-              color:'#fff',
-              display:'flex',
-              alignItems:'center',
-              justifyContent:'center',
-              fontWeight:700,
-              fontSize:12,
-              flexShrink:0,
-              overflow: 'hidden'
-            }}>
-              {user?.photoUrl ? (
-                <img src={user.photoUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                user?.name?.split(' ').map(w => w[0]).join('').slice(0,2) ?? ''
-              )}
-            </div>
+            {/* Notification Bell */}
+            {user && <NotificationBell />}
           </div>
         </header>
 
-        {/* Emergency alerts section */}
-        {alerts.length > 0 && (
-          <div style={{
-            background: '#fee2e2',
-            border: '2px solid #ef4444',
-            margin: '16px',
-            borderRadius: '12px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                background: '#dc2626',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-              </div>
-              <style>{`
-                @keyframes shake {
-                  0% { transform: rotate(0); }
-                  25% { transform: rotate(15deg); }
-                  50% { transform: rotate(0); }
-                  75% { transform: rotate(-15deg); }
-                  100% { transform: rotate(0); }
-                }
-              `}</style>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, color: '#991b1b', fontSize: 14 }}>EMERGENCY ALERTS ({alerts.length})</div>
-                <div style={{ color: '#7f1d1d', fontSize: 13, marginTop: 4 }}>
-                  {alerts.map((alert, i) => (
-                    <div key={alert.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < alerts.length - 1 ? '1px solid #fca5a5' : 'none' }}>
-                      <div>
-                        <strong>{alert.message}</strong>
-                        {alert.patient_name && <span> (Patient: <strong>{alert.patient_name}</strong> - UHID: {alert.patient_uhid})</span>}
-                      </div>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        style={{ padding: '2px 8px', fontSize: 11, minHeight: 'auto', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                        onClick={() => handleDismissAlert(alert.id)}
-                      >
-                        Acknowledge & Dismiss
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Emergency Alerts Banner for Doctor Suite */}
+        <EmergencyBanner />
 
         <div className="page-scroll">
           {renderPage()}
         </div>
       </div>
+
+      {/* Large Print Request Modal Pop-Up for Receptionist */}
+      <PrintRequestModal 
+        data={activePrintModalData} 
+        onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
+      />
     </div>
   );
 }

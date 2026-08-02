@@ -126,7 +126,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
         <div className="modal-overlay" onClick={resetForm}>
           <div className="modal" style={{ maxWidth:660 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">💊 New Pharmacy Bill</div>
+              <div className="modal-title">New Pharmacy Bill</div>
               <button className="modal-close" onClick={resetForm}>✕</button>
             </div>
             <form onSubmit={submit}>
@@ -141,7 +141,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
                       style={{ fontFamily:'monospace', letterSpacing:1 }} />
                     <button type="button" className="btn btn-secondary" style={{ flexShrink:0 }}
                       onClick={searchRx} disabled={searching}>
-                      {searching ? <div className="spinner spinner-sm"/> : '🔍 Search'}
+                      {searching ? <div className="spinner spinner-sm"/> : 'Search'}
                     </button>
                   </div>
                   {searchErr && <div className="alert alert-danger" style={{ marginTop:8 }}>{searchErr}</div>}
@@ -235,7 +235,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? '💊 Saving…' : '💊 Create Pharmacy Bill'}
+                  {saving ? 'Saving…' : 'Create Pharmacy Bill'}
                 </button>
               </div>
             </form>
@@ -245,7 +245,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
 
       <div className="page-header">
         <div>
-          <div className="page-title">💊 Pharmacy Billing</div>
+          <div className="page-title">Pharmacy Billing</div>
           <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>
             Medicines dispensed — separate from consultation fees
           </div>
@@ -263,7 +263,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
         ? <div style={{ padding:48, textAlign:'center' }}><div className="spinner" style={{ margin:'0 auto' }}/></div>
         : filtered.length === 0
           ? <div className="card"><div className="empty-state">
-              <span className="empty-icon">💊</span>
+              <span className="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
               <h3>No pharmacy bills</h3>
               <p>Use an Rx token from a prescription slip to quickly add medicines.</p>
               <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ New Bill</button>
@@ -296,7 +296,9 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
                           <td style={{ fontSize:11, color:'var(--text-muted)' }}>
                             {new Date(b.created_at).toLocaleDateString('en-IN')}</td>
                           <td>
-                            <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)} title="Print Bill">🖨️</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)} title="Print Bill">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            </button>
                           </td>
                         </tr>
                       );

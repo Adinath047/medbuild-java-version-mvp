@@ -13,6 +13,8 @@ public class PatientDTO {
         private List<Patient> patients;
         private long total;
 
+        public PatientListResponse() {}
+
         public PatientListResponse(List<Patient> patients, long total) {
             this.patients = patients;
             this.total = total;

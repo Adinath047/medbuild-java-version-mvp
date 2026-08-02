@@ -16,6 +16,7 @@
     <description>Unified Fullstack App for Medicos EMR (Spring Boot 3 + React Frontend Monorepo)</description>
     <properties>
         <java.version>21</java.version>
+        <netty.version>4.1.110.Final</netty.version>
         <jjwt.version>0.12.5</jjwt.version>
         <springdoc.version>2.3.0</springdoc.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
@@ -71,6 +72,26 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Thymeleaf -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- OpenHTMLtoPDF (PDFBOX renderer) -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+
+        <!-- JSoup HTML Cleaner -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
         </dependency>
 
         <!-- Springdoc OpenAPI UI (Swagger Docs) -->
@@ -148,7 +169,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
+                    <jvmArguments>--enable-native-access=ALL-UNNAMED -Dio.netty.noUnsafe=true --add-opens=java.base/sun.misc=ALL-UNNAMED</jvmArguments>
                 </configuration>
             </plugin>
             <plugin>

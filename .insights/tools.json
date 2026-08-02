@@ -1,0 +1,42 @@
+{
+  "server": "insights",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "insights_analyze_vitals",
+      "description": "Analyze patient vitals trends over time to detect hypertension, tachycardia, hypoxia, and fever anomalies.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "patientId": { "type": "string" },
+          "vitals": { "type": "array" }
+        },
+        "required": ["patientId"]
+      }
+    },
+    {
+      "name": "insights_get_patient_risk",
+      "description": "Calculate clinical risk score (Normal / Warning / Critical) based on age, chronic conditions, and recent observation trends.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "patientId": { "type": "string" },
+          "conditions": { "type": "array" },
+          "age": { "type": "number" }
+        },
+        "required": ["patientId"]
+      }
+    },
+    {
+      "name": "insights_get_occupancy_report",
+      "description": "Generate ward and bed occupancy analytics report for IPD management.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "hospitalId": { "type": "string" }
+        },
+        "required": ["hospitalId"]
+      }
+    }
+  ]
+}

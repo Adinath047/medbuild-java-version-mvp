@@ -1,23 +1,33 @@
 package com.medicos.backend.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medicos.backend.entity.Medicine;
+import com.medicos.backend.entity.Prescription;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.repository.MedicineRepository;
+import com.medicos.backend.repository.PrescriptionRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class MedicineService {
 
     private final MedicineRepository medicineRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final ObjectMapper objectMapper;
 
-    public MedicineService(MedicineRepository medicineRepository) {
+    public MedicineService(MedicineRepository medicineRepository,
+                           PrescriptionRepository prescriptionRepository,
+                           ObjectMapper objectMapper) {
         this.medicineRepository = medicineRepository;
+        this.prescriptionRepository = prescriptionRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Cacheable(value = "medicines", key = "#search != null ? #search : 'ALL'")
@@ -27,6 +37,66 @@ public class MedicineService {
                 .filter(s -> !s.trim().isEmpty())
                 .map(s -> medicineRepository.searchMedicines(s.trim()))
                 .orElseGet(medicineRepository::findAll);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Medicine> searchMedicines(String q) {
+        if (q == null || q.trim().length() < 2) {
+            return Collections.emptyList();
+        }
+        List<Medicine> results = medicineRepository.searchMedicines(q.trim());
+        if (results.size() > 20) {
+            return results.subList(0, 20);
+        }
+        return results;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Object> getFrequentMedicines(User user) {
+        if (user == null || user.getId() == null) {
+            return Collections.emptyList();
+        }
+        List<Prescription> prescriptions = prescriptionRepository.findByDoctorIdOrderByCreatedAtDesc(user.getId());
+        if (prescriptions.size() > 100) {
+            prescriptions = prescriptions.subList(0, 100);
+        }
+
+        Map<String, Map<String, Object>> counts = new LinkedHashMap<>();
+        for (Prescription rx : prescriptions) {
+            if (rx.getMedicines() == null || rx.getMedicines().trim().isEmpty()) continue;
+            try {
+                Object parsed = objectMapper.readValue(rx.getMedicines(), Object.class);
+                if (parsed instanceof List<?>) {
+                    List<?> medsList = (List<?>) parsed;
+                    for (Object medObj : medsList) {
+                        if (medObj instanceof Map<?, ?>) {
+                            Map<?, ?> medMap = (Map<?, ?>) medObj;
+                            Object nameObj = medMap.get("name");
+                            if (nameObj != null && !nameObj.toString().trim().isEmpty()) {
+                                String name = nameObj.toString().trim();
+                                String key = name.toLowerCase();
+                                if (!counts.containsKey(key)) {
+                                    Map<String, Object> entry = new HashMap<>();
+                                    entry.put("name", name);
+                                    entry.put("count", 1);
+                                    entry.put("med", medMap);
+                                    counts.put(key, entry);
+                                } else {
+                                    Map<String, Object> entry = counts.get(key);
+                                    entry.put("count", ((Integer) entry.get("count")) + 1);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return counts.values().stream()
+                .sorted((a, b) -> Integer.compare((Integer) b.get("count"), (Integer) a.get("count")))
+                .map(entry -> entry.get("med"))
+                .limit(10)
+                .collect(Collectors.toList());
     }
 
     @CacheEvict(value = "medicines", allEntries = true)

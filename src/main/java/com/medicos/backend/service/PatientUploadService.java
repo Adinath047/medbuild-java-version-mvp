@@ -47,4 +47,16 @@ public class PatientUploadService {
 
         return uploadRepository.save(upload);
     }
+
+    @Transactional
+    public void deleteUpload(String id, User user) {
+        PatientUpload upload = uploadRepository.findById(id)
+                .orElseThrow(() -> new com.medicos.backend.exception.ResourceNotFoundException("Upload not found with ID: " + id));
+
+        if (user != null && "patient".equalsIgnoreCase(user.getRole()) && !user.getId().equals(upload.getPatientId())) {
+            throw new com.medicos.backend.exception.UnauthorizedException("Access Denied: You can only delete your own uploads.");
+        }
+
+        uploadRepository.delete(upload);
+    }
 }

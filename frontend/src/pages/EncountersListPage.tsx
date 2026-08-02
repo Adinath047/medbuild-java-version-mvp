@@ -43,7 +43,7 @@ export default function EncountersListPage({ onNavigate }: { onNavigate: (p: str
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">📋 Encounters</div>
+          <div className="page-title">Encounters</div>
           <div className="page-sub">{visible.length} record{visible.length !== 1 ? 's' : ''}</div>
         </div>
         <button className="btn btn-primary" onClick={() => onNavigate('new_encounter')}>+ New Encounter</button>
@@ -71,7 +71,7 @@ export default function EncountersListPage({ onNavigate }: { onNavigate: (p: str
         {loading
           ? <div className="loading-screen" style={{ height: 200 }}><div className="spinner" /></div>
           : visible.length === 0
-            ? <div className="empty-state"><span className="empty-icon">📋</span><p>No encounters found</p></div>
+            ? <div className="empty-state"><span className="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><p>No encounters found</p></div>
             : <div className="table-wrap">
                 <table>
                   <thead>

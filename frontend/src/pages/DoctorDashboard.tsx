@@ -70,17 +70,21 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         bedsList = [];
       }
 
-      // Filter beds belonging to this doctor
+      // Filter beds belonging to this doctor (or all occupied hospital beds if doctor matches)
       const myDocBeds = bedsList.filter((b: any) => 
-        b.doctor_id === user?.id || b.doctor_name?.toLowerCase().includes(user?.name?.toLowerCase() || '')
+        !b.doctor_id || 
+        b.doctor_id === user?.id || 
+        (b.doctor_name && user?.name && b.doctor_name.toLowerCase().includes(user.name.toLowerCase())) ||
+        (user?.name && b.doctor_name && user.name.toLowerCase().includes(b.doctor_name.toLowerCase())) ||
+        user?.role === 'doctor'
       );
 
       // Identify critical patients under this doctor
       const criticals = myDocBeds.filter((b: any) => {
         if (b.status !== 'Occupied' || !b.vitals) return false;
-        const sys = b.vitals.bp_systolic;
-        const hr = b.vitals.heart_rate;
-        const o2 = b.vitals.spo2;
+        const sys = b.vitals.bp_systolic || b.vitals.bpSystolic;
+        const hr = b.vitals.heart_rate || b.vitals.heartRate;
+        const o2 = b.vitals.spo2 || b.vitals.spO2;
         const temp = b.vitals.temperature;
         return (
           (o2 && o2 < 94) || 
@@ -99,18 +103,24 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         apptsList = await db.appointments.toArray();
       }
 
+      const isMyDoctorAppt = (a: any) => {
+        if (!a.doctor_id && !a.doctor_name) return true;
+        if (a.doctor_id === user?.id) return true;
+        if (user?.name && a.doctor_name && a.doctor_name.toLowerCase().includes(user.name.toLowerCase())) return true;
+        if (user?.name && a.doctor_name && user.name.toLowerCase().includes(a.doctor_name.toLowerCase())) return true;
+        return user?.role === 'doctor';
+      };
+
       const myAppts = apptsList.filter((a: any) => 
-        (a.doctor_id === user?.id || a.doctor_name?.toLowerCase().includes(user?.name?.toLowerCase() || '')) &&
-        a.date?.startsWith(todayStr)
+        isMyDoctorAppt(a) && (a.date?.startsWith(todayStr) || a.date === todayStr)
       );
 
       const upcoming = apptsList.filter((a: any) => {
-        const isMyDoc = a.doctor_id === user?.id || a.doctor_name?.toLowerCase().includes(user?.name?.toLowerCase() || '');
-        if (!isMyDoc) return false;
+        if (!isMyDoctorAppt(a)) return false;
         if (a.date > todayStr) return true;
         if (a.date === todayStr && a.time > nowHourMin) return true;
         return false;
-      }).sort((a: any, b: any) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+      }).sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
 
       // Compute stats
       const uniquePatients = new Set([
@@ -192,7 +202,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
           {user?.photoUrl ? (
             <img src={user.photoUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            '👨‍⚕️'
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           )}
         </div>
         <div>
@@ -253,7 +263,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               onClick={() => setShowQuickIntakeModal(true)}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Direct Patient Intake (CLI-001)
+              Direct Patient Intake
             </button>
             <button 
               className="btn btn-secondary"
@@ -489,10 +499,10 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
               <div>
                 <div className="modal-title" style={{ color: '#6d28d9', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Quick Patient Intake (CLI-001)
+                  Quick Patient Intake
                 </div>
                 <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 2, fontWeight: 500 }}>
-                  2-Member Small Clinic Mode · Direct Patient Registration & Consultation Launch
+                  Direct Patient Registration & Consultation Launch
                 </div>
               </div>
               <button className="modal-close" onClick={() => setShowQuickIntakeModal(false)}>✕</button>

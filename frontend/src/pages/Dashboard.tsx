@@ -49,9 +49,9 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: string, d?: 
         const criticalBedsList: any[] = [];
         bedsData.forEach((b: any) => {
           if (b.status === 'Occupied' && b.vitals) {
-            const sys = b.vitals.bp_systolic;
-            const hr = b.vitals.heart_rate;
-            const o2 = b.vitals.spo2;
+            const sys = b.vitals.bp_systolic || b.vitals.bpSystolic;
+            const hr = b.vitals.heart_rate || b.vitals.heartRate;
+            const o2 = b.vitals.spo2 || b.vitals.spO2;
             const temp = b.vitals.temperature;
             if (
               (o2 && o2 < 94) || 

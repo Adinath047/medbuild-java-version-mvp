@@ -369,7 +369,7 @@ export function printPrescriptionSlip(opts: {
   } else {
     headerHtml = `<div class="header" style="height: ${headerHeight}mm; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; overflow: hidden; border-bottom: 2.5px solid #0f766e; padding-bottom: 10px; padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm;">
         <div>
-          <div class="brand-name">🏥 ${BRAND.name}</div>
+          <div class="brand-name">${BRAND.name}</div>
           <div class="brand-sub">${BRAND.tagline}</div>
           <div class="brand-addr">${BRAND.address} &nbsp;|&nbsp; Tel: ${BRAND.phone}</div>
         </div>
@@ -475,14 +475,14 @@ export function printPrescriptionSlip(opts: {
   <div class="print-content">
     <div class="pt-pill-row">
       <div class="pt-pill">
-        <span>${patient.name} &nbsp;|&nbsp; ${patient.age ? `${patient.age}y` : ''} ${patient.sex ? ` / ${patient.sex}` : ''}</span>
+        <span><strong>${patient.name}</strong> &nbsp;|&nbsp; UHID: ${patient.uhid || '—'} &nbsp;|&nbsp; ${patient.age ? `${patient.age}y` : ''} ${patient.sex ? ` / ${patient.sex}` : ''}</span>
         <span>Date & Time: ${date} &nbsp; ${time}</span>
       </div>
     </div>
  
   ${allergiesArray.length > 0 ? `
   <div style="margin: -10px 0 15px; padding: 8px 12px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px; color: #b91c1c; font-weight: bold; font-size: ${printFontSize - 0.5}pt; display: flex; align-items: center; gap: 6px; font-family: 'Inter', sans-serif;">
-    ⚠️ Allergies: ${allergiesArray.join(', ')}
+    Allergies: ${allergiesArray.join(', ')}
   </div>
   ` : ''}
  
@@ -533,13 +533,13 @@ export function printPrescriptionSlip(opts: {
  
     ${showInvestigationsOnPrint && investigations && investigations.length > 0 ? `
     <div class="advice-item" style="margin-top: 6px;">
-      <span class="advice-lbl">फेर चाचणी:</span>
+      <span class="advice-lbl">Investigations / Tests:</span>
       <span class="advice-val"> ${investigations}</span>
     </div>` : ''}
  
     ${followUp ? `
     <div class="advice-item" style="margin-top: 6px;">
-      <span class="advice-lbl">परतपासणी :</span>
+      <span class="advice-lbl">Follow-up Date:</span>
       <span class="advice-val"> ${new Date(followUp).toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} (${new Date(followUp).toLocaleDateString('en-IN', { weekday: 'long' })})</span>
     </div>` : ''}
   </div>

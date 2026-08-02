@@ -12,6 +12,21 @@ import {
   collectErrors, isValid, extractServerError, type FieldErrors,
 } from '../utils/validation';
 
+const safeJsonArray = (val: any): any[] => {
+  if (Array.isArray(val)) return val;
+  if (!val) return [];
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+      return [val];
+    } catch {
+      return val.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
 export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:string,d?:any)=>void; data?:any }) {
   const { user } = useAuthStore();
   const isDoctor = user?.role === 'doctor';
@@ -163,16 +178,20 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
       setSummary(res.data);
       try {
         const trendRes = await apiClient.get(`/vitals/patient/${patientId}/trend?n=20`);
-        setVitalsHistory(trendRes.data || []);
+        const rawTrend = Array.isArray(trendRes.data) ? trendRes.data : (trendRes.data?.vitals || trendRes.data?.trend || []);
+        setVitalsHistory(rawTrend);
       } catch (err) {
         console.warn("Trend load error, falling back to summary vitals", err);
+        setVitalsHistory([]);
       }
       try {
         const billsRes = await apiClient.get('/billing');
-        const pBills = (billsRes.data || []).filter((b: any) => b.patient_id === patientId);
+        const rawBills = Array.isArray(billsRes.data) ? billsRes.data : (billsRes.data?.bills || []);
+        const pBills = rawBills.filter((b: any) => b.patient_id === patientId);
         setPatientBills(pBills);
       } catch (err) {
         console.warn("Failed to load patient bills from api", err);
+        setPatientBills([]);
       }
     } catch {
       const patient    = await db.patients.get(patientId);
@@ -216,15 +235,16 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
   if (loading)   return <div className="loading-screen" style={{height:'60vh'}}><div className="spinner"/></div>;
   if (!summary?.patient) return <div className="empty-state"><span className="empty-icon">❌</span><h3>Patient not found</h3></div>;
 
-  const { patient: p, encounters = [], latestVitals: vit, rxCount, prescriptions = [], apptUpcoming = [] } = summary;
-  const allergies  = Array.isArray(p.allergies)          ? p.allergies          : JSON.parse(p.allergies||'[]');
+  const p = summary.patient;
+  const encounters = safeJsonArray(summary.encounters);
+  const vit = summary.latestVitals;
+  const rxCount = summary.rxCount || 0;
+  const prescriptions = safeJsonArray(summary.prescriptions);
+  const apptUpcoming = safeJsonArray(summary.apptUpcoming);
+  const allergies = safeJsonArray(p.allergies);
 
   function printSlip(rx: any) {
-    const meds = Array.isArray(rx.medicines)
-      ? rx.medicines
-      : typeof rx.medicines === 'string'
-      ? JSON.parse(rx.medicines || '[]')
-      : [];
+    const meds = safeJsonArray(rx.medicines);
     printPrescriptionSlip({
       doctor: {
         name: rx.doctor_name || user?.name || 'Doctor',
@@ -286,7 +306,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
       printFontSize: rx.doctor_print_font_size !== undefined ? rx.doctor_print_font_size : user?.printFontSize
     });
   }
-  const conditions = Array.isArray(p.chronic_conditions) ? p.chronic_conditions : JSON.parse(p.chronic_conditions||'[]');
+  const conditions = safeJsonArray(p.chronic_conditions);
 
   const specialty = getSpecialtyCode(user?.specialization);
   const theme = SPECIALTY_THEMES[specialty] || SPECIALTY_THEMES.General;
@@ -318,7 +338,9 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           maxWidth: 380,
           animation: 'slideIn 0.3s ease-out'
         }}>
-          <span style={{ fontSize: 22 }}>🔔</span>
+          <span style={{ fontSize: 22, display: 'flex', alignItems: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#2dd4bf', marginBottom: 2 }}>{notificationToast.title}</div>
             <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.4 }}>{notificationToast.message}</div>
@@ -341,20 +363,23 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           <button 
             className="btn btn-sm" 
             onClick={() => showManualNotification(
-              `🔔 Manual Notification: ${p.name}`,
+              `Manual Notification: ${p.name}`,
               `Patient ${p.name} (${p.uhid}) vitals: Temperature & Vitals trend alert triggered manually.`
             )}
-            style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.3)', fontWeight: 600 }}
+            style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            🔔 Show Notification
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Show Notification
           </button>
           {isDoctor && (
             <>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('new_prescription', { patientId: p.id })}>
-                📝 Write Prescription
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('new_prescription', { patientId: p.id })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Write Prescription
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('new_encounter', { patientId: p.id })}>
-                📋 Record Encounter
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('new_encounter', { patientId: p.id })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                Record Encounter
               </button>
             </>
           )}
@@ -418,17 +443,21 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
 
             {/* Contacts grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginTop: 14 }}>
-              <div style={{ fontSize: 12, color: 'var(--text-sec)' }}>
-                📞 <strong>{p.phone || '—'}</strong>
+              <div style={{ fontSize: 12, color: 'var(--text-sec)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <strong>{p.phone || '—'}</strong>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-sec)' }}>
-                ✉️ <strong>{p.email || '—'}</strong>
+              <div style={{ fontSize: 12, color: 'var(--text-sec)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <strong>{p.email || '—'}</strong>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-sec)', gridColumn: 'span 2' }}>
-                📍 {p.address || '—'}
+              <div style={{ fontSize: 12, color: 'var(--text-sec)', gridColumn: 'span 2', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {p.address || '—'}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-sec)', gridColumn: 'span 2', marginTop: 4 }}>
-                🩺 <strong>Chief Complaint:</strong> {encounters[0]?.chief_complaint || '—'}
+              <div style={{ fontSize: 12, color: 'var(--text-sec)', gridColumn: 'span 2', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4.8 2.3A.3.3 0 0 0 4.5 2h-1a.3.3 0 0 0-.3.3v7.4a4.8 4.8 0 0 0 9.6 0V2.3a.3.3 0 0 0-.3-.3h-1a.3.3 0 0 0-.3.3v7.4a2.4 2.4 0 0 1-4.8 0V2.3z"/><path d="M8 14.5v3.3a4.2 4.2 0 0 0 8.4 0v-1.8"/><circle cx="18" cy="16" r="2"/></svg>
+                <strong>Chief Complaint:</strong> {encounters[0]?.chief_complaint || '—'}
               </div>
             </div>
 
@@ -450,10 +479,11 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           <button 
             type="button" 
             className="btn btn-secondary btn-sm" 
-            style={{ alignSelf: 'flex-start', minHeight: 'auto', padding: '4px 8px' }}
+            style={{ alignSelf: 'flex-start', minHeight: 'auto', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
             onClick={() => setShowEdit(true)}
           >
-            ✏️ Edit
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Edit
           </button>
         </div>
 
@@ -573,9 +603,10 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                     `📊 Vitals Trends Notification`,
                     `Patient ${p.name} (${p.uhid}) Temperature & Vitals trends alert: Latest Temp is ${vit?.temperature || '38.6'}°${vit?.temperature_unit || 'C'}.`
                   )}
-                  style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600 }}
+                  style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  🔔 Show Notification
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  Show Notification
                 </button>
                 <button className="btn btn-primary btn-sm" onClick={() => onNavigate('new_vitals', { patientId: p.id })}>
                   + Record Vitals
@@ -606,7 +637,8 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Heart Rate (BPM)</span>
                     <div style={{ marginTop: 12, background: 'var(--surface-alt)', borderRadius: 8, padding: 12, border: '1px solid var(--border-light)' }}>
                       {(() => {
-                        const hrValues = vitalsHistory.map(vh => vh.heart_rate).filter(Boolean);
+                        const safeVits = Array.isArray(vitalsHistory) ? vitalsHistory : [];
+                        const hrValues = safeVits.map(vh => vh?.heart_rate).filter(Boolean);
                         const finalHr = hrValues.length > 0 ? hrValues : [84, 80, 82, 80, 83, 80, 84, 80, 110, 126, 130];
                         
                         const width = 350;
@@ -700,8 +732,9 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Blood Pressure (MMHG)</span>
                     <div style={{ marginTop: 12, background: 'var(--surface-alt)', borderRadius: 8, padding: 12, border: '1px solid var(--border-light)' }}>
                       {(() => {
-                        const sysValues = vitalsHistory.map(vh => vh.bp_systolic).filter(Boolean);
-                        const diaValues = vitalsHistory.map(vh => vh.bp_diastolic).filter(Boolean);
+                        const safeVits = Array.isArray(vitalsHistory) ? vitalsHistory : [];
+                        const sysValues = safeVits.map(vh => vh?.bp_systolic).filter(Boolean);
+                        const diaValues = safeVits.map(vh => vh?.bp_diastolic).filter(Boolean);
                         
                         const finalSys = sysValues.length > 0 ? sysValues : [120, 116, 118, 115, 118, 120, 122, 118, 140, 150, 153];
                         const finalDia = diaValues.length > 0 ? diaValues : [80, 78, 80, 76, 78, 80, 82, 80, 90, 96, 98];
@@ -832,7 +865,8 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>SPO₂ (%)</span>
                     <div style={{ marginTop: 12, background: 'var(--surface-alt)', borderRadius: 8, padding: 12, border: '1px solid var(--border-light)' }}>
                       {(() => {
-                        const o2Values = vitalsHistory.map(vh => vh.spo2).filter(Boolean);
+                        const safeVits = Array.isArray(vitalsHistory) ? vitalsHistory : [];
+                        const o2Values = safeVits.map(vh => vh?.spo2).filter(Boolean);
                         const finalO2 = o2Values.length > 0 ? o2Values : [98, 96, 97, 96, 97, 97, 98, 97, 95, 91, 90];
                         
                         const width = 350;
@@ -924,7 +958,8 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temperature (°C)</span>
                     <div style={{ marginTop: 12, background: 'var(--surface-alt)', borderRadius: 8, padding: 12, border: '1px solid var(--border-light)' }}>
                       {(() => {
-                        const rawTempValues = vitalsHistory.map(vh => vh.temperature).filter((v): v is number => v !== undefined && v !== null && !isNaN(v));
+                        const safeVits = Array.isArray(vitalsHistory) ? vitalsHistory : [];
+                        const rawTempValues = safeVits.map(vh => vh?.temperature).filter((v): v is number => v !== undefined && v !== null && !isNaN(v));
                         // Normalize Fahrenheit (> 50) to Celsius for °C trend line
                         const tempValues = rawTempValues.map(v => v > 50 ? (v - 32) * 5 / 9 : v);
                         const finalTemp = tempValues.length > 0 ? tempValues : [36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 37.8, 38.6, 38.6];
@@ -1026,18 +1061,20 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
               <button 
                 className="btn btn-sm" 
                 onClick={() => showManualNotification(
-                  `📋 Vitals Timeline Notification`,
+                  `Vitals Timeline Notification`,
                   `Patient ${p.name} (${p.uhid}) Vitals History notification triggered.`
                 )}
-                style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600 }}
+                style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                🔔 Show Notification
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                Show Notification
               </button>
             </div>
             
             <div className="card-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {(() => {
-                const logs = vitalsHistory.length > 0 ? vitalsHistory : [
+                const safeVits = Array.isArray(vitalsHistory) ? vitalsHistory : [];
+                const logs = safeVits.length > 0 ? safeVits : [
                   { recorded_at: '2026-07-08T19:31:04Z', bp_systolic: 153, bp_diastolic: 98, heart_rate: 130, spo2: 90, temperature: 38.6, blood_sugar: 179 },
                   { recorded_at: '2026-07-08T17:31:04Z', bp_systolic: 153, bp_diastolic: 98, heart_rate: 131, spo2: 90, temperature: 38.6, blood_sugar: 179 },
                   { recorded_at: '2026-07-08T15:31:04Z', bp_systolic: 146, bp_diastolic: 93, heart_rate: 124, spo2: 89, temperature: 38.6, blood_sugar: 170 },
@@ -1173,7 +1210,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {prescriptions.map((rx: any) => {
-                const meds = Array.isArray(rx.medicines) ? rx.medicines : JSON.parse(rx.medicines || '[]');
+                const meds = safeJsonArray(rx.medicines);
                 return (
                   <div key={rx.id} style={{
                     background: 'var(--surface)',
@@ -1203,7 +1240,10 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                           style={{ padding: '4px 12px', minHeight: 28, fontSize: 12, fontWeight: 600 }}
                           onClick={ev => { ev.stopPropagation(); printSlip(rx); }}
                         >
-                          🖨️ Print
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            Print
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -1347,7 +1387,10 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                             onClick={handlePrintInvoice}
                             title="Print Invoice"
                           >
-                            🖨️ Print
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                              Print
+                            </span>
                           </button>
                         </td>
                       </tr>
@@ -1479,7 +1522,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
 
             {p.past_history && (
               <div className="card" style={{ borderColor: '#fde68a', background: '#fffbeb', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius-xl)' }}>
-                <div className="card-header" style={{ borderBottomColor: '#fde68a' }}><div className="card-title" style={{ color: '#b45309' }}>📋 Past Medical History (Diseases)</div></div>
+                <div className="card-header" style={{ borderBottomColor: '#fde68a' }}><div className="card-title" style={{ color: '#b45309' }}>Past Medical History (Diseases)</div></div>
                 <div className="card-body" style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: '#78350f' }}>
                   {p.past_history}
                 </div>
@@ -1902,16 +1945,8 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
   });
   const [photoUrl, setPhotoUrl] = useState(patient.photo_url || '');
   const [showAbhaModal, setShowAbhaModal] = useState(false);
-  const [allergies, setAllergies] = useState<string[]>(() => {
-    return Array.isArray(patient.allergies)
-      ? patient.allergies
-      : JSON.parse(patient.allergies || '[]');
-  });
-  const [conditions, setConditions] = useState<string[]>(() => {
-    return Array.isArray(patient.chronic_conditions)
-      ? patient.chronic_conditions
-      : JSON.parse(patient.chronic_conditions || '[]');
-  });
+  const [allergies, setAllergies] = useState<string[]>(() => safeJsonArray(patient.allergies));
+  const [conditions, setConditions] = useState<string[]>(() => safeJsonArray(patient.chronic_conditions));
   const [customAllergyInput, setCustomAllergyInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -2001,12 +2036,12 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:620, maxHeight: '90vh', overflowY: 'auto'}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">✏️ Edit Patient Profile</div>
+          <div className="modal-title">Edit Patient Profile</div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body">
-            {error && <div className="alert alert-danger">⚠️ {error}</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
 
             {/* ABDM Integration Section */}
             <div style={{
@@ -2094,7 +2129,10 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
                     background: '#fff',
                     margin: 0
                   }}>
-                    📷 Select Photo
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Select Photo
+                    </span>
                     <input
                       type="file"
                       accept="image/*"

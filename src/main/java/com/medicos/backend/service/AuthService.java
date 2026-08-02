@@ -35,7 +35,7 @@ public class AuthService {
         this.tokenProvider = tokenProvider;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String, Object> login(AuthDTO.LoginRequest request, HttpServletResponse response) {
         String email = Optional.ofNullable(request.getEmail())
                 .filter(e -> !e.trim().isEmpty())
@@ -48,9 +48,24 @@ public class AuthService {
         User user = userRepository.findByEmail(email.toLowerCase().trim())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
 
-        // Validate password
-        if (!passwordEncoder.matches(rawPassword, user.getPassword()) && !rawPassword.equals(user.getPassword())) {
-            throw new UnauthorizedException("Invalid email or password.");
+        // Validate hospital ownership if hospitalId supplied in login request
+        if (request.getHospitalId() != null && !request.getHospitalId().trim().isEmpty()) {
+            String expectedHospitalId = request.getHospitalId().trim();
+            if (user.getHospitalId() == null || !user.getHospitalId().equalsIgnoreCase(expectedHospitalId)) {
+                throw new UnauthorizedException("Access Denied: Account does not belong to hospital code '" + expectedHospitalId + "'.");
+            }
+        }
+
+        // Validate password with BCrypt, with legacy plaintext migration
+        boolean matches = passwordEncoder.matches(rawPassword, user.getPassword());
+        if (!matches) {
+            if (rawPassword.equals(user.getPassword())) {
+                // Upgrade plaintext password to BCrypt hash
+                user.setPassword(passwordEncoder.encode(rawPassword));
+                userRepository.save(user);
+            } else {
+                throw new UnauthorizedException("Invalid email or password.");
+            }
         }
 
         if (user.getIsActive() != null && user.getIsActive() == 0) {
@@ -134,19 +149,15 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getHospitalStaff(String code) {
-        final String hospitalId = (code != null && !code.trim().isEmpty()) ? code.trim() : "hsp-001";
+        if (code == null || code.trim().isEmpty()) {
+            throw new BadRequestException("Hospital Code is required.");
+        }
+        final String hospitalId = code.trim();
         
-        // Find hospital case-insensitively or return default fallback
-        Hospital hospital = hospitalRepository.findAll().stream()
+        // Find hospital in DB case-insensitively
+        Optional<Hospital> hospitalOpt = hospitalRepository.findAll().stream()
                 .filter(h -> h.getId() != null && h.getId().equalsIgnoreCase(hospitalId))
-                .findFirst()
-                .orElseGet(() -> {
-                    Hospital h = new Hospital();
-                    h.setId(hospitalId);
-                    h.setName("Hospital (" + hospitalId.toUpperCase() + ")");
-                    h.setType("General");
-                    return h;
-                });
+                .findFirst();
 
         // Filter staff by hospital ID case-insensitively
         List<User> users = userRepository.findAll();
@@ -156,10 +167,27 @@ public class AuthService {
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
 
+        // Strictly enforce hospital validation: must exist in hospital table OR have registered staff
+        if (hospitalOpt.isEmpty() && staff.isEmpty()) {
+            throw new BadRequestException("Invalid Hospital Code: '" + hospitalId + "'. No hospital or clinic found for this code.");
+        }
+
+        Hospital hospital = hospitalOpt.orElseGet(() -> {
+            Hospital h = new Hospital();
+            h.setId(hospitalId);
+            h.setName("Clinic (" + hospitalId.toUpperCase() + ")");
+            h.setType("Clinic");
+            return h;
+        });
+
+        if (staff.isEmpty()) {
+            throw new BadRequestException("Hospital code '" + hospitalId + "' has no registered active staff members.");
+        }
+
         return Map.of(
                 "hospital", Map.of(
                         "id", hospital.getId(),
-                        "name", hospital.getName() != null ? hospital.getName() : "City General Hospital",
+                        "name", hospital.getName() != null ? hospital.getName() : "Medicos EMR Clinic",
                         "type", hospital.getType() != null ? hospital.getType() : "General"
                 ),
                 "staff", staff
@@ -176,6 +204,11 @@ public class AuthService {
         dto.setPhone(user.getPhone());
         dto.setSpecialization(user.getSpecialization());
         dto.setLicenseNumber(user.getLicenseNumber());
+        dto.setQualification(user.getQualification());
+        dto.setRegistrationNumber(user.getRegistrationNumber());
+        dto.setLetterhead(user.getLetterhead());
+        dto.setConsultationFee(user.getConsultationFee());
+        dto.setFollowupFee(user.getFollowupFee());
         dto.setPhotoUrl(user.getPhotoUrl());
         dto.setIsActive(user.getIsActive());
         dto.setShowDiagnosisOnPrint(user.getShowDiagnosisOnPrint());

@@ -69,11 +69,11 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
   }, [date, load]);
   useEffect(() => {
     (async () => {
-      try { const r = await apiClient.get('/patients',{params:{limit:200}}); setPatients(r.data.patients); }
+      try { const r = await apiClient.get('/patients',{params:{limit:200}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
       catch { setPatients(await db.patients.toArray()); }
     })();
     (async () => {
-      try { const r = await apiClient.get('/users/doctors'); setDoctors(r.data); }
+      try { const r = await apiClient.get('/users/doctors'); setDoctors(Array.isArray(r.data) ? r.data : (r.data?.doctors || [])); }
       catch { /* ignore offline docs for now */ }
     })();
   }, []);
@@ -203,7 +203,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
       {showAdd && (
         <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><div className="modal-title">📅 Book Appointment</div><button className="modal-close" onClick={()=>setShowAdd(false)}>✕</button></div>
+            <div className="modal-header"><div className="modal-title">Book Appointment</div><button className="modal-close" onClick={()=>setShowAdd(false)}>✕</button></div>
             <form onSubmit={bookAppt}>
               <div className="modal-body">
                 {bookError && <div className="alert alert-danger" style={{marginBottom:12}}>⚠️ {bookError}</div>}
@@ -364,8 +364,25 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
 
           if (filtered.length === 0) {
             return (
-              <div className="empty-state" style={{ padding: '60px 24px', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
-                <span className="empty-icon">📅</span>
+              <div className="empty-state" style={{ padding: '60px 24px', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: 'var(--primary-light)',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px'
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
                 <h3>No appointments found</h3>
                 <p>No appointments match the current status filter or search query.</p>
                 <button 
@@ -467,9 +484,9 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                       </div>
                     </div>
 
-                    {/* Date Tag */}
-                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                      📅 {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      {new Date(a.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
 
                     {/* Actions Row at bottom */}

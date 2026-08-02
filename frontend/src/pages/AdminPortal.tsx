@@ -364,7 +364,7 @@ function PatientErasureTab() {
     setActionError('');
     try {
       const res = await apiClient.get('/patients?limit=200');
-      setPatients(res.data.patients || []);
+      setPatients(Array.isArray(res.data) ? res.data : (res.data?.patients || []));
     } catch (err: any) {
       setActionError('Failed to load patient records.');
     } finally {
@@ -524,27 +524,28 @@ export default function AdminPortal() {
     setLoading(true); setError('');
     try {
       const res = await apiClient.get('/users');
-      setStaff(res.data.users);
+      const usersList = Array.isArray(res.data) ? res.data : (res.data?.users || []);
+      setStaff(usersList);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Cannot connect to server. Start the backend first.');
     } finally { setLoading(false); }
   }
 
-  const filtered = staff.filter(s => {
+  const filtered = (staff || []).filter(s => {
     const matchRole   = roleFilter === 'all' || s.role === roleFilter;
     const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase());
     return matchRole && matchSearch;
   });
 
   const counts: Record<string, number> = {
-    all: staff.length,
-    doctor: staff.filter(s => s.role === 'doctor').length,
-    receptionist: staff.filter(s => s.role === 'receptionist').length,
-    nurse: staff.filter(s => s.role === 'nurse').length,
-    lab_technician: staff.filter(s => s.role === 'lab_technician').length,
-    pharmacist: staff.filter(s => s.role === 'pharmacist').length,
-    billing: staff.filter(s => s.role === 'billing').length,
-    admin: staff.filter(s => s.role === 'admin').length,
+    all: (staff || []).length,
+    doctor: (staff || []).filter(s => s.role === 'doctor').length,
+    receptionist: (staff || []).filter(s => s.role === 'receptionist').length,
+    nurse: (staff || []).filter(s => s.role === 'nurse').length,
+    lab_technician: (staff || []).filter(s => s.role === 'lab_technician').length,
+    pharmacist: (staff || []).filter(s => s.role === 'pharmacist').length,
+    billing: (staff || []).filter(s => s.role === 'billing').length,
+    admin: (staff || []).filter(s => s.role === 'admin').length,
   };
 
   return (
@@ -658,7 +659,7 @@ export default function AdminPortal() {
                 : filtered.length === 0
                   ? (
                     <div className="empty-state">
-                      <span className="empty-icon">👥</span>
+                      <span className="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                       <h3>{search ? 'No results' : 'No staff yet'}</h3>
                       <p>{search ? 'Try a different search.' : 'Register your first doctor or receptionist.'}</p>
                       {!search && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Register Staff</button>}
@@ -670,11 +671,10 @@ export default function AdminPortal() {
                         <thead>
                           <tr>
                             <th>Staff Member</th>
-                            <th>Role</th>
-                            <th>Specialization</th>
-                            <th>Phone</th>
+                            <th>Role & Access</th>
+                            <th>Specialization / Contact</th>
                             <th>Status</th>
-                            <th></th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -683,30 +683,26 @@ export default function AdminPortal() {
                               <td>
                                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                                   <div style={{
-                                    width:36, height:36, borderRadius:'50%', flexShrink:0,
-                                    background: ROLE_BG[s.role] || '#f1f5f9',
-                                    border: `2px solid ${ROLE_COLOR[s.role] || '#94a3b8'}`,
-                                    display:'flex', alignItems:'center', justifyContent:'center',
-                                    fontSize:12, fontWeight:700, color: ROLE_COLOR[s.role] || '#64748b',
-                                    opacity: s.is_active ? 1 : 0.45,
-                                    overflow: 'hidden'
+                                    width:36, height:36, borderRadius:'50%', background:'var(--primary-light)',
+                                    color:'var(--primary)', display:'flex', alignItems:'center', justifyContent:'center',
+                                    fontWeight:700, fontSize:13, overflow:'hidden'
                                   }}>
                                     {s.photo_url ? (
                                       <img src={s.photo_url} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                                     ) : (
-                                      s.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2)
+                                      s.name ? s.name[0].toUpperCase() : 'S'
                                     )}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight:600, fontSize:13 }}>{s.name}</div>
+                                    <div style={{ fontWeight:700, fontSize:13.5 }}>{s.name}</div>
                                     <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.email}</div>
                                   </div>
                                 </div>
                               </td>
                               <td>
-                                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                                <div style={{ display:'flex', flexDirection:'column', gap:2, alignItems:'flex-start' }}>
                                   <span style={{
-                                    fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20,
+                                    fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20,
                                     background: ROLE_BG[s.role] || '#f1f5f9',
                                     color: ROLE_COLOR[s.role] || '#64748b',
                                     textTransform:'capitalize',
@@ -715,7 +711,7 @@ export default function AdminPortal() {
                                   }}>{s.role}</span>
                                   {s.role === 'receptionist' && s.staff_type === 'pharmacy' && (
                                     <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:20,
-                                      background:'#ecfdf5', color:'#059669', border:'1px solid #a7f3d0', display:'inline-block' }}>💊 Pharmacy</span>
+                                      background:'#ecfdf5', color:'#059669', border:'1px solid #a7f3d0', display:'inline-block' }}>Pharmacy</span>
                                   )}
                                   {s.role === 'doctor' && (s.consultation_fee > 0 || s.followup_fee > 0) && (
                                     <span style={{ fontSize:9.5, color:'#64748b' }}>
@@ -727,12 +723,17 @@ export default function AdminPortal() {
                               <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.specialization || '—'}</td>
                               <td style={{ fontSize:12, color:'var(--text-muted)' }}>{s.phone || '—'}</td>
                               <td>
-                                <span style={{
-                                  fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20,
-                                  background: s.is_active ? '#f0fdf4' : '#fef2f2',
-                                  color: s.is_active ? '#16a34a' : '#dc2626',
-                                  border: `1px solid ${s.is_active ? '#bbf7d0' : '#fecaca'}`,
-                                }}>{s.is_active ? 'Active' : 'Inactive'}</span>
+                                {(() => {
+                                  const active = s.is_active !== undefined ? (s.is_active === 1 || s.is_active === true) : (s.isActive !== undefined ? (s.isActive === 1 || s.isActive === true) : true);
+                                  return (
+                                    <span style={{
+                                      fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20,
+                                      background: active ? '#f0fdf4' : '#fef2f2',
+                                      color: active ? '#16a34a' : '#dc2626',
+                                      border: `1px solid ${active ? '#bbf7d0' : '#fecaca'}`,
+                                    }}>{active ? 'Active' : 'Inactive'}</span>
+                                  );
+                                })()}
                               </td>
                               <td>
                                 <button className="btn btn-ghost btn-sm" onClick={() => setEditing(s)}>Edit</button>

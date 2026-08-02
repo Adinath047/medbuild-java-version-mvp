@@ -78,11 +78,16 @@ export function isValid(errors: FieldErrors): boolean {
 }
 
 /** Extract server validation error into a user-friendly string */
-export function extractServerError(err: unknown): string {
+export function extractServerError(err: unknown, fallback = 'An unexpected error occurred.'): string {
   const e = err as any;
   const data = e?.response?.data;
-  if (!data) return 'Network error. Please try again.';
-  if (data.message) return data.message;   // flattened validation message
+  if (!data) {
+    if (e?.message) return e.message;
+    return fallback;
+  }
+  if (typeof data === 'string') return data;
+  if (data.message) return data.message;
   if (data.error)   return data.error;
-  return 'An unexpected error occurred.';
+  if (data.details && Array.isArray(data.details)) return data.details.join(', ');
+  return fallback;
 }

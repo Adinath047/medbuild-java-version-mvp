@@ -1,5 +1,6 @@
 package com.medicos.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -23,42 +24,71 @@ public class User {
     @Column(nullable = false, length = 50)
     private String role = "doctor";
 
+    @JsonProperty("hospital_id")
     @Column(name = "hospital_id", length = 64)
     private String hospitalId;
 
+    @JsonProperty("staff_id")
     @Column(name = "staff_id", length = 64)
     private String staffId;
 
     private String phone;
     private String specialization;
     
+    @JsonProperty("license_number")
     @Column(name = "license_number")
     private String licenseNumber;
+
+    private String qualification;
+
+    @JsonProperty("registration_number")
+    @Column(name = "registration_number")
+    private String registrationNumber;
+
+    @Column(columnDefinition = "TEXT")
+    private String letterhead;
+
+    @JsonProperty("consultation_fee")
+    @Column(name = "consultation_fee")
+    private Double consultationFee = 0.0;
+
+    @JsonProperty("followup_fee")
+    @Column(name = "followup_fee")
+    private Double followupFee = 0.0;
     
+    @JsonProperty("photo_url")
     @Column(name = "photo_url", columnDefinition = "TEXT")
     private String photoUrl;
 
+    @JsonProperty("is_active")
     @Column(name = "is_active", nullable = false)
     private Integer isActive = 1;
 
+    @JsonProperty("show_diagnosis_on_print")
     @Column(name = "show_diagnosis_on_print")
     private Integer showDiagnosisOnPrint = 1;
 
+    @JsonProperty("show_investigations_on_print")
     @Column(name = "show_investigations_on_print")
     private Integer showInvestigationsOnPrint = 1;
 
+    @JsonProperty("show_vitals_on_print")
     @Column(name = "show_vitals_on_print")
     private Integer showVitalsOnPrint = 1;
 
+    @JsonProperty("print_margin_top")
     @Column(name = "print_margin_top")
     private Integer printMarginTop = 35;
 
+    @JsonProperty("print_margin_bottom")
     @Column(name = "print_margin_bottom")
     private Integer printMarginBottom = 15;
 
+    @JsonProperty("print_margin_left_right")
     @Column(name = "print_margin_left_right")
     private Integer printMarginLeftRight = 18;
 
+    @JsonProperty("print_font_size")
     @Column(name = "print_font_size")
     private Double printFontSize = 11.0;
 
@@ -114,6 +144,21 @@ public class User {
 
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+    public String getQualification() { return qualification; }
+    public void setQualification(String qualification) { this.qualification = qualification; }
+
+    public String getRegistrationNumber() { return registrationNumber; }
+    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
+
+    public String getLetterhead() { return letterhead; }
+    public void setLetterhead(String letterhead) { this.letterhead = letterhead; }
+
+    public Double getConsultationFee() { return consultationFee; }
+    public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
+
+    public Double getFollowupFee() { return followupFee; }
+    public void setFollowupFee(Double followupFee) { this.followupFee = followupFee; }
 
     public Integer getIsActive() { return isActive; }
     public void setIsActive(Integer isActive) { this.isActive = isActive; }

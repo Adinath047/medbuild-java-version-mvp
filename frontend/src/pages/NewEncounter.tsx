@@ -62,7 +62,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
     (async () => {
       try {
         const res = await apiClient.get('/patients', { params: { limit: 200 } });
-        setPatients(res.data.patients);
+        setPatients(Array.isArray(res.data) ? res.data : (res.data?.patients || []));
       } catch {
         setPatients(await db.patients.toArray());
       }
@@ -135,11 +135,11 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
         </div>
       </div>
       <div className="page-header" style={{ marginTop: 0 }}>
-        <div className="page-title">📋 New Clinical Encounter</div>
+        <div className="page-title">New Clinical Encounter</div>
       </div>
 
-      {success && <div className="alert alert-success">✅ {success}<button className="btn btn-primary btn-sm" style={{marginLeft:12}} onClick={()=>onNavigate('patients')}>Back to Patients</button></div>}
-      {error   && <div className="alert alert-danger">⚠️ {error}</div>}
+      {success && <div className="alert alert-success">{success}<button className="btn btn-primary btn-sm" style={{marginLeft:12}} onClick={()=>onNavigate('patients')}>Back to Patients</button></div>}
+      {error   && <div className="alert alert-danger">{error}</div>}
 
       <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:16}}>
         <div className="card">
@@ -162,7 +162,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
                       <span className="badge badge-info">{selectedPatient.age || '?'}y · {selectedPatient.sex}</span>
                       {selectedPatient.blood_group && <span className="badge badge-neutral">{selectedPatient.blood_group}</span>}
                       {allgs.length > 0 && (
-                        <span className="badge badge-danger">⚠ Allergic: {allgs.join(', ')}</span>
+                        <span className="badge badge-danger">Allergic: {allgs.join(', ')}</span>
                       )}
                     </div>
                     {conds.length > 0 && (
@@ -193,7 +193,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
         </div>
 
         <div className="card">
-          <div className="card-header"><div className="card-title">📝 SOAP Notes</div></div>
+          <div className="card-header"><div className="card-title">SOAP Notes</div></div>
           <div className="card-body" style={{display:'flex',flexDirection:'column',gap:14}}>
             {[
               {k:'history',label:'History of Presenting Illness (HPI)',ph:'Describe onset, duration, associated symptoms…'},
@@ -213,7 +213,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
         </div>
 
         <div className="card">
-          <div className="card-header"><div className="card-title">🔬 Diagnosis</div></div>
+          <div className="card-header"><div className="card-title">Diagnosis</div></div>
           <div className="card-body">
             <div style={{display:'flex',gap:8,marginBottom:12}}>
               <input className="input" placeholder="Type diagnosis name (e.g. Viral fever, Hypertension)…" value={diagInput}
@@ -235,7 +235,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
         </div>
 
         <div className="card">
-          <div className="card-header"><div className="card-title">📅 Follow-up & Referral</div></div>
+          <div className="card-header"><div className="card-title">Follow-up & Referral</div></div>
           <div className="card-body" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div className="form-group">
               <label className="form-label">Follow-up Date</label>
@@ -251,7 +251,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
         <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
           <button type="button" className="btn btn-secondary" onClick={()=>onNavigate('patients')}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving || !!success}>
-            {saving ? <><div className="spinner spinner-sm"/>Saving…</> : '✓ Save Encounter'}
+            {saving ? <><div className="spinner spinner-sm"/>Saving…</> : 'Save Encounter'}
           </button>
         </div>
       </form>

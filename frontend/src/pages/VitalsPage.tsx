@@ -51,7 +51,7 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
     (async () => {
       try {
         const res = await apiClient.get('/patients', { params: { limit: 200 } });
-        setPatients(res.data.patients);
+        setPatients(Array.isArray(res.data) ? res.data : (res.data?.patients || []));
       } catch {
         setPatients(await db.patients.toArray());
       }
@@ -192,11 +192,11 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
       </div>
 
       <div className="page-header" style={{marginTop:0}}>
-        <div className="page-title">🩺 Record Vitals</div>
+        <div className="page-title">Record Vitals</div>
       </div>
 
-      {success && <div className="alert alert-success">✅ {success}</div>}
-      {error   && <div className="alert alert-danger">⚠️ {error}</div>}
+      {success && <div className="alert alert-success">{success}</div>}
+      {error   && <div className="alert alert-danger">{error}</div>}
 
       <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:16}}>
         <div className="card">
@@ -310,7 +310,7 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
         <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
           <button type="button" className="btn btn-secondary" onClick={()=>onNavigate('patients')}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving || !!success}>
-            {saving ? <><div className="spinner spinner-sm"/>Saving…</> : '✓ Record Vitals'}
+            {saving ? <><div className="spinner spinner-sm"/>Saving…</> : 'Record Vitals'}
           </button>
         </div>
       </form>
@@ -318,7 +318,7 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
       {/* History */}
       {patientId && history.length > 0 && (
         <div className="card">
-          <div className="card-header"><div className="card-title">📈 Vitals History (last {history.length})</div></div>
+          <div className="card-header"><div className="card-title">Vitals History (last {history.length})</div></div>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Date</th><th>BP</th><th>HR</th><th>SpO₂</th><th>Temp</th><th>Weight</th><th>Sugar</th><th>HbA1c</th><th>TSH</th></tr></thead>
