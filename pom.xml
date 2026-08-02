@@ -163,6 +163,29 @@
         </dependency>
     </dependencies>
 
+    <!-- Force patched versions of vulnerable transitive dependencies -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- openhtmltopdf 1.0.10 pins pdfbox 2.0.24 which has CVEs.
+                 Force upgrade to latest patched 2.0.x release. -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>2.0.32</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>fontbox</artifactId>
+                <version>2.0.32</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>xmpbox</artifactId>
+                <version>2.0.32</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <build>
         <plugins>
             <plugin>
