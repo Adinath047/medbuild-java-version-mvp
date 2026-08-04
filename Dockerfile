@@ -8,7 +8,7 @@ COPY frontend ./frontend
 COPY src ./src
 
 # Build production jar skipping tests for fast image builds
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # Runtime stage using lightweight JRE Alpine
 FROM eclipse-temurin:21-jre-alpine
