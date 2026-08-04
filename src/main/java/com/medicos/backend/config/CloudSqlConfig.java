@@ -22,7 +22,7 @@ public class CloudSqlConfig {
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
 
-        config.setJdbcUrl(String.format("jdbc:postgresql:///%s", DB_NAME));
+        config.setJdbcUrl(String.format("jdbc:postgresql:///%s?prepareThreshold=0", DB_NAME));
         config.setUsername(DB_USER);
         config.setPassword(DB_PASS);
 
