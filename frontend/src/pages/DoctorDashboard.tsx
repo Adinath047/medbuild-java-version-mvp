@@ -112,11 +112,12 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       };
 
       const myAppts = apptsList.filter((a: any) => 
-        isMyDoctorAppt(a) && (a.date?.startsWith(todayStr) || a.date === todayStr)
+        isMyDoctorAppt(a) && (a.date?.startsWith(todayStr) || a.date === todayStr) && a.status !== 'Pending'
       );
 
       const upcoming = apptsList.filter((a: any) => {
         if (!isMyDoctorAppt(a)) return false;
+        if (a.status === 'Pending') return false;
         if (a.date > todayStr) return true;
         if (a.date === todayStr && a.time > nowHourMin) return true;
         return false;

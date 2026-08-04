@@ -137,7 +137,12 @@ public class AuthService {
         );
     }
 
-    public Map<String, String> logout(HttpServletResponse response) {
+    public Map<String, String> logout(jakarta.servlet.http.HttpServletRequest request, HttpServletResponse response) {
+        String token = getJwtFromRequest(request);
+        if (token != null && tokenProvider.validateToken(token)) {
+            tokenProvider.invalidateToken(token);
+        }
+
         Cookie cookie = new Cookie("emr_token", null);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
@@ -145,6 +150,21 @@ public class AuthService {
         response.addCookie(cookie);
 
         return Map.of("message", "Logged out successfully");
+    }
+
+    private String getJwtFromRequest(jakarta.servlet.http.HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("emr_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)

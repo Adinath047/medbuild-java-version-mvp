@@ -1,7 +1,9 @@
 package com.medicos.backend.config;
 
 import com.medicos.backend.entity.Hospital;
+import com.medicos.backend.entity.HealthTip;
 import com.medicos.backend.entity.User;
+import com.medicos.backend.repository.HealthTipRepository;
 import com.medicos.backend.repository.HospitalRepository;
 import com.medicos.backend.repository.UserRepository;
 import org.slf4j.Logger;
@@ -20,6 +22,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final HospitalRepository hospitalRepository;
     private final UserRepository userRepository;
+    private final HealthTipRepository healthTipRepository;
     private final com.medicos.backend.repository.PatientRepository patientRepository;
     private final com.medicos.backend.repository.AppointmentRepository appointmentRepository;
     private final com.medicos.backend.repository.BedRepository bedRepository;
@@ -28,6 +31,7 @@ public class DataInitializer implements CommandLineRunner {
 
     public DataInitializer(HospitalRepository hospitalRepository,
                            UserRepository userRepository,
+                           HealthTipRepository healthTipRepository,
                            com.medicos.backend.repository.PatientRepository patientRepository,
                            com.medicos.backend.repository.AppointmentRepository appointmentRepository,
                            com.medicos.backend.repository.BedRepository bedRepository,
@@ -35,6 +39,7 @@ public class DataInitializer implements CommandLineRunner {
                            PasswordEncoder passwordEncoder) {
         this.hospitalRepository = hospitalRepository;
         this.userRepository = userRepository;
+        this.healthTipRepository = healthTipRepository;
         this.patientRepository = patientRepository;
         this.appointmentRepository = appointmentRepository;
         this.bedRepository = bedRepository;
@@ -102,8 +107,64 @@ public class DataInitializer implements CommandLineRunner {
         createUserIfMissing("usr-adm-002", "City Admin", "admin.city@medicos.com", defaultPasswordHash, "admin", "hsp-002", "STF-200", "Clinic Management", "MHA");
 
         seedClinicalDataIfMissing();
+        seedDoctorDistrictsIfMissing();
+        seedHealthTipsIfMissing();
 
         log.info("Hospital and staff initial data check completed successfully.");
+    }
+
+    private void seedDoctorDistrictsIfMissing() {
+        try {
+            setDoctorDistrict("usr-doc-001", "Mumbai", 4.8, 12, 320);
+            setDoctorDistrict("usr-doc-002", "Pune", 4.6, 8, 210);
+            setDoctorDistrict("usr-doc-003", "Mumbai", 4.7, 15, 450);
+            setDoctorDistrict("usr-doc-004", "Pune", 4.9, 10, 180);
+        } catch (Exception e) {
+            log.warn("Could not set doctor districts: {}", e.getMessage());
+        }
+    }
+
+    private void setDoctorDistrict(String doctorId, String district, double rating, int experienceYears, int consultedCount) {
+        userRepository.findById(doctorId).ifPresent(user -> {
+            if (user.getDistrict() == null) {
+                user.setDistrict(district);
+                user.setRating(rating);
+                user.setExperienceYears(experienceYears);
+                user.setConsultedCount(consultedCount);
+                userRepository.save(user);
+                log.info("Set district [{}] for doctor [{}]", district, doctorId);
+            }
+        });
+    }
+
+    private void seedHealthTipsIfMissing() {
+        try {
+            if (healthTipRepository.count() == 0) {
+                createHealthTip("tip-001", "Stay Hydrated", "Drink at least 8 glasses of water daily to maintain optimal body function and energy levels.", "💧", "Hydration");
+                createHealthTip("tip-002", "Exercise Daily", "30 minutes of moderate exercise each day reduces risk of heart disease, diabetes, and depression.", "🏃", "Fitness");
+                createHealthTip("tip-003", "Balanced Diet", "Include fruits, vegetables, whole grains, and lean proteins in every meal for complete nutrition.", "🥗", "Nutrition");
+                createHealthTip("tip-004", "Quality Sleep", "Adults need 7–9 hours of quality sleep. Create a consistent bedtime routine for better rest.", "😴", "Sleep");
+                createHealthTip("tip-005", "Manage Stress", "Practice mindfulness, deep breathing, or yoga to reduce chronic stress and improve mental health.", "🧘", "Mental Health");
+                createHealthTip("tip-006", "Regular Checkups", "Schedule annual health screenings to detect conditions early when they're most treatable.", "🩺", "Prevention");
+                createHealthTip("tip-007", "Hand Hygiene", "Wash hands with soap for 20 seconds before meals and after using the restroom to prevent infections.", "🧼", "Hygiene");
+                createHealthTip("tip-008", "Limit Screen Time", "Take a 20-second break every 20 minutes looking at something 20 feet away to reduce eye strain.", "📵", "Eye Health");
+                log.info("Seeded {} health tips.", 8);
+            }
+        } catch (Exception e) {
+            log.warn("Could not seed health tips: {}", e.getMessage());
+        }
+    }
+
+    private void createHealthTip(String id, String title, String subtitle, String image, String tag) {
+        if (healthTipRepository.findById(id).isEmpty()) {
+            HealthTip tip = new HealthTip();
+            tip.setId(id);
+            tip.setTitle(title);
+            tip.setSubtitle(subtitle);
+            tip.setImage(image);
+            tip.setTag(tag);
+            healthTipRepository.save(tip);
+        }
     }
 
     private void seedClinicalDataIfMissing() {

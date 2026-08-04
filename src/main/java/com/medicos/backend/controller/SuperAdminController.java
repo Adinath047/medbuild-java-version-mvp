@@ -26,24 +26,28 @@ public class SuperAdminController {
     }
 
     @GetMapping("/hospitals")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> getHospitals() {
         List<Hospital> hospitals = superAdminService.getHospitals();
         return ResponseEntity.ok(hospitals);
     }
 
     @GetMapping("/users")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> getAllUsers() {
         List<User> users = superAdminService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
     @PostMapping("/hospitals")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> createHospital(@RequestBody Map<String, Object> body) {
         Hospital created = superAdminService.createHospital(body);
         return ResponseEntity.status(201).body(created);
     }
 
     @PostMapping("/users")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> createStaffUser(@RequestBody Map<String, Object> body) {
         User created = superAdminService.createStaffUser(body);
         return ResponseEntity.status(201).body(created);

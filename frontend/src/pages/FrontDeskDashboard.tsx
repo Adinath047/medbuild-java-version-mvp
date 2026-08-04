@@ -681,6 +681,7 @@ export default function FrontDeskDashboard({ onNavigate }: { onNavigate: (p: str
                             a.status === 'Completed' ? 'badge-success' :
                             a.status === 'Checked-In' ? 'badge-info' :
                             a.status === 'Confirmed' ? 'badge-purple' :
+                            a.status === 'Pending' ? 'badge-warning' :
                             'badge-info'
                           }`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
                             {a.status || 'Scheduled'}
@@ -691,10 +692,19 @@ export default function FrontDeskDashboard({ onNavigate }: { onNavigate: (p: str
                             {['Scheduled', 'Confirmed', 'Pending'].includes(a.status || 'Scheduled') && (
                               <button 
                                 className="btn btn-primary btn-sm" 
-                                style={{ padding: '3px 12px', fontSize: 12, minHeight: 28, background: 'var(--primary)', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: 600 }}
+                                style={{ 
+                                  padding: '3px 12px', 
+                                  fontSize: 12, 
+                                  minHeight: 28, 
+                                  background: a.status === 'Pending' ? '#10b981' : 'var(--primary)', 
+                                  border: 'none', 
+                                  borderRadius: '6px', 
+                                  color: '#fff', 
+                                  fontWeight: 600 
+                                }}
                                 onClick={() => updateAppointmentStatus(a.id, 'Checked-In')}
                               >
-                                Checkin
+                                {a.status === 'Pending' ? 'Accept' : 'Checkin'}
                               </button>
                             )}
                             <button 

@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PatientRepository extends JpaRepository<Patient, String> {
     Optional<Patient> findByUhid(String uhid);
+    Optional<Patient> findByPhone(String phone);
     List<Patient> findByHospitalId(String hospitalId);
     
     @Query("SELECT p FROM Patient p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.uhid) LIKE LOWER(CONCAT('%', :query, '%')) OR p.phone LIKE CONCAT('%', :query, '%')")

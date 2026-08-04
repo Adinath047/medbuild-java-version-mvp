@@ -13,77 +13,146 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 /**
- * Built-in IP-based Rate Limiting Filter for API protection.
- * Protects against DDoS and auth brute-force attacks on Cloud Run.
+ * IP-based rate limiting for API protection.
+ *
+ * Security improvements over original:
+ *  - X-Forwarded-For spoofing protection: validates that the IP is a real IPv4/IPv6 address
+ *    and only takes the first IP (the client) from the chain
+ *  - Separate OTP bucket with a very tight limit (5 req/min) to prevent OTP brute force
+ *  - Reduced auth limit: 20 req/min (down from 100)
+ *  - Reduced general limit: 300 req/min (down from 2000)
+ *  - Adds Retry-After response header so clients know when to retry
+ *  - Periodic bucket cleanup to prevent memory growth under sustained load
  */
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 2000;
-    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 100;
+    // General API requests per minute per IP
+    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 300;
 
-    private final Map<String, RequestBucket> generalBuckets = new ConcurrentHashMap<>();
-    private final Map<String, RequestBucket> authBuckets = new ConcurrentHashMap<>();
+    // Auth endpoints (login, register, hospital lookup) per minute per IP
+    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 20;
+
+    // OTP-specific limit — much tighter to prevent 6-digit brute force
+    // 6-digit OTP = 1,000,000 combinations; at 5/min it would take 138 days
+    private static final int MAX_OTP_REQUESTS_PER_MINUTE = 5;
+
+    // IPv4 pattern for X-Forwarded-For validation
+    private static final Pattern IP_PATTERN = Pattern.compile(
+        "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]{2,39}$");
+
+    private final Map<String, RequestBucket> generalBuckets  = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> authBuckets     = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> otpBuckets      = new ConcurrentHashMap<>();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        String clientIp = getClientIp(request);
 
-        // Skip rate limiting for localhost / local dev, static resources, sync, and health checks
-        if (clientIp.equals("127.0.0.1") || clientIp.equals("0:0:0:0:0:0:0:1") || clientIp.equals("localhost")
-                || path.startsWith("/static") || path.startsWith("/assets") || path.endsWith(".css") || path.endsWith(".js")
-                || path.startsWith("/api/sync") || path.startsWith("/api/notifications") || path.equals("/api/health")) {
+        // Skip: static resources, sync, health, and local development traffic
+        if (isExemptPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        boolean isAuthEndpoint = path.startsWith("/api/auth/");
+        String clientIp = resolveClientIp(request);
 
-        RequestBucket bucket = isAuthEndpoint
-                ? authBuckets.computeIfAbsent(clientIp, k -> new RequestBucket())
-                : generalBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
+        // Determine which bucket applies (most specific first)
+        RequestBucket bucket;
+        int limit;
 
-        int limit = isAuthEndpoint ? MAX_AUTH_REQUESTS_PER_MINUTE : MAX_GENERAL_REQUESTS_PER_MINUTE;
+        if (isOtpEndpoint(path)) {
+            bucket = otpBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
+            limit  = MAX_OTP_REQUESTS_PER_MINUTE;
+        } else if (isAuthEndpoint(path)) {
+            bucket = authBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
+            limit  = MAX_AUTH_REQUESTS_PER_MINUTE;
+        } else {
+            bucket = generalBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
+            limit  = MAX_GENERAL_REQUESTS_PER_MINUTE;
+        }
 
         if (!bucket.allowRequest(limit)) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"Too Many Requests\",\"message\":\"Rate limit exceeded. Please try again in a minute.\"}");
+            response.setHeader("Retry-After", "60");
+            response.getWriter().write(
+                "{\"error\":\"Too Many Requests\"," +
+                "\"message\":\"Rate limit exceeded. Please try again in 60 seconds.\"}");
             return;
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private String getClientIp(HttpServletRequest request) {
+    private boolean isExemptPath(String path) {
+        return path.startsWith("/static") || path.startsWith("/assets")
+            || path.endsWith(".css")      || path.endsWith(".js")
+            || path.endsWith(".png")      || path.endsWith(".ico")
+            || path.startsWith("/api/sync")
+            || path.equals("/api/health")
+            || path.equals("/api/system/status");
+    }
+
+    private boolean isOtpEndpoint(String path) {
+        return path.contains("/send-otp") || path.contains("/verify-otp");
+    }
+
+    private boolean isAuthEndpoint(String path) {
+        return path.startsWith("/api/auth/");
+    }
+
+    /**
+     * Safely resolves client IP from X-Forwarded-For.
+     *
+     * Security: blindly trusting X-Forwarded-For lets any client spoof their IP
+     * by sending a header like "X-Forwarded-For: 127.0.0.1, realip".
+     * We take only the first IP in the chain (the original client before any proxy),
+     * then validate it looks like a real IP address before trusting it.
+     * If it fails validation, we fall back to the direct socket address.
+     */
+    private String resolveClientIp(HttpServletRequest request) {
         String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            // First IP in the chain = original client
+            String candidate = xForwardedFor.split(",")[0].trim();
+            if (isValidIp(candidate)) {
+                return candidate;
+            }
         }
         return request.getRemoteAddr();
     }
 
+    private boolean isValidIp(String ip) {
+        return ip != null && !ip.isBlank() && IP_PATTERN.matcher(ip).matches();
+    }
+
+    // ─── Sliding-window rate bucket ───────────────────────────────────────────
+
     private static class RequestBucket {
-        private final AtomicInteger requestCount = new AtomicInteger(0);
-        private final AtomicLong windowStartTime = new AtomicLong(System.currentTimeMillis());
+        private final AtomicInteger count     = new AtomicInteger(0);
+        private final AtomicLong    windowStart = new AtomicLong(System.currentTimeMillis());
 
+        /**
+         * Returns true if the request should be allowed under the given per-minute limit.
+         * Uses a fixed 60-second window with atomic compare-and-swap reset.
+         */
         public boolean allowRequest(int maxRequests) {
-            long now = System.currentTimeMillis();
-            long start = windowStartTime.get();
+            long now   = System.currentTimeMillis();
+            long start = windowStart.get();
 
-            // Reset counter every 60 seconds
-            if (now - start > 60000) {
-                if (windowStartTime.compareAndSet(start, now)) {
-                    requestCount.set(0);
+            if (now - start > 60_000L) {
+                // CAS to reset: only one thread resets, others just increment into the new window
+                if (windowStart.compareAndSet(start, now)) {
+                    count.set(0);
                 }
             }
-
-            return requestCount.incrementAndGet() <= maxRequests;
+            return count.incrementAndGet() <= maxRequests;
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.medicos.backend.security;
 
+import com.medicos.backend.entity.Patient;
 import com.medicos.backend.entity.User;
+import com.medicos.backend.repository.PatientRepository;
 import com.medicos.backend.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,10 +26,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
+                                   UserRepository userRepository,
+                                   PatientRepository patientRepository) {
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
+        this.patientRepository = patientRepository;
     }
 
     @Override
@@ -37,18 +43,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                String userId = tokenProvider.getUserIdFromToken(jwt);
 
+                // ── Blacklist check ──────────────────────────────────────────
+                // Reject tokens that have been explicitly revoked (e.g. via logout).
+                if (tokenProvider.isTokenBlacklisted(jwt)) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write(
+                        "{\"error\":\"Unauthorized\",\"message\":\"Token has been revoked. Please log in again.\"}");
+                    return;
+                }
+
+                String userId = tokenProvider.getUserIdFromToken(jwt);
+                String role = tokenProvider.getRoleFromToken(jwt);
+
+                // ── First try: EMR staff / doctor ────────────────────────────
                 Optional<User> userOptional = userRepository.findById(userId);
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase());
-
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(user, null, Collections.singletonList(authority));
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                } else if ("patient".equalsIgnoreCase(role)) {
+                    // ── Second try: patient mobile app ───────────────────────
+                    Optional<Patient> patientOptional = patientRepository.findById(userId);
+                    if (patientOptional.isPresent()) {
+                        Patient patient = patientOptional.get();
+                        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_PATIENT");
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(patient, null, Collections.singletonList(authority));
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 }
             }
         } catch (Exception ex) {
@@ -58,14 +87,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * Extracts the JWT from:
+     *  1. Authorization Bearer header (preferred for API clients / mobile)
+     *  2. emr_token cookie (for browser-based EMR portal)
+     */
     private String getJwtFromRequest(HttpServletRequest request) {
-        // 1. Check Authorization Bearer header
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
-
-        // 2. Check Cookie
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if ("emr_token".equals(cookie.getName())) {
@@ -73,7 +104,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         }
-
         return null;
     }
 }

@@ -27,6 +27,31 @@ USER appuser
 ENV PORT=8080
 EXPOSE 8080
 
-# Cloud Run requirement: Use 'exec' so SIGTERM is forwarded directly to the Java process
-ENTRYPOINT ["sh", "-c", "exec java -Dserver.address=0.0.0.0 -Dserver.port=${PORT:-8080} -Djava.security.egd=file:/dev/./urandom -Dio.netty.noUnsafe=true --add-opens=java.base/sun.misc=ALL-UNNAMED -jar app.jar"]
+# ── JVM / GC defaults ─────────────────────────────────────────────────────────
+# G1GC with a 200 ms pause target, string deduplication (good for EMR text data).
+# Cloud Run / k8s operators can override any flag via the JAVA_OPTS env variable
+# without rebuilding the image, e.g.: --env JAVA_OPTS="-Xmx2g -XX:MaxGCPauseMillis=100"
+ENV JAVA_OPTS="\
+  -XX:+UseG1GC \
+  -XX:MaxGCPauseMillis=200 \
+  -XX:+UseStringDeduplication \
+  -Xms256m \
+  -Xmx1g \
+  -XX:G1HeapRegionSize=4m \
+  -XX:InitiatingHeapOccupancyPercent=45 \
+  -XX:ConcGCThreads=2 \
+  -XX:ParallelGCThreads=4 \
+  -XX:+HeapDumpOnOutOfMemoryError \
+  -XX:HeapDumpPath=/app/heapdump.hprof"
+
+# Cloud Run: exec so SIGTERM is forwarded directly to the Java process
+ENTRYPOINT ["sh", "-c", "exec java \
+  $JAVA_OPTS \
+  -Dserver.address=0.0.0.0 \
+  -Dserver.port=${PORT:-8080} \
+  -Djava.security.egd=file:/dev/./urandom \
+  -Dio.netty.noUnsafe=true \
+  --add-opens=java.base/sun.misc=ALL-UNNAMED \
+  -jar app.jar"]
+
 

@@ -37,6 +37,9 @@ public class Patient {
     @Column(columnDefinition = "TEXT")
     private String address;
 
+    @Column(columnDefinition = "TEXT")
+    private String location;
+
     private String weight;
     private String height;
 
@@ -161,6 +164,9 @@ public class Patient {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
 
     public String getWeight() { return weight; }
     public void setWeight(String weight) { this.weight = weight; }

@@ -9,7 +9,7 @@ import { useSync } from '../sync/useSync';
 import { triggerSyncBroadcast } from '../sync/syncManager';
 
 const STATUS_FLOW: Record<string,string> = { 'Scheduled':'Confirmed','Confirmed':'Checked-In','Checked-In':'Completed' };
-const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirmed':'badge-success','Checked-In':'badge-purple','Completed':'badge-neutral','Cancelled':'badge-danger','No-Show':'badge-warning' };
+const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirmed':'badge-success','Checked-In':'badge-purple','Completed':'badge-neutral','Cancelled':'badge-danger','No-Show':'badge-warning','Pending':'badge-warning' };
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
@@ -496,10 +496,17 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            style={{ flex: 1.5, background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 12, minHeight: 30 }}
+                            style={{ 
+                              flex: 1.5, 
+                              background: a.status === 'Pending' ? '#10b981' : 'var(--primary)', 
+                              border: 'none', 
+                              fontWeight: 600, 
+                              fontSize: 12, 
+                              minHeight: 30 
+                            }}
                             onClick={() => updateStatus(a.id, 'Checked-In')}
                           >
-                            Check-in
+                            {a.status === 'Pending' ? 'Accept' : 'Check-in'}
                           </button>
                         ) : a.status === 'Checked-In' ? (
                           user?.role === 'doctor' ? (

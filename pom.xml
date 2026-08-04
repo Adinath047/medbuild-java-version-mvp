@@ -192,7 +192,40 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>--enable-native-access=ALL-UNNAMED -Dio.netty.noUnsafe=true --add-opens=java.base/sun.misc=ALL-UNNAMED</jvmArguments>
+                    <!-- ── JVM / GC Configuration ──────────────────────────────────────────
+                         Garbage Collector: G1GC (default on Java 21; explicit for clarity)
+                           -XX:+UseG1GC               — G1GC (low-pause, suitable for server)
+                           -XX:MaxGCPauseMillis=200    — target max stop-the-world pause ≤200 ms
+                           -XX:+UseStringDeduplication — saves ~10-20% heap on text-heavy EMR data
+                         Heap sizing: small on local dev, overridable via JAVA_OPTS in prod
+                           -Xms256m  — start lean (grows quickly if needed)
+                           -Xmx1g    — cap at 1 GB; override with JAVA_OPTS=-Xmx2g for prod
+                         Concurrent thread tuning:
+                           -XX:ConcGCThreads=2        — concurrent marking threads (CPU-friendly on laptops)
+                           -XX:ParallelGCThreads=4    — stop-the-world phase threads
+                         G1 region + threshold tuning:
+                           -XX:G1HeapRegionSize=4m    — 4 MB regions (good for 512m-2g heaps)
+                           -XX:InitiatingHeapOccupancyPercent=45 — start concurrent GC at 45% heap use
+                         Diagnostic (safe to remove in prod if you prefer clean logs):
+                           -XX:+HeapDumpOnOutOfMemoryError  — dump heap on OOM for post-mortem
+                           -XX:HeapDumpPath=./heapdump.hprof
+                         ──────────────────────────────────────────────────────────────────── -->
+                    <jvmArguments>
+                        --enable-native-access=ALL-UNNAMED
+                        --add-opens=java.base/sun.misc=ALL-UNNAMED
+                        -Dio.netty.noUnsafe=true
+                        -XX:+UseG1GC
+                        -XX:MaxGCPauseMillis=200
+                        -XX:+UseStringDeduplication
+                        -Xms256m
+                        -Xmx1g
+                        -XX:G1HeapRegionSize=4m
+                        -XX:InitiatingHeapOccupancyPercent=45
+                        -XX:ConcGCThreads=2
+                        -XX:ParallelGCThreads=4
+                        -XX:+HeapDumpOnOutOfMemoryError
+                        -XX:HeapDumpPath=./heapdump.hprof
+                    </jvmArguments>
                 </configuration>
             </plugin>
             <plugin>

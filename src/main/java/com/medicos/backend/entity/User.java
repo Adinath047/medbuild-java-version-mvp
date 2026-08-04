@@ -52,6 +52,19 @@ public class User {
     @Column(name = "consultation_fee")
     private Double consultationFee = 0.0;
 
+    // Patient-app facing fields
+    private String district;
+
+    private Double rating = 0.0;
+
+    @JsonProperty("experience_years")
+    @Column(name = "experience_years")
+    private Integer experienceYears = 0;
+
+    @JsonProperty("consulted_count")
+    @Column(name = "consulted_count")
+    private Integer consultedCount = 0;
+
     @JsonProperty("followup_fee")
     @Column(name = "followup_fee")
     private Double followupFee = 0.0;
@@ -156,6 +169,18 @@ public class User {
 
     public Double getConsultationFee() { return consultationFee; }
     public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
+
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
+
+    public Double getRating() { return rating; }
+    public void setRating(Double rating) { this.rating = rating; }
+
+    public Integer getExperienceYears() { return experienceYears; }
+    public void setExperienceYears(Integer experienceYears) { this.experienceYears = experienceYears; }
+
+    public Integer getConsultedCount() { return consultedCount; }
+    public void setConsultedCount(Integer consultedCount) { this.consultedCount = consultedCount; }
 
     public Double getFollowupFee() { return followupFee; }
     public void setFollowupFee(Double followupFee) { this.followupFee = followupFee; }
