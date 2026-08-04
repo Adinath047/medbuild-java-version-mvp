@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -30,6 +31,9 @@ import java.util.regex.Pattern;
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
+    @Value("${rate-limiting.enabled:true}")
+    private boolean enabled;
+
     // General API requests per minute per IP
     private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 300;
 
@@ -55,7 +59,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // Skip: static resources, sync, health, and local development traffic
-        if (isExemptPath(path)) {
+        if (!enabled || isExemptPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }

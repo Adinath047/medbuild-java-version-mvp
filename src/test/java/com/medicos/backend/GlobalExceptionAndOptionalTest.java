@@ -29,7 +29,7 @@ public class GlobalExceptionAndOptionalTest {
         assertEquals("Patient not found with ID: pat-999", ex.getMessage());
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/patients/pat-999");
-        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleResourceNotFoundException(ex, request);
+        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleNotFound(ex, request);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -49,7 +49,7 @@ public class GlobalExceptionAndOptionalTest {
         assertEquals("patient_id is required.", ex.getMessage());
 
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/vitals");
-        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleBadRequestException(ex, request);
+        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleBadRequest(ex, request);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -63,12 +63,12 @@ public class GlobalExceptionAndOptionalTest {
         Exception unhandledException = new RuntimeException("Unexpected database connection crash");
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/system/crash");
-        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleAllGlobalExceptions(unhandledException, request);
+        ResponseEntity<ErrorResponseDTO> response = exceptionHandler.handleAll(unhandledException, request);
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(500, response.getBody().getStatus());
-        assertEquals("Unexpected database connection crash", response.getBody().getMessage());
+        assertEquals("An internal server error occurred. Please try again later.", response.getBody().getMessage());
         assertEquals("/api/system/crash", response.getBody().getPath());
     }
 }

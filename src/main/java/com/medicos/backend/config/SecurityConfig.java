@@ -57,6 +57,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(AbstractHttpConfigurer::disable)
             .headers(headers -> headers
                 // ── Clickjacking protection ──────────────────────────────────
                 .frameOptions(frame -> frame.deny())
@@ -109,7 +110,7 @@ public class SecurityConfig {
                         "/static/**", "/css/**", "/js/**", "/assets/**", "/fonts/**",
                         "/portal/**", "/app/**", "/doctor/**", "/patient/**",
                         "/admin/**", "/super-admin/**", "/_vercel/**",
-                        "/sw.js", "/registerSW.js", "/workbox-*.js"
+                        "/sw.js", "/registerSW.js", "/workbox-*.js", "/error"
                     ).permitAll()
 
                     // ── Authentication endpoints ──────────────────────────────

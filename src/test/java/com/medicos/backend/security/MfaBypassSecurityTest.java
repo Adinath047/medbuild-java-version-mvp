@@ -5,14 +5,17 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.mockito.Mockito;
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 public class MfaBypassSecurityTest {
 
     private JwtTokenProvider jwtTokenProvider;
 
     @BeforeEach
     public void setUp() {
-        jwtTokenProvider = new JwtTokenProvider();
-        // Reflectively set secret for testing if needed
+        StringRedisTemplate stringRedisTemplate = Mockito.mock(StringRedisTemplate.class);
+        jwtTokenProvider = new JwtTokenProvider(stringRedisTemplate);
     }
 
     @Test
