@@ -2034,7 +2034,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:620, maxHeight: '90vh', overflowY: 'auto'}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Edit Patient Profile</div>
           <button className="modal-close" onClick={onClose}>✕</button>
