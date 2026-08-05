@@ -1,8 +1,11 @@
 package com.medicos.backend.entity;
 
 import com.medicos.backend.security.CryptoConverter;
+import com.medicos.backend.config.StringListConverter;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "patients")
@@ -43,14 +46,17 @@ public class Patient {
     private String weight;
     private String height;
 
+    @Convert(converter = StringListConverter.class)
     @Column(columnDefinition = "TEXT")
-    private String allergies = "[]";
+    private List<String> allergies = new ArrayList<>();
 
+    @Convert(converter = StringListConverter.class)
     @Column(name = "chronic_conditions", columnDefinition = "TEXT")
-    private String chronicConditions = "[]";
+    private List<String> chronicConditions = new ArrayList<>();
 
+    @Convert(converter = StringListConverter.class)
     @Column(name = "current_medications", columnDefinition = "TEXT")
-    private String currentMedications = "[]";
+    private List<String> currentMedications = new ArrayList<>();
 
     @Column(name = "ec_name")
     private String ecName;
@@ -174,14 +180,14 @@ public class Patient {
     public String getHeight() { return height; }
     public void setHeight(String height) { this.height = height; }
 
-    public String getAllergies() { return allergies; }
-    public void setAllergies(String allergies) { this.allergies = allergies; }
+    public List<String> getAllergies() { return allergies; }
+    public void setAllergies(List<String> allergies) { this.allergies = allergies; }
 
-    public String getChronicConditions() { return chronicConditions; }
-    public void setChronicConditions(String chronicConditions) { this.chronicConditions = chronicConditions; }
+    public List<String> getChronicConditions() { return chronicConditions; }
+    public void setChronicConditions(List<String> chronicConditions) { this.chronicConditions = chronicConditions; }
 
-    public String getCurrentMedications() { return currentMedications; }
-    public void setCurrentMedications(String currentMedications) { this.currentMedications = currentMedications; }
+    public List<String> getCurrentMedications() { return currentMedications; }
+    public void setCurrentMedications(List<String> currentMedications) { this.currentMedications = currentMedications; }
 
     public String getEcName() { return ecName; }
     public void setEcName(String ecName) { this.ecName = ecName; }

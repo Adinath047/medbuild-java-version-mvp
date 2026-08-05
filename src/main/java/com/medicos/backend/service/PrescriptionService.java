@@ -209,11 +209,7 @@ public class PrescriptionService {
                 dto.setBloodGroup(p.getBloodGroup());
                 dto.setWeight(p.getWeight());
                 if (p.getAllergies() != null) {
-                    try {
-                        dto.setAllergies(objectMapper.readValue(p.getAllergies(), Object.class));
-                    } catch (Exception e) {
-                        dto.setAllergies(p.getAllergies());
-                    }
+                    dto.setAllergies(p.getAllergies());
                 }
             });
         }
