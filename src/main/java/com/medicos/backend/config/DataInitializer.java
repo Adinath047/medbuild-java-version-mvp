@@ -28,6 +28,7 @@ public class DataInitializer implements CommandLineRunner {
     private final com.medicos.backend.repository.BedRepository bedRepository;
     private final com.medicos.backend.repository.VitalRepository vitalRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public DataInitializer(HospitalRepository hospitalRepository,
                            UserRepository userRepository,
@@ -36,7 +37,8 @@ public class DataInitializer implements CommandLineRunner {
                            com.medicos.backend.repository.AppointmentRepository appointmentRepository,
                            com.medicos.backend.repository.BedRepository bedRepository,
                            com.medicos.backend.repository.VitalRepository vitalRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.hospitalRepository = hospitalRepository;
         this.userRepository = userRepository;
         this.healthTipRepository = healthTipRepository;
@@ -45,11 +47,17 @@ public class DataInitializer implements CommandLineRunner {
         this.bedRepository = bedRepository;
         this.vitalRepository = vitalRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        try {
+            jdbcTemplate.execute("SET LOCAL app.bypass_rls = 'true';");
+        } catch (Exception e) {
+            log.warn("Could not set app.bypass_rls session variable: {}", e.getMessage());
+        }
         log.info("Checking initial hospital and staff seed data...");
 
         // 1. Seed Hospital hsp-001 (Medicos Hospital & EMR Center)

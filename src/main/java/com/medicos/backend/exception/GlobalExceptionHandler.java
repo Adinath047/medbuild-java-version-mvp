@@ -14,6 +14,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import java.time.Instant;
+import java.util.Map;
+import java.util.HashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Centralized exception handler.
@@ -29,6 +38,12 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    @Value("${pulse.url:http://localhost:8080/events}")
+    private String pulseUrl;
 
     // ─── 404 Not Found ────────────────────────────────────────────────────────
 
@@ -112,8 +127,60 @@ public class GlobalExceptionHandler {
             Exception ex, HttpServletRequest request) {
         // Full detail logged for ops/debugging — never sent to client
         log.error("Unhandled exception on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+        
+        // Report unhandled internal server error to Pulse
+        reportErrorToPulse(ex, request);
+
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
                 "An internal server error occurred. Please try again later.", request);
+    }
+
+    private void reportErrorToPulse(Exception ex, HttpServletRequest request) {
+        if (pulseUrl == null || pulseUrl.trim().isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, Object> payloadMap = new HashMap<>();
+            payloadMap.put("message", ex.getMessage());
+            payloadMap.put("exceptionClass", ex.getClass().getName());
+            payloadMap.put("path", request.getRequestURI());
+            payloadMap.put("method", request.getMethod());
+            payloadMap.put("stackTrace", getStackTraceAsString(ex));
+
+            Map<String, Object> bodyMap = new HashMap<>();
+            bodyMap.put("source", "app-backend");
+            bodyMap.put("severity", "ERROR");
+            bodyMap.put("occurredAt", Instant.now().toString());
+            bodyMap.put("payload", payloadMap);
+
+            String jsonBody = mapper.writeValueAsString(bodyMap);
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(pulseUrl))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            httpClient.sendAsync(req, HttpResponse.BodyHandlers.discarding())
+                    .thenAccept(res -> {
+                        if (res.statusCode() >= 400) {
+                            log.warn("Pulse returned status code {} when logging error", res.statusCode());
+                        }
+                    })
+                    .exceptionally(t -> {
+                        log.error("Failed to post error to Pulse: {}", t.getMessage());
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("Failed to build/send Pulse error payload: {}", e.getMessage());
+        }
+    }
+
+    private String getStackTraceAsString(Throwable throwable) {
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+        throwable.printStackTrace(pw);
+        return sw.toString();
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────

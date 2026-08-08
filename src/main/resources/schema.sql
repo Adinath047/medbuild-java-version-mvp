@@ -292,3 +292,84 @@ VALUES
   ('bed-102', 'hsp-001', 'B-102', 'General', 'G-102', 'General', 'Available'),
   ('bed-103', 'hsp-001', 'B-103', 'General', 'G-103', 'General', 'Available')
 ON CONFLICT (id) DO NOTHING;
+
+-- ── 14. ROW-LEVEL SECURITY (RLS) POLICIES ─────────────────────────────
+-- Enable and force RLS on all EMR/clinical transactional tables
+
+-- Patients Table
+ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patients FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON patients;
+CREATE POLICY tenant_isolation_policy ON patients
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Encounters Table
+ALTER TABLE encounters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE encounters FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON encounters;
+CREATE POLICY tenant_isolation_policy ON encounters
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Vitals Table
+ALTER TABLE vitals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vitals FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON vitals;
+CREATE POLICY tenant_isolation_policy ON vitals
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Prescriptions Table
+ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prescriptions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON prescriptions;
+CREATE POLICY tenant_isolation_policy ON prescriptions
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Appointments Table
+ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON appointments;
+CREATE POLICY tenant_isolation_policy ON appointments
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Beds Table
+ALTER TABLE beds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE beds FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON beds;
+CREATE POLICY tenant_isolation_policy ON beds
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Bed Admissions Table
+ALTER TABLE bed_admissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bed_admissions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON bed_admissions;
+CREATE POLICY tenant_isolation_policy ON bed_admissions
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Billing Table
+ALTER TABLE billing ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billing FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON billing;
+CREATE POLICY tenant_isolation_policy ON billing
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Medicines Table
+ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE medicines FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON medicines;
+CREATE POLICY tenant_isolation_policy ON medicines
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Notifications Table
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON notifications;
+CREATE POLICY tenant_isolation_policy ON notifications
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
+-- Patient Uploads Table
+ALTER TABLE patient_uploads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_uploads FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON patient_uploads;
+CREATE POLICY tenant_isolation_policy ON patient_uploads
+  USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');
+
