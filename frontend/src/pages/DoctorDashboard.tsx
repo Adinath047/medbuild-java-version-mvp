@@ -70,13 +70,13 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         bedsList = [];
       }
 
-      // Filter beds belonging to this doctor (or all occupied hospital beds if doctor matches)
+      // Filter beds belonging to this doctor (only occupied beds assigned to this doctor)
       const myDocBeds = bedsList.filter((b: any) => 
-        !b.doctor_id || 
-        b.doctor_id === user?.id || 
-        (b.doctor_name && user?.name && b.doctor_name.toLowerCase().includes(user.name.toLowerCase())) ||
-        (user?.name && b.doctor_name && user.name.toLowerCase().includes(b.doctor_name.toLowerCase())) ||
-        user?.role === 'doctor'
+        b.status === 'Occupied' && (
+          b.doctor_id === user?.id || 
+          (b.doctor_name && user?.name && b.doctor_name.toLowerCase().includes(user.name.toLowerCase())) ||
+          (user?.name && b.doctor_name && user.name.toLowerCase().includes(b.doctor_name.toLowerCase()))
+        )
       );
 
       // Identify critical patients under this doctor
@@ -104,15 +104,18 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       }
 
       const isMyDoctorAppt = (a: any) => {
-        if (!a.doctor_id && !a.doctor_name) return true;
         if (a.doctor_id === user?.id) return true;
         if (user?.name && a.doctor_name && a.doctor_name.toLowerCase().includes(user.name.toLowerCase())) return true;
         if (user?.name && a.doctor_name && user.name.toLowerCase().includes(a.doctor_name.toLowerCase())) return true;
-        return user?.role === 'doctor';
+        return false;
       };
 
       const myAppts = apptsList.filter((a: any) => 
-        isMyDoctorAppt(a) && (a.date?.startsWith(todayStr) || a.date === todayStr) && a.status !== 'Pending'
+        isMyDoctorAppt(a) && 
+        (a.date?.startsWith(todayStr) || a.date === todayStr) && 
+        a.status !== 'Pending' &&
+        a.status !== 'Cancelled' &&
+        a.status !== 'No-Show'
       );
 
       const upcoming = apptsList.filter((a: any) => {
