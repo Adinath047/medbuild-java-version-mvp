@@ -30,7 +30,9 @@ const getLocalDatetimeString = () => {
 
 const parseDateTime = (dtStr: string | null | undefined) => {
   if (!dtStr) return new Date();
-  const normalized = (dtStr.endsWith('Z') || dtStr.includes('+') || dtStr.includes('-')) ? dtStr : dtStr + 'Z';
+  // Check if string ends with Z or a timezone offset like +05:30 or -05:00
+  const hasTimezone = /Z$|[+-]\d{2}(:?\d{2})?$/.test(dtStr);
+  const normalized = hasTimezone ? dtStr : dtStr + 'Z';
   return new Date(normalized);
 };
 
