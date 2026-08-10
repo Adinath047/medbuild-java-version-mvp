@@ -24,8 +24,10 @@ public class PatientController {
 
     @GetMapping
     public ResponseEntity<?> getPatients(@RequestParam(value = "search", required = false) String search,
+                                         @RequestParam(value = "q", required = false) String q,
                                          @RequestParam(value = "limit", required = false, defaultValue = "100") int limit) {
-        PatientDTO.PatientListResponse response = patientService.getPatients(search, limit);
+        String query = search != null ? search : q;
+        PatientDTO.PatientListResponse response = patientService.getPatients(query, limit);
         return ResponseEntity.ok(response);
     }
 

@@ -1173,13 +1173,18 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                 
                 <div className="form-group">
                   <label className="form-label">Ward Name *</label>
-                  <input 
+                  <select 
                     className="input" 
-                    placeholder="e.g. General Ward, ICU, Private Room" 
                     value={newBedForm.ward} 
                     onChange={e => setNewBedForm(f => ({ ...f, ward: e.target.value }))}
                     required
-                  />
+                  >
+                    <option value="">— Select Ward —</option>
+                    <option value="General">General</option>
+                    <option value="ICU">ICU</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Maternity">Maternity</option>
+                  </select>
                 </div>
 
                 <div className="form-group">
@@ -1231,12 +1236,18 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                 
                 <div className="form-group">
                   <label className="form-label">Ward Name *</label>
-                  <input 
+                  <select 
                     className="input" 
                     value={editBedForm.ward} 
                     onChange={e => setEditBedForm(f => ({ ...f, ward: e.target.value }))}
                     required
-                  />
+                  >
+                    <option value="">— Select Ward —</option>
+                    <option value="General">General</option>
+                    <option value="ICU">ICU</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="Maternity">Maternity</option>
+                  </select>
                 </div>
 
                 <div className="form-group">

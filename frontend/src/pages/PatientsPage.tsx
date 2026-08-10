@@ -807,7 +807,7 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
   const load = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const res = await apiClient.get('/patients', { params: { q: search || undefined, limit: 200 } });
+      const res = await apiClient.get('/patients', { params: { search: search || undefined, limit: 200 } });
       setPatients(Array.isArray(res.data) ? res.data : (res.data?.patients || [])); setSource('server');
     } catch {
       let q = db.patients.orderBy('created_at').reverse();
