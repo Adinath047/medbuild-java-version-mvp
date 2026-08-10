@@ -277,6 +277,7 @@ public class AuthService {
         dto.setLetterhead(user.getLetterhead());
         dto.setConsultationFee(user.getConsultationFee());
         dto.setFollowupFee(user.getFollowupFee());
+        dto.setBedPerDayCharge(user.getBedPerDayCharge());
         dto.setPhotoUrl(user.getPhotoUrl());
         dto.setIsActive(user.getIsActive());
         dto.setShowDiagnosisOnPrint(user.getShowDiagnosisOnPrint());

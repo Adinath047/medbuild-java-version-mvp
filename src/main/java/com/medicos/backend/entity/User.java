@@ -68,6 +68,10 @@ public class User {
     @JsonProperty("followup_fee")
     @Column(name = "followup_fee")
     private Double followupFee = 0.0;
+
+    @JsonProperty("bed_per_day_charge")
+    @Column(name = "bed_per_day_charge")
+    private Double bedPerDayCharge = 0.0;
     
     @JsonProperty("photo_url")
     @Column(name = "photo_url", columnDefinition = "TEXT")
@@ -184,6 +188,9 @@ public class User {
 
     public Double getFollowupFee() { return followupFee; }
     public void setFollowupFee(Double followupFee) { this.followupFee = followupFee; }
+
+    public Double getBedPerDayCharge() { return bedPerDayCharge; }
+    public void setBedPerDayCharge(Double bedPerDayCharge) { this.bedPerDayCharge = bedPerDayCharge; }
 
     public Integer getIsActive() { return isActive; }
     public void setIsActive(Integer isActive) { this.isActive = isActive; }

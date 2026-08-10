@@ -113,6 +113,7 @@ public class AuthDTO {
         private String letterhead;
         private Double consultationFee;
         private Double followupFee;
+        private Double bedPerDayCharge;
         private String photoUrl;
         private Integer isActive;
         private Integer showDiagnosisOnPrint;
@@ -166,6 +167,9 @@ public class AuthDTO {
 
         public Double getFollowupFee() { return followupFee; }
         public void setFollowupFee(Double followupFee) { this.followupFee = followupFee; }
+
+        public Double getBedPerDayCharge() { return bedPerDayCharge; }
+        public void setBedPerDayCharge(Double bedPerDayCharge) { this.bedPerDayCharge = bedPerDayCharge; }
 
         public Integer getIsActive() { return isActive; }
         public void setIsActive(Integer isActive) { this.isActive = isActive; }

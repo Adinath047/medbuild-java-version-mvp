@@ -103,6 +103,9 @@ public class UserService {
         if (body.containsKey("followup_fee") && body.get("followup_fee") != null) {
             try { user.setFollowupFee(Double.parseDouble(body.get("followup_fee").toString())); } catch (Exception ignored) {}
         }
+        if (body.containsKey("bed_per_day_charge") && body.get("bed_per_day_charge") != null) {
+            try { user.setBedPerDayCharge(Double.parseDouble(body.get("bed_per_day_charge").toString())); } catch (Exception ignored) {}
+        }
         if (body.containsKey("show_diagnosis_on_print") && body.get("show_diagnosis_on_print") != null) {
             Object v = body.get("show_diagnosis_on_print");
             user.setShowDiagnosisOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);

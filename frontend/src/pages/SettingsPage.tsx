@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { db, markPending } from '../db/localDB';
 import { apiClient } from '../api/client';
 import { printPrescriptionSlip } from '../utils/printTemplates';
-import AuditLogViewer from '../components/AuditLogViewer';
+
 
 const ROLES = ['doctor','nurse','receptionist','admin'] as const;
 const SPECIALIZATIONS = [
@@ -371,47 +371,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
   const isAdmin = user?.role === 'admin';
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'users'|'system'|'medicines'|'health'|'audit'>(isAdmin ? 'users' : 'system');
-
-  // System Monitor tab state
-  const [healthData, setHealthData] = useState<any>(null);
-  const [healthError, setHealthError] = useState('');
-  const [selectedError, setSelectedError] = useState<any>(null);
-
-  useEffect(() => {
-    if (activeTab === 'health') {
-      fetchHealth();
-      const interval = setInterval(fetchHealth, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab]);
-
-  async function fetchHealth() {
-    try {
-      const res = await apiClient.get('/system-health/health');
-      setHealthData(res.data);
-      setHealthError('');
-    } catch (err: any) {
-      setHealthError(err.response?.data?.error || 'Failed to fetch health metrics');
-    }
-  }
-
-  async function triggerMockError() {
-    try {
-      await apiClient.get('/system-health/trigger-error');
-    } catch (err) {
-      console.warn('Mock error response received (expected):', err);
-      fetchHealth();
-    }
-  }
-
-  function formatUptime(seconds: number) {
-    if (!seconds) return '0s';
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${hrs > 0 ? `${hrs}h ` : ''}${mins > 0 ? `${mins}m ` : ''}${secs}s`;
-  }
+  const [activeTab, setActiveTab] = useState<'users'|'system'|'medicines'>(isAdmin ? 'users' : 'system');
 
   // Medicines manager state
   const [meds, setMeds] = useState<any[]>([]);
@@ -506,6 +466,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     registrationNumber: user?.registrationNumber || '',
     consultationFee: String(user?.consultationFee ?? ''),
     followupFee: String(user?.followupFee ?? ''),
+    bedPerDayCharge: String(user?.bedPerDayCharge ?? ''),
     letterhead: user?.letterhead || '',
     photoUrl: user?.photoUrl || '',
     showDiagnosisOnPrint: user?.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
@@ -545,6 +506,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         registrationNumber: user.registrationNumber || '',
         consultationFee: String(user.consultationFee ?? ''),
         followupFee: String(user.followupFee ?? ''),
+        bedPerDayCharge: String(user.bedPerDayCharge ?? ''),
         letterhead: user.letterhead || '',
         photoUrl: user.photoUrl || '',
         showDiagnosisOnPrint: user.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
@@ -573,6 +535,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         registration_number: profileForm.registrationNumber,
         consultation_fee: parseFloat(String(profileForm.consultationFee)) || 0,
         followup_fee: parseFloat(String(profileForm.followupFee)) || 0,
+        bed_per_day_charge: parseFloat(String(profileForm.bedPerDayCharge)) || 0,
         letterhead: profileForm.letterhead,
         photo_url: profileForm.photoUrl,
         show_diagnosis_on_print: !!profileForm.showDiagnosisOnPrint,
@@ -650,20 +613,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         <button className={`tab${activeTab==='system'?' active':''}`} onClick={()=>setActiveTab('system')}>
           System
         </button>
-        <button className={`tab${activeTab==='health'?' active':''}`} onClick={()=>setActiveTab('health')}>
-          API Health Monitor
-        </button>
-        {(isAdmin || user?.role === 'doctor') && (
-          <button className={`tab${activeTab==='audit'?' active':''}`} onClick={()=>setActiveTab('audit')}>
-            HIPAA / DPDP Audit Logs
-          </button>
-        )}
       </div>
 
-      {/* ── Audit Logs tab ── */}
-      {activeTab === 'audit' && (
-        <AuditLogViewer />
-      )}
 
       {/* ── Staff Management tab ── */}
       {activeTab === 'users' && isAdmin && (
@@ -973,6 +924,17 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                       required
                     />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Bed Per Day Charges (₹)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 1500"
+                      value={profileForm.bedPerDayCharge}
+                      onChange={e => setProfileForm(f => ({ ...f, bedPerDayCharge: e.target.value }))}
+                    />
+                  </div>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label className="form-label">Custom Letterhead</label>
                     
@@ -1175,183 +1137,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         </>
       )}
 
-      {/* ── API Health Monitor tab ── */}
-      {activeTab === 'health' && (
-        <>
-          {/* Status grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
-            {/* Overall Status */}
-            <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: healthData?.metrics?.status === 'healthy' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24
-              }}>
-                {healthData?.metrics?.status === 'healthy' ? '🟢' : '🔴'}
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>System Status</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: healthData?.metrics?.status === 'healthy' ? '#10b981' : '#ef4444' }}>
-                  {healthData?.metrics?.status === 'healthy' ? 'HEALTHY' : 'DEGRADED'}
-                </div>
-              </div>
-            </div>
 
-            {/* Database connection */}
-            <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: healthData?.metrics?.dbStatus === 'connected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24
-              }}>
-                💾
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Database Connection</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: healthData?.metrics?.dbStatus === 'connected' ? '#10b981' : '#ef4444' }}>
-                  {healthData?.metrics?.dbStatus === 'connected' ? 'Connected' : 'Disconnected'}
-                </div>
-              </div>
-            </div>
-
-            {/* Uptime */}
-            <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: 'rgba(59, 130, 246, 0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24
-              }}>
-                ⏱️
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Server Uptime</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                  {healthData ? formatUptime(healthData.metrics.uptime) : '—'}
-                </div>
-              </div>
-            </div>
-
-            {/* Memory Usage */}
-            <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 12,
-                background: 'rgba(139, 92, 246, 0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24
-              }}>
-                📊
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Memory Usage (RSS)</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                  {healthData?.metrics?.memory?.rss || '—'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Diagnostic controls card */}
-          <div className="card" style={{ marginBottom: 20 }}>
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="card-title">EMR Diagnostic Tools</div>
-              <button className="btn btn-danger btn-sm" onClick={triggerMockError}>
-                ⚠️ Trigger Test API Error
-              </button>
-            </div>
-            <div className="card-body" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Clicking the test button will trigger a mock server error (`500 Internal Server Error`) to verify that the error handling logging and monitoring is functioning correctly.
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 20 }}>
-            {/* Live API Traffic Log */}
-            <div className="card">
-              <div className="card-header"><div className="card-title">Live API Request Logs (Auto-refreshing)</div></div>
-              {healthError && <div className="alert alert-danger" style={{ margin: 16 }}>{healthError}</div>}
-              {!healthData
-                ? <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
-                : healthData.logs.length === 0
-                  ? <div className="empty-state"><span className="empty-icon">📡</span><h3>No API calls logged yet</h3><p>Make some clicks on the EMR system to generate request logs.</p></div>
-                  : <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Time</th>
-                            <th>Method</th>
-                            <th>Endpoint</th>
-                            <th>Status</th>
-                            <th>Latency</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {healthData.logs.map((log: any) => {
-                            const methodColors: Record<string, string> = {
-                              GET: '#2563eb', POST: '#16a34a', PUT: '#d97706', DELETE: '#dc2626'
-                            };
-                            const statusColor = log.statusCode >= 500 ? '#ef4444' : log.statusCode >= 400 ? '#f59e0b' : '#10b981';
-                            const localTime = new Date(log.timestamp).toLocaleTimeString();
-                            return (
-                              <tr key={log.id} style={{ cursor: log.error ? 'pointer' : 'default', background: log.error ? 'rgba(239, 68, 68, 0.03)' : undefined }} onClick={() => log.error && setSelectedError(log)}>
-                                <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{localTime}</td>
-                                <td><span style={{ fontWeight: 800, fontSize: 11, color: methodColors[log.method] || '#6b7280' }}>{log.method}</span></td>
-                                <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.url}</td>
-                                <td><span className="badge" style={{ background: statusColor, color: '#fff', fontWeight: 700 }}>{log.statusCode}</span></td>
-                                <td style={{ fontSize: 12, fontWeight: 500 }}>{log.responseTimeMs} ms</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-              }
-            </div>
-
-            {/* Error logs detail column */}
-            <div className="card">
-              <div className="card-header"><div className="card-title">Failed Requests Detail</div></div>
-              <div className="card-body">
-                {selectedError ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="badge" style={{ background: '#ef4444', color: '#fff' }}>Error detail</span>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setSelectedError(null)}>Clear selection</button>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Failed Endpoint</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, wordBreak: 'break-all', marginTop: 4 }}>
-                        <span style={{ color: '#ef4444', marginRight: 6 }}>{selectedError.method}</span>
-                        {selectedError.url}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>{new Date(selectedError.timestamp).toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Database/Server Error Details</div>
-                      <div style={{
-                        background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                        padding: 12, borderRadius: 8, fontFamily: 'monospace', fontSize: 12, color: '#b91c1c',
-                        marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all'
-                      }}>
-                        {selectedError.error}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Response Latency</div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>{selectedError.responseTimeMs} ms</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                    <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-                    <p style={{ fontSize: 13 }}>Select any failed request from the logs table to analyze its database error detail.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 }

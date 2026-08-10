@@ -14,6 +14,7 @@ export interface AuthUser {
   licenseNumber?:   string;
   consultationFee?: number;
   followupFee?:     number;
+  bedPerDayCharge?: number;
   letterhead?:      string;
   qualification?:   string;
   registrationNumber?: string;

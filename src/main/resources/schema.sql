@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
   print_margin_bottom INTEGER NOT NULL DEFAULT 15,
   print_margin_left_right INTEGER NOT NULL DEFAULT 18,
   print_font_size REAL NOT NULL DEFAULT 11.0,
+  bed_per_day_charge REAL NOT NULL DEFAULT 0.0,
   created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
