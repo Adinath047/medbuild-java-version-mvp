@@ -40,10 +40,6 @@ public class AuthService {
 
     @Transactional
     public Map<String, Object> login(AuthDTO.LoginRequest request, HttpServletResponse response) {
-        String email = Optional.ofNullable(request.getEmail())
-                .filter(e -> !e.trim().isEmpty())
-                .orElseThrow(() -> new BadRequestException("Email is required."));
-
         String rawPassword = Optional.ofNullable(request.getPassword())
                 .filter(p -> !p.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Password is required."));
@@ -54,15 +50,25 @@ public class AuthService {
         }
         tenantSessionBinder.bindTenant(hospitalId);
 
-        User user = userRepository.findByEmail(email.toLowerCase().trim())
-                .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
+        // --- Look up the user: staffId (UUID from picker) preferred, email as fallback ---
+        User user;
+        String staffId = request.getStaffId();
+        if (staffId != null && !staffId.trim().isEmpty()) {
+            // Primary path: picker sends the staff UUID — no email leaves the server
+            user = userRepository.findById(staffId.trim())
+                    .orElseThrow(() -> new UnauthorizedException("Invalid staff ID or password."));
+        } else {
+            // Fallback path: direct API callers (e.g. password reset, curl) may still send email
+            String email = Optional.ofNullable(request.getEmail())
+                    .filter(e -> !e.trim().isEmpty())
+                    .orElseThrow(() -> new BadRequestException("Either staffId or email is required."));
+            user = userRepository.findByEmail(email.toLowerCase().trim())
+                    .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
+        }
 
-        // Validate hospital ownership if hospitalId supplied in login request
-        if (request.getHospitalId() != null && !request.getHospitalId().trim().isEmpty()) {
-            String expectedHospitalId = request.getHospitalId().trim();
-            if (user.getHospitalId() == null || !user.getHospitalId().equalsIgnoreCase(expectedHospitalId)) {
-                throw new UnauthorizedException("Access Denied: Account does not belong to hospital code '" + expectedHospitalId + "'.");
-            }
+        // Validate hospital ownership (defence-in-depth; RLS already scopes the lookup)
+        if (user.getHospitalId() == null || !user.getHospitalId().equalsIgnoreCase(hospitalId)) {
+            throw new UnauthorizedException("Access Denied: Account does not belong to hospital code '" + hospitalId + "'.");
         }
 
         // Validate password with BCrypt, with legacy plaintext migration
@@ -207,10 +213,10 @@ public class AuthService {
 
         // Filter staff by hospital ID case-insensitively
         List<User> users = userRepository.findAll();
-        List<AuthDTO.UserDTO> staff = users.stream()
+        List<AuthDTO.StaffPickerDTO> staff = users.stream()
                 .filter(u -> u.getHospitalId() != null && u.getHospitalId().equalsIgnoreCase(hospitalId))
                 .filter(u -> u.getIsActive() == null || u.getIsActive() != 0)
-                .map(this::mapToDTO)
+                .map(this::mapToPickerDTO)
                 .collect(Collectors.toList());
 
         // Strictly enforce hospital validation: must exist in hospital table OR have registered staff
@@ -238,6 +244,22 @@ public class AuthService {
                 ),
                 "staff", staff
         );
+    }
+
+    /**
+     * Slim DTO for the public staff-lookup endpoint.
+     * Only name, role, specialization, and photo — no PII.
+     */
+    private AuthDTO.StaffPickerDTO mapToPickerDTO(User user) {
+        AuthDTO.StaffPickerDTO dto = new AuthDTO.StaffPickerDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setRole(user.getRole());
+        // email intentionally omitted — login now uses staffId, so email never needs
+        // to leave the server through an unauthenticated endpoint
+        dto.setSpecialization(user.getSpecialization());
+        dto.setPhotoUrl(user.getPhotoUrl());
+        return dto;
     }
 
     public AuthDTO.UserDTO mapToDTO(User user) {

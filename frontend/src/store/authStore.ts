@@ -30,7 +30,7 @@ interface AuthState {
   user:           AuthUser | null;
   isLoading:      boolean;
   loginError:     string | null;
-  login: (email: string, password: string, hospitalId?: string) => Promise<boolean>;
+  login: (staffId: string, password: string, hospitalId?: string) => Promise<boolean>;
   logout:         () => void;
   restoreSession: () => Promise<void>;
 }
@@ -95,10 +95,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email, password, hospitalId) => {
+  login: async (staffId, password, hospitalId) => {
     set({ loginError: null });
     try {
-      const res = await apiClient.post('/auth/login', { email, password, hospitalId });
+      const res = await apiClient.post('/auth/login', { staffId, password, hospitalId });
       const { user, token } = res.data as { user: AuthUser; token?: string };
 
       persistLocalAuth(user, token);

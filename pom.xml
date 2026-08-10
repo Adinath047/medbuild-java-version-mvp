@@ -16,7 +16,7 @@
     <description>Unified Fullstack App for Medicos EMR (Spring Boot 3 + React Frontend Monorepo)</description>
     <properties>
         <java.version>21</java.version>
-        <netty.version>4.1.122.Final</netty.version>
+        <netty.version>4.1.137.Final</netty.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.8.9</springdoc.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>

@@ -5,12 +5,17 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 public class AuthDTO {
 
     public static class LoginRequest {
-        private String email;
+        @JsonAlias({"staff_id", "staffId"})
+        private String staffId;  // preferred: UUID of the selected staff member from the picker
+        private String email;    // fallback: still accepted for direct API / password-reset flows
         private String password;
         @JsonAlias({"hospital_id", "hospitalId"})
         private String hospitalId;
 
         public LoginRequest() {}
+
+        public String getStaffId() { return staffId; }
+        public void setStaffId(String staffId) { this.staffId = staffId; }
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
@@ -61,15 +66,36 @@ public class AuthDTO {
     }
 
     /**
-     * UserDTO — used by /api/auth/login, /api/auth/me, and /api/auth/hospital/{code}/staff.
+     * StaffPickerDTO — the only fields exposed by the public unauthenticated staff-lookup
+     * endpoint (GET /api/auth/hospital/{code}/staff).
      *
-     * Field names are kept in camelCase intentionally: the authStore (AuthUser interface)
-     * and all pages reference user.hospitalId, user.licenseNumber, user.consultationFee,
-     * user.photoUrl, etc. in camelCase.
-     *
-     * DO NOT add @JsonProperty snake_case annotations here — that would break the frontend
-     * auth session and every page that reads user properties from the auth store.
-     *
+     * email is intentionally excluded: login now accepts staffId (UUID) instead, so there
+     * is no longer any downstream reason to expose email through an unauthenticated endpoint.
+     * Phone, licenseNumber, and all other PII remain excluded.
+     */
+    public static class StaffPickerDTO {
+        private String id;
+        private String name;
+        private String role;
+        private String specialization;
+        private String photoUrl;
+
+        public StaffPickerDTO() {}
+
+        public String getId()             { return id; }
+        public void   setId(String id)    { this.id = id; }
+        public String getName()               { return name; }
+        public void   setName(String name)    { this.name = name; }
+        public String getRole()               { return role; }
+        public void   setRole(String role)    { this.role = role; }
+        public String getSpecialization()                     { return specialization; }
+        public void   setSpecialization(String specialization){ this.specialization = specialization; }
+        public String getPhotoUrl()               { return photoUrl; }
+        public void   setPhotoUrl(String photoUrl){ this.photoUrl = photoUrl; }
+    }
+
+
+    /**
      * The raw User entity (returned by GET /api/users) has its own @JsonProperty annotations
      * for snake_case, which is what the Admin portal's staff table needs.
      */

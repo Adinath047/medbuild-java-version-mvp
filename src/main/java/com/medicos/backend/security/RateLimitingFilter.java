@@ -37,8 +37,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // General API requests per minute per IP
     private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 300;
 
-    // Auth endpoints (login, register, hospital lookup) per minute per IP
-    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 50;
+    // Auth endpoints (login, register, hospital lookup) per minute per IP.
+    // Configurable via rate-limiting.auth-max-per-minute to allow test environments
+    // to use a higher value without changing the production default.
+    @Value("${rate-limiting.auth-max-per-minute:20}")
+    private int maxAuthRequestsPerMinute;
 
     // OTP-specific limit — much tighter to prevent 6-digit brute force
     // 6-digit OTP = 1,000,000 combinations; at 5/min it would take 138 days
@@ -75,7 +78,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             limit  = MAX_OTP_REQUESTS_PER_MINUTE;
         } else if (isAuthEndpoint(path)) {
             bucket = authBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
-            limit  = MAX_AUTH_REQUESTS_PER_MINUTE;
+            limit  = maxAuthRequestsPerMinute;
         } else {
             bucket = generalBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
             limit  = MAX_GENERAL_REQUESTS_PER_MINUTE;

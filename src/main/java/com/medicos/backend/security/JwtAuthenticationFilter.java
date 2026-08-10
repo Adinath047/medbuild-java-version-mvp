@@ -2,8 +2,6 @@ package com.medicos.backend.security;
 
 import com.medicos.backend.entity.Patient;
 import com.medicos.backend.entity.User;
-import com.medicos.backend.repository.PatientRepository;
-import com.medicos.backend.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -26,14 +24,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final JwtUserLookupService jwtUserLookupService;
-    private final PatientRepository patientRepository;
 
     public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
-                                   JwtUserLookupService jwtUserLookupService,
-                                   PatientRepository patientRepository) {
+                                   JwtUserLookupService jwtUserLookupService) {
         this.tokenProvider = tokenProvider;
         this.jwtUserLookupService = jwtUserLookupService;
-        this.patientRepository = patientRepository;
     }
 
     @Override
@@ -75,7 +70,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 } else if ("patient".equalsIgnoreCase(role)) {
                     // ── Second try: patient mobile app ───────────────────────
-                    Optional<Patient> patientOptional = patientRepository.findById(userId);
+                    // Patient JWTs also embed hospitalId (PatientAuthService.verifyOtp line 131),
+                    // so the same RLS-bind-before-SELECT pattern applies here.
+                    Optional<Patient> patientOptional = jwtUserLookupService.findPatientByIdWithTenant(userId, hospitalId);
                     if (patientOptional.isPresent()) {
                         Patient patient = patientOptional.get();
                         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_PATIENT");
@@ -87,7 +84,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+            // Log with enough context to diagnose the failure without exposing token content.
+            // Common causes: RLS session variable not set, expired token, malformed claim.
+            logger.error("JWT authentication failed [path=" + request.getRequestURI()
+                    + " cause=" + ex.getMessage() + "] — request continues unauthenticated", ex);
         }
 
         filterChain.doFilter(request, response);

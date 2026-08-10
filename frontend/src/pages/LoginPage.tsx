@@ -124,7 +124,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const ok = await login(selectedUser.email, password, hospitalCode);
+    const ok = await login(selectedUser.id, password, hospitalCode);
     setLoading(false);
     if (!ok) {
       setError('Incorrect password. Please try again.');
