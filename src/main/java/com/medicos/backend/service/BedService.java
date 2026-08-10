@@ -7,6 +7,10 @@ import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.BedAdmissionRepository;
 import com.medicos.backend.repository.BedRepository;
+import com.medicos.backend.entity.Vital;
+import com.medicos.backend.repository.PatientRepository;
+import com.medicos.backend.repository.UserRepository;
+import com.medicos.backend.repository.VitalRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -20,16 +24,46 @@ public class BedService {
 
     private final BedRepository bedRepository;
     private final BedAdmissionRepository admissionRepository;
+    private final PatientRepository patientRepository;
+    private final UserRepository userRepository;
+    private final VitalRepository vitalRepository;
 
-    public BedService(BedRepository bedRepository, BedAdmissionRepository admissionRepository) {
+    public BedService(BedRepository bedRepository, 
+                      BedAdmissionRepository admissionRepository,
+                      PatientRepository patientRepository,
+                      UserRepository userRepository,
+                      VitalRepository vitalRepository) {
         this.bedRepository = bedRepository;
         this.admissionRepository = admissionRepository;
+        this.patientRepository = patientRepository;
+        this.userRepository = userRepository;
+        this.vitalRepository = vitalRepository;
     }
 
-    @Cacheable(value = "beds", key = "'ALL'")
+    private void populateBedDetails(Bed bed) {
+        if (bed == null) return;
+        if ("Occupied".equals(bed.getStatus())) {
+            if (bed.getPatientId() != null) {
+                patientRepository.findById(bed.getPatientId()).ifPresent(p -> {
+                    bed.setPatientName(p.getName());
+                    bed.setPatientUhid(p.getUhid());
+                    bed.setPatientPhoto(p.getPhotoUrl());
+                });
+                vitalRepository.findFirstByPatientIdOrderByRecordedAtDesc(bed.getPatientId()).ifPresent(bed::setVitals);
+            }
+            if (bed.getDoctorId() != null) {
+                userRepository.findById(bed.getDoctorId()).ifPresent(d -> {
+                    bed.setDoctorName(d.getName());
+                });
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<Bed> getAllBeds() {
-        return bedRepository.findAll();
+        List<Bed> beds = bedRepository.findAll();
+        beds.forEach(this::populateBedDetails);
+        return beds;
     }
 
     @Cacheable(value = "bed_history", key = "'ALL'")
@@ -38,7 +72,7 @@ public class BedService {
         return admissionRepository.findAll();
     }
 
-    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
+    @CacheEvict(value = "bed_history", allEntries = true)
     @Transactional
     public Bed createBed(Bed bed, User user) {
         Optional.ofNullable(bed.getBedNumber())
@@ -60,7 +94,7 @@ public class BedService {
         return bedRepository.save(bed);
     }
 
-    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
+    @CacheEvict(value = "bed_history", allEntries = true)
     @Transactional
     public Map<String, Object> allocateBed(String id, Map<String, String> body, User user) {
         Bed bed = bedRepository.findById(id)
@@ -77,6 +111,7 @@ public class BedService {
         bed.setDoctorId(doctorId);
         bed.setAdmittedAt(LocalDateTime.now());
         bedRepository.save(bed);
+        populateBedDetails(bed);
 
         // Record Bed Admission
         BedAdmission admission = new BedAdmission();
@@ -92,7 +127,8 @@ public class BedService {
         return Map.of("message", "Bed allocated successfully", "bed", bed);
     }
 
-    @CacheEvict(value = {"beds", "bed_history"}, allEntries = true)
+
+    @CacheEvict(value = "bed_history", allEntries = true)
     @Transactional
     public Map<String, Object> releaseBed(String id) {
         Bed bed = bedRepository.findById(id)

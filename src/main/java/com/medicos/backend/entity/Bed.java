@@ -38,7 +38,38 @@ public class Bed {
     @Column(name = "admitted_at")
     private LocalDateTime admittedAt;
 
+    @Transient
+    private String patientName;
+
+    @Transient
+    private String patientUhid;
+
+    @Transient
+    private String doctorName;
+
+    @Transient
+    private String patientPhoto;
+
+    @Transient
+    private Vital vitals;
+
     public Bed() {}
+
+    // Getters and Setters
+    public String getPatientName() { return patientName; }
+    public void setPatientName(String patientName) { this.patientName = patientName; }
+
+    public String getPatientUhid() { return patientUhid; }
+    public void setPatientUhid(String patientUhid) { this.patientUhid = patientUhid; }
+
+    public String getDoctorName() { return doctorName; }
+    public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
+
+    public String getPatientPhoto() { return patientPhoto; }
+    public void setPatientPhoto(String patientPhoto) { this.patientPhoto = patientPhoto; }
+
+    public Vital getVitals() { return vitals; }
+    public void setVitals(Vital vitals) { this.vitals = vitals; }
 
     // Getters and Setters
     public String getId() { return id; }

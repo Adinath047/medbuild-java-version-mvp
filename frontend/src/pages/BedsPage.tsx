@@ -28,6 +28,12 @@ const getLocalDatetimeString = () => {
   return localNow.toISOString().slice(0, 16);
 };
 
+const parseDateTime = (dtStr: string | null | undefined) => {
+  if (!dtStr) return new Date();
+  const normalized = (dtStr.endsWith('Z') || dtStr.includes('+') || dtStr.includes('-')) ? dtStr : dtStr + 'Z';
+  return new Date(normalized);
+};
+
 function sortBedsList(list: Bed[]) {
   if (!Array.isArray(list)) return [];
   return [...list].sort((a, b) => {
@@ -270,9 +276,9 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
     setLoadingVitalsLog(true);
     try {
       const res = await apiClient.get(`/vitals?patient_id=${bed.patient_id}&limit=100`);
-      const admittedTime = bed.admitted_at ? new Date(bed.admitted_at).getTime() : 0;
+      const admittedTime = bed.admitted_at ? parseDateTime(bed.admitted_at).getTime() : 0;
       const filtered = (res.data || []).filter((v: any) => {
-        const recordedTime = new Date(v.recorded_at).getTime();
+        const recordedTime = parseDateTime(v.recorded_at).getTime();
         return recordedTime >= admittedTime;
       });
       setVitalsLogList(filtered);
@@ -520,7 +526,7 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
               bannerBorder = '1px solid #fde68a';
               bannerColor = '#b45309';
             } else {
-              const recordedTime = new Date(vitals.recorded_at).getTime();
+              const recordedTime = parseDateTime(vitals.recorded_at).getTime();
               const diffMs = Date.now() - recordedTime;
               const diffMins = Math.max(0, Math.floor(diffMs / (60 * 1000)));
               const diffHours = Math.floor(diffMs / (3600 * 1000));
@@ -628,7 +634,7 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                             {isCritical && <span className="blinking-dot" title="Critical/Abnormal Vitals" />}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                            {bed.doctor_name ? (bed.doctor_name.toLowerCase().startsWith('dr.') ? bed.doctor_name : `Dr. ${bed.doctor_name}`) : '—'} · admitted {bed.admitted_at ? new Date(bed.admitted_at).toLocaleDateString('en-IN') : 'recently'}
+                            {bed.doctor_name ? (bed.doctor_name.toLowerCase().startsWith('dr.') ? bed.doctor_name : `Dr. ${bed.doctor_name}`) : '—'} · admitted {bed.admitted_at ? parseDateTime(bed.admitted_at).toLocaleDateString('en-IN') : 'recently'}
                           </div>
                         </div>
                       </div>
@@ -1032,9 +1038,9 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                               🛏️ {adm.room} ({adm.bed_number}) · {adm.ward} ({adm.bed_type} Bed)
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-light)', marginTop: 4 }}>
-                              Admitted: <strong>{new Date(adm.admitted_at).toLocaleString('en-IN')}</strong>
+                              Admitted: <strong>{parseDateTime(adm.admitted_at).toLocaleString('en-IN')}</strong>
                               {adm.discharged_at ? (
-                                <> · Vacated: <strong>{new Date(adm.discharged_at).toLocaleString('en-IN')}</strong></>
+                                <> · Vacated: <strong>{parseDateTime(adm.discharged_at).toLocaleString('en-IN')}</strong></>
                               ) : (
                                 <span style={{ marginLeft: 6 }} className="badge badge-success">Currently Admitted</span>
                               )}
@@ -1077,7 +1083,7 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-                Showing daily logs for current stay (Admitted: <strong>{vitalsLogBed.admitted_at ? new Date(vitalsLogBed.admitted_at).toLocaleString('en-IN') : ''}</strong>)
+                Showing daily logs for current stay (Admitted: <strong>{vitalsLogBed.admitted_at ? parseDateTime(vitalsLogBed.admitted_at).toLocaleString('en-IN') : ''}</strong>)
               </div>
               {loadingVitalsLog ? (
                 <div style={{ padding: 40, textAlign: 'center' }}>
@@ -1105,7 +1111,7 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                       }} />
                       
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                        📅 {new Date(v.recorded_at).toLocaleString('en-IN')} · Attended by: <span style={{ color: 'var(--text)' }}>{v.recorded_by_name || 'Staff'}</span>
+                        📅 {parseDateTime(v.recorded_at).toLocaleString('en-IN')} · Attended by: <span style={{ color: 'var(--text)' }}>{v.recorded_by_name || 'Staff'}</span>
                       </div>
 
                       {/* Vitals grid */}
