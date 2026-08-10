@@ -504,8 +504,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     licenseNumber: user?.licenseNumber || '',
     qualification: user?.qualification || '',
     registrationNumber: user?.registrationNumber || '',
-    consultationFee: user?.consultationFee || 0,
-    followupFee: user?.followupFee || 0,
+    consultationFee: String(user?.consultationFee ?? ''),
+    followupFee: String(user?.followupFee ?? ''),
     letterhead: user?.letterhead || '',
     photoUrl: user?.photoUrl || '',
     showDiagnosisOnPrint: user?.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
@@ -543,8 +543,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         licenseNumber: user.licenseNumber || '',
         qualification: user.qualification || '',
         registrationNumber: user.registrationNumber || '',
-        consultationFee: user.consultationFee || 0,
-        followupFee: user.followupFee || 0,
+        consultationFee: String(user.consultationFee ?? ''),
+        followupFee: String(user.followupFee ?? ''),
         letterhead: user.letterhead || '',
         photoUrl: user.photoUrl || '',
         showDiagnosisOnPrint: user.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
@@ -571,8 +571,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         license_number: profileForm.licenseNumber,
         qualification: profileForm.qualification,
         registration_number: profileForm.registrationNumber,
-        consultation_fee: parseFloat(profileForm.consultationFee as any) || 0,
-        followup_fee: parseFloat(profileForm.followupFee as any) || 0,
+        consultation_fee: parseFloat(String(profileForm.consultationFee)) || 0,
+        followup_fee: parseFloat(String(profileForm.followupFee)) || 0,
         letterhead: profileForm.letterhead,
         photo_url: profileForm.photoUrl,
         show_diagnosis_on_print: !!profileForm.showDiagnosisOnPrint,
@@ -958,7 +958,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                       type="number"
                       min="0"
                       value={profileForm.consultationFee}
-                      onChange={e => setProfileForm(f => ({ ...f, consultationFee: parseFloat(e.target.value) || 0 }))}
+                      onChange={e => setProfileForm(f => ({ ...f, consultationFee: e.target.value }))}
                       required
                     />
                   </div>
@@ -969,7 +969,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                       type="number"
                       min="0"
                       value={profileForm.followupFee}
-                      onChange={e => setProfileForm(f => ({ ...f, followupFee: parseFloat(e.target.value) || 0 }))}
+                      onChange={e => setProfileForm(f => ({ ...f, followupFee: e.target.value }))}
                       required
                     />
                   </div>
