@@ -10,12 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 @Component
+@Profile("!prod")
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
@@ -53,11 +55,6 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        try {
-            jdbcTemplate.execute("SET LOCAL app.bypass_rls = 'true';");
-        } catch (Exception e) {
-            log.warn("Could not set app.bypass_rls session variable: {}", e.getMessage());
-        }
         log.info("Checking initial hospital and staff seed data...");
 
         // 1. Seed Hospital hsp-001 (Medicos Hospital & EMR Center)
@@ -95,6 +92,7 @@ public class DataInitializer implements CommandLineRunner {
         String defaultPasswordHash = passwordEncoder.encode("doctor123");
 
         // Staff for hsp-001 (Medicos Hospital)
+        jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-001', true);");
         createUserIfMissing("usr-doc-001", "Dr. Ananya Rao", "doctor@medicos.com", defaultPasswordHash, "doctor", "hsp-001", "STF-101", "Cardiology", "MBBS, MD (Cardiology)");
         createUserIfMissing("usr-doc-003", "Dr. Rajesh Sharma", "doctor2@medicos.com", defaultPasswordHash, "doctor", "hsp-001", "STF-103", "General Surgery", "MBBS, MS (General Surgery)");
         createUserIfMissing("usr-rec-001", "Rajesh Patel", "receptionist@medicos.com", defaultPasswordHash, "receptionist", "hsp-001", "STF-102", "Front Desk", "B.Com");
@@ -105,6 +103,7 @@ public class DataInitializer implements CommandLineRunner {
         createUserIfMissing("usr-adm-001", "Admin User", "admin@medicos.com", defaultPasswordHash, "admin", "hsp-001", "STF-100", "Hospital Management", "MBA Healthcare");
 
         // Staff for hsp-002 (City Care Specialty Clinic)
+        jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-002', true);");
         createUserIfMissing("usr-doc-002", "Dr. Vikram Seth", "doctor.city@medicos.com", defaultPasswordHash, "doctor", "hsp-002", "STF-201", "General Medicine", "MBBS, MD (Internal Medicine)");
         createUserIfMissing("usr-doc-004", "Dr. Meera Nair", "doctor2.city@medicos.com", defaultPasswordHash, "doctor", "hsp-002", "STF-203", "Pediatrics", "MBBS, DCH");
         createUserIfMissing("usr-rec-002", "Priya Sharma", "receptionist.city@medicos.com", defaultPasswordHash, "receptionist", "hsp-002", "STF-202", "Front Desk", "B.Sc");
@@ -123,9 +122,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedDoctorDistrictsIfMissing() {
         try {
+            jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-001', true);");
             setDoctorDistrict("usr-doc-001", "Mumbai", 4.8, 12, 320);
-            setDoctorDistrict("usr-doc-002", "Pune", 4.6, 8, 210);
             setDoctorDistrict("usr-doc-003", "Mumbai", 4.7, 15, 450);
+
+            jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-002', true);");
+            setDoctorDistrict("usr-doc-002", "Pune", 4.6, 8, 210);
             setDoctorDistrict("usr-doc-004", "Pune", 4.9, 10, 180);
         } catch (Exception e) {
             log.warn("Could not set doctor districts: {}", e.getMessage());
@@ -177,6 +179,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedClinicalDataIfMissing() {
         try {
+            jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-001', true);");
             // Seed Patients
             if (patientRepository.count() == 0) {
                 com.medicos.backend.entity.Patient p1 = new com.medicos.backend.entity.Patient();

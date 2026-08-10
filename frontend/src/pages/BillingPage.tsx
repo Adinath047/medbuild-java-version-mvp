@@ -107,6 +107,15 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
   const [doctorInfo, setDoctorInfo] = useState<any>(null);  // auto-filled from encounter
   const [fetchingDoctor, setFetchingDoctor] = useState(false);
 
+  const addReadyItem = (description: string, price: number) => {
+    setItems(prev => {
+      if (prev.length === 1 && prev[0].description === '' && prev[0].unit_price === 0) {
+        return [{ description, quantity: 1, unit_price: price, amount: price }];
+      }
+      return [...prev, { description, quantity: 1, unit_price: price, amount: price }];
+    });
+  };
+
   const total    = items.reduce((s,i)=>s+(i.quantity*i.unit_price),0);
   const net      = Math.max(0, total - parseFloat(discount||'0'));
   const paid     = parseFloat(paidAmount||'0');
@@ -232,7 +241,13 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
       {showAdd && (
         <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
           <div className="modal" style={{maxWidth:640}} onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><div className="modal-title">🧾 New Invoice</div><button className="modal-close" onClick={()=>setShowAdd(false)}>✕</button></div>
+            <div className="modal-header">
+              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                New Invoice
+              </div>
+              <button type="button" className="modal-close" onClick={()=>setShowAdd(false)}>✕</button>
+            </div>
             <form onSubmit={submit}>
               <div className="modal-body">
                 <div className="form-group">
@@ -241,6 +256,53 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                     <option value="">— Select —</option>
                     {patients.map(p=><option key={p.id} value={p.id}>{p.name} ({p.uhid})</option>)}
                   </select>
+                </div>
+
+                {/* Ready Items / Quick Add */}
+                <div style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ marginBottom: 8, display: 'block', fontWeight: 600, fontSize: 12, color: 'var(--text-sec)' }}>Quick Add Common Items:</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                      onClick={() => addReadyItem('Doctor Consultation', 500)}
+                    >
+                      Consultation (₹500)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                      onClick={() => addReadyItem('General Bed Ward (1 Day)', 1000)}
+                    >
+                      General Bed (₹1,000)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                      onClick={() => addReadyItem('ICU Bed Stay (1 Day)', 3000)}
+                    >
+                      ICU Bed (₹3,000)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                      onClick={() => addReadyItem('Oxygen Charges (Per day)', 800)}
+                    >
+                      Oxygen Charges (₹800)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                      onClick={() => addReadyItem('CBC Blood Test', 350)}
+                    >
+                      CBC Blood Test (₹350)
+                    </button>
+                  </div>
                   {fetchingDoctor && (
                     <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:12,color:'var(--text-muted)'}}>
                       <div className="spinner spinner-sm"/> Looking up doctor fee…
@@ -252,7 +314,7 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                       background:'#f0fdf4', border:'1px solid #86efac',
                       display:'flex', alignItems:'center', gap:10, fontSize:12,
                     }}>
-                      <span>👨‍⚕️</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#16a34a' }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                       <div>
                         <div style={{fontWeight:700,color:'#15803d'}}>Dr. {doctorInfo.name}</div>
                         <div style={{color:'#64748b'}}>
@@ -421,7 +483,9 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Across all outpatient invoices</div>
           </div>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>💵</div>
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
         </div>
 
         {/* Card 2: TOTAL COLLECTED */}
@@ -433,7 +497,9 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Paid & partially paid receipts</div>
           </div>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✓</div>
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
         </div>
 
         {/* Card 3: OUTSTANDING BAL */}
@@ -445,7 +511,9 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Pending collection</div>
           </div>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🧾</div>
+          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
         </div>
       </div>
 
@@ -486,7 +554,10 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             transition: 'all 0.15s ease'
           }}
         >
-          🛏️ Bed Stay (IPD) Billing
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4v16M2 19h20M22 8v11M2 8h20M6 12h4a2 2 0 0 1 2 2v5"/></svg>
+            Bed Stay (IPD) Billing
+          </span>
         </button>
       </div>
 
@@ -551,7 +622,9 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
           ) : filtered.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px' }}>
-              <span className="empty-icon">🧾</span>
+              <span className="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
               <h3>No invoices found</h3>
               <p>Try switching to another filter status tab.</p>
             </div>
@@ -647,7 +720,9 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
             <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
           ) : bedStays.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px' }}>
-              <span className="empty-icon">🛏️</span>
+              <span className="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}><path d="M2 4v16M2 19h20M22 8v11M2 8h20M6 12h4a2 2 0 0 1 2 2v5"/></svg>
+              </span>
               <h3>No unbilled stay records</h3>
               <p>All inpatient admissions are fully billed or active.</p>
             </div>
@@ -696,10 +771,11 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            style={{ background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 12, padding: '4px 10px' }}
+                            style={{ background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                             onClick={() => handleBillStay(stay)}
                           >
-                            🪙 Bill Stay
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            Bill Stay
                           </button>
                         </td>
                       </tr>

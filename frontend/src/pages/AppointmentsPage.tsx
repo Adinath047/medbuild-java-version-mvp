@@ -13,6 +13,11 @@ const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirme
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
+const formatDoctorName = (name: string) => {
+  if (!name) return '';
+  return name.toLowerCase().startsWith('dr.') ? name : `Dr. ${name}`;
+};
+
 export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:string,d?:any)=>void; data?:any }) {
   const { user } = useAuthStore();
   const { syncCount } = useSync();
@@ -235,8 +240,11 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                   <label className="form-label">Doctor *</label>
                   <select className="input" value={form.doctor_id} onChange={e=>set('doctor_id',e.target.value)} required>
                     <option value="">— Select Doctor —</option>
-                    {doctors.map(d => <option key={d.id} value={d.id}>Dr. {d.name} {d.specialization ? `(${d.specialization})` : ''}</option>)}
-                    {user?.role === 'doctor' && !doctors.find(d=>d.id===user.id) && <option value={user.id}>Dr. {user.name} (Me)</option>}
+                    {doctors.map(d => {
+                      const cleanDocName = formatDoctorName(d.name);
+                      return <option key={d.id} value={d.id}>{cleanDocName} {d.specialization ? `(${d.specialization})` : ''}</option>;
+                    })}
+                    {user?.role === 'doctor' && !doctors.find(d=>d.id===user.id) && <option value={user.id}>{formatDoctorName(user.name)} (Me)</option>}
                   </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -402,6 +410,11 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                 const isCancelled = a.status === 'Cancelled';
                 const isCompleted = a.status === 'Completed';
 
+                const patientObj = patients.find(p => p.id === a.patient_id);
+                const doctorObj = doctors.find(d => d.id === a.doctor_id);
+                const patientName = a.patient_name || patientObj?.name || 'Patient';
+                const doctorName = a.doctor_name || doctorObj?.name || 'Doctor';
+
                 return (
                   <div
                     key={a.id}
@@ -445,9 +458,9 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                         overflow: 'hidden'
                       }}>
                         {a.patient_photo ? (
-                          <img src={a.patient_photo} alt={a.patient_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={a.patient_photo} alt={patientName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          a.patient_name ? a.patient_name[0].toUpperCase() : 'P'
+                          patientName ? patientName[0].toUpperCase() : 'P'
                         )}
                       </div>
                       <div>
@@ -455,7 +468,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                           style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', cursor: 'pointer' }}
                           onClick={() => onNavigate('patient_detail', { patientId: a.patient_id })}
                         >
-                          {a.patient_name}
+                          {patientName}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                           {a.reason || 'General checkup'}
@@ -480,7 +493,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                         🩺
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-sec)', fontWeight: 500 }}>
-                        Dr. {a.doctor_name || 'Aarav Mehta'} · <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{a.specialization || 'Cardiology'}</span>
+                        {formatDoctorName(doctorName)} · <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{a.specialization || doctorObj?.specialization || 'Cardiology'}</span>
                       </div>
                     </div>
 

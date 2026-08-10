@@ -1,5 +1,6 @@
 package com.medicos.backend.service;
 
+import com.medicos.backend.config.TenantSessionBinder;
 import com.medicos.backend.dto.AuthDTO;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
@@ -27,12 +28,14 @@ public class AuthService {
     private final HospitalRepository hospitalRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final TenantSessionBinder tenantSessionBinder;
 
-    public AuthService(UserRepository userRepository, HospitalRepository hospitalRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider) {
+    public AuthService(UserRepository userRepository, HospitalRepository hospitalRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider, TenantSessionBinder tenantSessionBinder) {
         this.userRepository = userRepository;
         this.hospitalRepository = hospitalRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.tenantSessionBinder = tenantSessionBinder;
     }
 
     @Transactional
@@ -44,6 +47,12 @@ public class AuthService {
         String rawPassword = Optional.ofNullable(request.getPassword())
                 .filter(p -> !p.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Password is required."));
+
+        String hospitalId = request.getHospitalId() != null ? request.getHospitalId().trim() : null;
+        if (hospitalId == null || hospitalId.isEmpty()) {
+            throw new BadRequestException("Hospital Code is required.");
+        }
+        tenantSessionBinder.bindTenant(hospitalId);
 
         User user = userRepository.findByEmail(email.toLowerCase().trim())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
@@ -101,7 +110,14 @@ public class AuthService {
     }
 
     @Transactional
-    public Map<String, Object> register(AuthDTO.RegisterRequest request) {
+    public Map<String, Object> register(AuthDTO.RegisterRequest request, User adminUser) {
+        // hospitalId is NEVER taken from the payload — it is sourced from the authenticated admin's record.
+        // This prevents a client from registering accounts into an arbitrary hospital.
+        if (adminUser == null || adminUser.getHospitalId() == null) {
+            throw new UnauthorizedException("Registration requires an authenticated admin session.");
+        }
+        String hospitalId = adminUser.getHospitalId().trim();
+
         String name = Optional.ofNullable(request.getName())
                 .filter(n -> !n.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Name is required."));
@@ -114,6 +130,8 @@ public class AuthService {
                 .filter(p -> !p.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Password is required."));
 
+        tenantSessionBinder.bindTenant(hospitalId);
+
         userRepository.findByEmail(email.toLowerCase().trim())
                 .ifPresent(u -> { throw new BadRequestException("Email is already registered."); });
 
@@ -122,8 +140,15 @@ public class AuthService {
         newUser.setName(name);
         newUser.setEmail(email.toLowerCase().trim());
         newUser.setPassword(passwordEncoder.encode(password));
-        newUser.setRole(Optional.ofNullable(request.getRole()).orElse("doctor"));
-        newUser.setHospitalId(Optional.ofNullable(request.getHospitalId()).orElse("hsp-001"));
+        String role = Optional.ofNullable(request.getRole()).orElse("doctor").toLowerCase().trim();
+        java.util.Set<String> ALLOWED_ROLES = java.util.Set.of(
+                "doctor", "nurse", "receptionist", "lab_technician", "pharmacist", "billing", "admin"
+        );
+        if (!ALLOWED_ROLES.contains(role)) {
+            throw new BadRequestException("Invalid role '" + role + "'. Allowed values: " + ALLOWED_ROLES);
+        }
+        newUser.setRole(role);
+        newUser.setHospitalId(hospitalId); // always from admin session, never from payload
         newUser.setSpecialization(request.getSpecialization());
         newUser.setPhone(request.getPhone());
         newUser.setLicenseNumber(request.getLicenseNumber());
@@ -173,6 +198,7 @@ public class AuthService {
             throw new BadRequestException("Hospital Code is required.");
         }
         final String hospitalId = code.trim();
+        tenantSessionBinder.bindTenant(hospitalId);
         
         // Find hospital in DB case-insensitively
         Optional<Hospital> hospitalOpt = hospitalRepository.findAll().stream()

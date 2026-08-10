@@ -1,6 +1,7 @@
 package com.medicos.backend.config;
 
 import com.medicos.backend.entity.User;
+import com.medicos.backend.entity.Patient;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.security.core.Authentication;
@@ -10,6 +11,7 @@ import org.springframework.transaction.TransactionSystemException;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.SQLException;
 
@@ -24,8 +26,9 @@ public class RlsAwareJpaTransactionManager extends JpaTransactionManager {
             DataSource dataSource = getDataSource();
             if (dataSource != null) {
                 Connection connection = DataSourceUtils.getConnection(dataSource);
-                try (Statement statement = connection.createStatement()) {
-                    statement.execute("SET LOCAL app.current_hospital_id = '" + hospitalId + "'");
+                try (PreparedStatement ps = connection.prepareStatement("SELECT set_config('app.current_hospital_id', ?, true)")) {
+                    ps.setString(1, hospitalId);
+                    ps.execute();
                 } catch (SQLException e) {
                     throw new TransactionSystemException("Could not set RLS tenant context for transaction", e);
                 } finally {
@@ -37,8 +40,13 @@ public class RlsAwareJpaTransactionManager extends JpaTransactionManager {
 
     private String getCurrentHospitalId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User) {
-            return ((User) authentication.getPrincipal()).getHospitalId();
+        if (authentication != null && authentication.isAuthenticated()) {
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof User) {
+                return ((User) principal).getHospitalId();
+            } else if (principal instanceof Patient) {
+                return ((Patient) principal).getHospitalId();
+            }
         }
         return null;
     }

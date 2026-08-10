@@ -38,7 +38,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 300;
 
     // Auth endpoints (login, register, hospital lookup) per minute per IP
-    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 20;
+    private static final int MAX_AUTH_REQUESTS_PER_MINUTE = 50;
 
     // OTP-specific limit — much tighter to prevent 6-digit brute force
     // 6-digit OTP = 1,000,000 combinations; at 5/min it would take 138 days

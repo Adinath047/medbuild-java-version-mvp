@@ -16,6 +16,7 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
   const [rxList, setRxList]   = useState<Rx[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
+  const [prePrintedLetterhead, setPrePrintedLetterhead] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,7 +96,8 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
       printMarginTop: (rx as any).doctor_print_margin_top !== undefined ? (rx as any).doctor_print_margin_top : user?.printMarginTop,
       printMarginBottom: (rx as any).doctor_print_margin_bottom !== undefined ? (rx as any).doctor_print_margin_bottom : user?.printMarginBottom,
       printMarginLeftRight: (rx as any).doctor_print_margin_left_right !== undefined ? (rx as any).doctor_print_margin_left_right : user?.printMarginLeftRight,
-      printFontSize: (rx as any).doctor_print_font_size !== undefined ? (rx as any).doctor_print_font_size : user?.printFontSize
+      printFontSize: (rx as any).doctor_print_font_size !== undefined ? (rx as any).doctor_print_font_size : user?.printFontSize,
+      prePrinted: prePrintedLetterhead
     });
   }
 
@@ -145,12 +147,16 @@ export default function PrescriptionsListPage({ onNavigate }: { onNavigate: (p: 
       </div>
 
       <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input className="form-input" placeholder="Search patient, UHID, doctor…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '8px 12px 8px 34px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={prePrintedLetterhead} onChange={e => setPrePrintedLetterhead(e.target.checked)} />
+            <span>Print on pre-printed letterhead</span>
+          </label>
         </div>
       </div>
 

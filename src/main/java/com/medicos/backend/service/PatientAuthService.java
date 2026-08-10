@@ -1,5 +1,6 @@
 package com.medicos.backend.service;
 
+import com.medicos.backend.config.TenantSessionBinder;
 import com.medicos.backend.dto.PatientAppDTO;
 import com.medicos.backend.entity.Patient;
 import com.medicos.backend.exception.BadRequestException;
@@ -48,12 +49,16 @@ public class PatientAuthService {
     @Value("${otp.use-random:false}")
     private boolean useRandomOtp;
 
+    private final TenantSessionBinder tenantSessionBinder;
+
     public PatientAuthService(PatientRepository patientRepository,
                               JwtTokenProvider tokenProvider,
-                              Optional<StringRedisTemplate> redisTemplate) {
+                              Optional<StringRedisTemplate> redisTemplate,
+                              TenantSessionBinder tenantSessionBinder) {
         this.patientRepository = patientRepository;
         this.tokenProvider = tokenProvider;
         this.redisTemplate = redisTemplate.orElse(null);
+        this.tenantSessionBinder = tenantSessionBinder;
     }
 
     /**
@@ -102,6 +107,9 @@ public class PatientAuthService {
 
         // Delete OTP immediately after verification to prevent reuse
         deleteOtp(cleanPhone);
+
+        // Bind default tenant context before patient query
+        tenantSessionBinder.bindTenant("hsp-001");
 
         // Find existing patient or create new one
         Patient patient = patientRepository.findByPhone(cleanPhone).orElseGet(() -> {

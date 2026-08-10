@@ -114,6 +114,8 @@ public class SecurityConfig {
                     ).permitAll()
 
                     // ── Authentication endpoints ──────────────────────────────
+                    // Register is admin-only — hospital assignment must come from a verified admin session
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
                     .requestMatchers("/api/auth/**").permitAll()
 
                     // ── System / health ───────────────────────────────────────

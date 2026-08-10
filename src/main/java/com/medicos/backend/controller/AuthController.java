@@ -40,8 +40,9 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthDTO.RegisterRequest request) {
-        Map<String, Object> result = authService.register(request);
+    public ResponseEntity<?> register(@RequestBody AuthDTO.RegisterRequest request,
+                                      @AuthenticationPrincipal User adminUser) {
+        Map<String, Object> result = authService.register(request, adminUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 

@@ -10,7 +10,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class RlsVerificationTest {
 
-    private static final String DB_URL = "jdbc:postgresql://34.14.172.153:5432/medbuild-mvp-01";
+    private static final String DB_URL = System.getenv("TEST_DB_URL") != null 
+            ? System.getenv("TEST_DB_URL") 
+            : "jdbc:postgresql://34.14.172.153:5432/medbuild-mvp-01";
     private static final String ADMIN_USER = "postgres";
     private static final String ADMIN_PASS = "x6VfmVqF2MFmvoaM@";
 
@@ -22,6 +24,9 @@ public class RlsVerificationTest {
         // Connect as superuser (postgres) to grant privileges and enable RLS
         try (Connection conn = DriverManager.getConnection(DB_URL, ADMIN_USER, ADMIN_PASS)) {
             try (Statement stmt = conn.createStatement()) {
+                // Reset role to postgres to clear any default session role overrides
+                stmt.execute("RESET ROLE;");
+
                 // 1. Grant privileges to medbuild_app
                 stmt.execute("GRANT CONNECT ON DATABASE \"medbuild-mvp-01\" TO medbuild_app;");
                 stmt.execute("GRANT USAGE ON SCHEMA public TO medbuild_app;");
@@ -30,9 +35,9 @@ public class RlsVerificationTest {
                 stmt.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO medbuild_app;");
                 stmt.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO medbuild_app;");
 
-                // 2. Enable and configure RLS on the 11 transactional EMR tables
+                // 2. Enable and configure RLS on all 12 transactional EMR and user tables
                 String[] tables = {
-                    "patients", "encounters", "vitals", "prescriptions", "appointments",
+                    "users", "patients", "encounters", "vitals", "prescriptions", "appointments",
                     "beds", "bed_admissions", "billing", "medicines", "notifications", "patient_uploads"
                 };
                 for (String table : tables) {
@@ -40,7 +45,7 @@ public class RlsVerificationTest {
                     stmt.execute("ALTER TABLE " + table + " FORCE ROW LEVEL SECURITY;");
                     stmt.execute("DROP POLICY IF EXISTS tenant_isolation_policy ON " + table + ";");
                     stmt.execute("CREATE POLICY tenant_isolation_policy ON " + table +
-                        " USING (hospital_id = current_setting('app.current_hospital_id', true) OR current_setting('app.bypass_rls', true) = 'true');");
+                        " USING (hospital_id = current_setting('app.current_hospital_id'));");
                 }
             }
         }
@@ -85,16 +90,7 @@ public class RlsVerificationTest {
                 }
             }
 
-            // Test 4: System Bypass (app.bypass_rls = 'true')
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute("SET LOCAL app.bypass_rls = 'true';");
-                try (ResultSet rs = stmt.executeQuery("SELECT COUNT(DISTINCT hospital_id) AS cnt FROM patients;")) {
-                    if (rs.next()) {
-                        int distinctHospitals = rs.getInt("cnt");
-                        assertTrue(distinctHospitals > 0, "Bypass failed: could not read multiple hospitals data");
-                    }
-                }
-            }
+
 
             conn.rollback(); // Always rollback verification queries
         }

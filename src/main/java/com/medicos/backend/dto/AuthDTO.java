@@ -1,10 +1,13 @@
 package com.medicos.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 public class AuthDTO {
 
     public static class LoginRequest {
         private String email;
         private String password;
+        @JsonAlias({"hospital_id", "hospitalId"})
         private String hospitalId;
 
         public LoginRequest() {}
@@ -24,6 +27,7 @@ public class AuthDTO {
         private String email;
         private String password;
         private String role = "doctor";
+        @JsonAlias({"hospital_id", "hospitalId"})
         private String hospitalId = "hsp-001";
         private String specialization;
         private String phone;

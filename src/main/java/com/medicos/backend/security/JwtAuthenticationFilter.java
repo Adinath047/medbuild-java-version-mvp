@@ -25,14 +25,14 @@ import java.util.Optional;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final UserRepository userRepository;
+    private final JwtUserLookupService jwtUserLookupService;
     private final PatientRepository patientRepository;
 
     public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
-                                   UserRepository userRepository,
+                                   JwtUserLookupService jwtUserLookupService,
                                    PatientRepository patientRepository) {
         this.tokenProvider = tokenProvider;
-        this.userRepository = userRepository;
+        this.jwtUserLookupService = jwtUserLookupService;
         this.patientRepository = patientRepository;
     }
 
@@ -56,9 +56,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 String userId = tokenProvider.getUserIdFromToken(jwt);
                 String role = tokenProvider.getRoleFromToken(jwt);
+                // hospitalId is embedded in the JWT at token generation time.
+                // We pass it to the lookup service so it can bind the RLS session variable
+                // within the same transaction as the findById query — breaking the
+                // chicken-and-egg: we don't need the DB user to know the tenant,
+                // and we don't need the tenant bound externally to query the DB user.
+                String hospitalId = tokenProvider.getHospitalIdFromToken(jwt);
 
-                // ── First try: EMR staff / doctor ────────────────────────────
-                Optional<User> userOptional = userRepository.findById(userId);
+                // ── First try: EMR staff / doctor ──────────────────────────
+                Optional<User> userOptional = jwtUserLookupService.findUserByIdWithTenant(userId, hospitalId);
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase());
