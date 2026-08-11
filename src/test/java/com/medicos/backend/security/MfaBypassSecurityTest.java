@@ -16,6 +16,16 @@ public class MfaBypassSecurityTest {
     public void setUp() {
         StringRedisTemplate stringRedisTemplate = Mockito.mock(StringRedisTemplate.class);
         jwtTokenProvider = new JwtTokenProvider(stringRedisTemplate);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+            jwtTokenProvider,
+            "jwtSecret",
+            "MedicosSecretKeySuperSecureJwtTokenSignatureKey2026WithAtLeast256BitsSecretKey!"
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(
+            jwtTokenProvider,
+            "jwtExpirationMs",
+            86400000L
+        );
     }
 
     @Test
