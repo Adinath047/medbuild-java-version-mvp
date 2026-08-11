@@ -1,5 +1,6 @@
 package com.medicos.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -72,8 +73,30 @@ public class Billing {
     public String getEncounterId() { return encounterId; }
     public void setEncounterId(String encounterId) { this.encounterId = encounterId; }
 
-    public String getItems() { return items; }
-    public void setItems(String items) { this.items = items; }
+    @JsonProperty("items")
+    public Object getItems() {
+        if (this.items == null || this.items.isBlank()) return new java.util.ArrayList<>();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(this.items, Object.class);
+        } catch (Exception e) {
+            return this.items;
+        }
+    }
+
+    @JsonProperty("items")
+    public void setItems(Object items) {
+        if (items == null) {
+            this.items = "[]";
+        } else if (items instanceof String) {
+            this.items = (String) items;
+        } else {
+            try {
+                this.items = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(items);
+            } catch (Exception e) {
+                this.items = "[]";
+            }
+        }
+    }
 
     public Double getTotalAmount() { return totalAmount; }
     public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }

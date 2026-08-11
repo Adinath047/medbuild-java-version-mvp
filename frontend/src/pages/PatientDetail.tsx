@@ -48,46 +48,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
   const [prePrinted, setPrePrinted] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [notificationToast, setNotificationToast] = useState<{ show: boolean; title: string; message: string; type: string } | null>(null);
-
-  function showManualNotification(customTitle?: string, customMsg?: string) {
-    const title = customTitle || '🩺 Patient Notification Triggered';
-    const message = customMsg || `Vitals Alert for Patient: Temperature & Vitals trends updated.`;
-
-    // 1. Show interactive in-app toast
-    setNotificationToast({
-      show: true,
-      title,
-      message,
-      type: 'info'
-    });
-
-    // Auto dismiss toast after 6 seconds
-    setTimeout(() => {
-      setNotificationToast(null);
-    }, 6000);
-
-    // 2. Dispatch event for global top navbar notification bell badge
-    window.dispatchEvent(new CustomEvent('emr:new-notification', {
-      detail: {
-        type: 'vitals_alert',
-        message: `${title} — ${message}`
-      }
-    }));
-
-    // 3. Trigger native browser desktop notification if permitted
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification(title, { body: message });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification(title, { body: message });
-          }
-        });
-      }
-    }
-  }
+  const [activeBed, setActiveBed] = useState<any>(null);
 
   async function handlePrintRx(rxId: string) {
     try {
@@ -206,6 +167,15 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
       
       const historyBills = await db.billing.where('patient_id').equals(patientId).reverse().toArray();
       setPatientBills(historyBills);
+
+      try {
+        const bedsRes = await apiClient.get('/beds');
+        const bedsList = Array.isArray(bedsRes.data) ? bedsRes.data : (bedsRes.data?.beds || []);
+        const myBed = bedsList.find((b: any) => b.patient_id === patientId && b.status === 'Occupied');
+        setActiveBed(myBed || null);
+      } catch {
+        setActiveBed(null);
+      }
     } finally { if (!isSilent) setLoading(false); }
   }, [patientId]);
 
@@ -319,40 +289,6 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
 
   return (
     <div style={{ ...styleVariables, display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
-      {/* Interactive Toast Notification Banner */}
-      {notificationToast?.show && (
-        <div style={{
-          position: 'fixed',
-          top: 24,
-          right: 24,
-          zIndex: 9999,
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          color: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: 12,
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
-          border: '1px solid rgba(13, 148, 136, 0.5)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 14,
-          maxWidth: 380,
-          animation: 'slideIn 0.3s ease-out'
-        }}>
-          <span style={{ fontSize: 22, display: 'flex', alignItems: 'center' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#2dd4bf', marginBottom: 2 }}>{notificationToast.title}</div>
-            <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.4 }}>{notificationToast.message}</div>
-          </div>
-          <button 
-            onClick={() => setNotificationToast(null)} 
-            style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 16, cursor: 'pointer', padding: 2 }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* Back button row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="no-print">
@@ -360,17 +296,6 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           ← Back to Patient Directory
         </button>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button 
-            className="btn btn-sm" 
-            onClick={() => showManualNotification(
-              `Manual Notification: ${p.name}`,
-              `Patient ${p.name} (${p.uhid}) vitals: Temperature & Vitals trend alert triggered manually.`
-            )}
-            style={{ background: 'rgba(13, 148, 136, 0.15)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            Show Notification
-          </button>
           {isDoctor && (
             <>
               <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('new_prescription', { patientId: p.id })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -432,9 +357,18 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: 'var(--text)' }}>{p.name}</h2>
-                <span className="badge badge-danger" style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', textTransform: 'uppercase', background: '#fee2e2', color: '#dc2626' }}>
-                  Critical
-                </span>
+                {(() => {
+                  const isBpAb = vit ? (parseInt(vit.bp_systolic || '0') > 140 || parseInt(vit.bp_systolic || '0') < 90) : false;
+                  const isHrAb = vit ? (parseInt(vit.heart_rate || '0') > 100 || parseInt(vit.heart_rate || '0') < 60) : false;
+                  const isSpo2Ab = vit ? (parseInt(vit.spo2 || '100') < 95) : false;
+                  const isTempAb = vit ? (parseFloat(vit.temperature || '98.6') > 100.4) : false;
+                  const hasCriticalVitals = isBpAb || isHrAb || isSpo2Ab || isTempAb;
+                  return (
+                    <span className={`badge ${hasCriticalVitals ? 'badge-danger' : activeBed ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', textTransform: 'uppercase' }}>
+                      {hasCriticalVitals ? 'Critical' : activeBed ? 'Admitted' : 'OPD'}
+                    </span>
+                  );
+                })()}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 UHID <strong>{p.uhid}</strong> · {p.age || '45'} yrs · {p.sex}
@@ -470,9 +404,15 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                   return docName.toLowerCase().startsWith('dr.') ? docName : `Dr. ${docName}`;
                 })()}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 700, background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: 20 }}>
-                Bed assigned
-              </span>
+              {activeBed ? (
+                <span style={{ fontSize: 11, fontWeight: 700, background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: 20 }}>
+                  Bed: Room {activeBed.room} ({activeBed.bed_number})
+                </span>
+              ) : (
+                <span style={{ fontSize: 11, fontWeight: 700, background: '#f1f5f9', color: '#64748b', padding: '4px 10px', borderRadius: 20 }}>
+                  OPD (No bed)
+                </span>
+              )}
             </div>
           </div>
           
@@ -597,17 +537,6 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Live trends with dotted grid alignment across all observations</span>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button 
-                  className="btn btn-sm" 
-                  onClick={() => showManualNotification(
-                    `📊 Vitals Trends Notification`,
-                    `Patient ${p.name} (${p.uhid}) Temperature & Vitals trends alert: Latest Temp is ${vit?.temperature || '38.6'}°${vit?.temperature_unit || 'C'}.`
-                  )}
-                  style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  Show Notification
-                </button>
                 <button className="btn btn-primary btn-sm" onClick={() => onNavigate('new_vitals', { patientId: p.id })}>
                   + Record Vitals
                 </button>
@@ -1058,17 +987,6 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           <div className="card" style={{ boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius-xl)' }}>
             <div className="card-header" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Vitals Timeline</h3>
-              <button 
-                className="btn btn-sm" 
-                onClick={() => showManualNotification(
-                  `Vitals Timeline Notification`,
-                  `Patient ${p.name} (${p.uhid}) Vitals History notification triggered.`
-                )}
-                style={{ background: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: '1px solid rgba(13, 148, 136, 0.25)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                Show Notification
-              </button>
             </div>
             
             <div className="card-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>

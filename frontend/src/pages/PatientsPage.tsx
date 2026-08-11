@@ -722,29 +722,26 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
   const [loading, setLoading]   = useState(true);
   const [source, setSource]     = useState<'server'|'local'>('server');
   const [activeTab, setActiveTab] = useState<'All' | 'OPD' | 'Admitted' | 'Critical' | 'Discharged'>('All');
+  const [occupiedBedPatientIds, setOccupiedBedPatientIds] = useState<Set<string>>(new Set());
 
   const getPatientStatus = (p: any) => {
-    const charCode = p.id ? p.id.charCodeAt(p.id.length - 1) : 0;
-    if (charCode % 5 === 0) return 'Admitted';
-    if (charCode % 7 === 0) return 'Critical';
-    if (charCode % 9 === 0) return 'Discharged';
+    if (occupiedBedPatientIds.has(p.id) || p.bed_id || p.is_admitted || p.status === 'Admitted') return 'Admitted';
+    if (p.status === 'Critical') return 'Critical';
+    if (p.status === 'Discharged') return 'Discharged';
     return 'OPD';
   };
 
   const getPatientComplaint = (p: any) => {
     const status = getPatientStatus(p);
-    if (status === 'Admitted') return 'Chest pain, shortness of breath';
-    if (status === 'Critical') return 'Post-op recovery, unstable BP';
-    if (status === 'Discharged') return 'Recovered, routine checkup';
-    return 'OPD Consultation';
+    if (status === 'Admitted') return p.chief_complaint || 'Inpatient Bed Care';
+    if (status === 'Critical') return p.chief_complaint || 'Critical / ICU Care';
+    if (status === 'Discharged') return 'Discharged';
+    return p.chief_complaint || 'OPD Consultation';
   };
 
   const getAssignedDoctor = (p: any) => {
-    const charCode = p.id ? p.id.charCodeAt(0) : 0;
-    if (charCode % 4 === 0) return 'Dr. Aarav Mehta';
-    if (charCode % 4 === 1) return 'Dr. Priya Sharma';
-    if (charCode % 4 === 2) return 'Dr. Rohan Kapoor';
-    return 'Dr. Vikram Rao';
+    if (!p.primary_doctor_name) return '—';
+    return p.primary_doctor_name.toLowerCase().startsWith('dr.') ? p.primary_doctor_name : `Dr. ${p.primary_doctor_name}`;
   };
 
 
@@ -816,7 +813,22 @@ export default function PatientsPage({ onNavigate, autoOpen }: { onNavigate: (p:
         q = q.filter(p => p.name?.toLowerCase().includes(s) || p.phone?.includes(s) || p.uhid?.toLowerCase().includes(s));
       }
       setPatients(await q.limit(200).toArray()); setSource('local');
-    } finally { if (!isSilent) setLoading(false); }
+    } finally {
+      try {
+        const bedsRes = await apiClient.get('/beds');
+        const list = Array.isArray(bedsRes.data) ? bedsRes.data : (bedsRes.data?.beds || []);
+        const occupiedIds = new Set<string>();
+        list.forEach((b: any) => {
+          if (b.patient_id && b.status === 'Occupied') {
+            occupiedIds.add(b.patient_id);
+          }
+        });
+        setOccupiedBedPatientIds(occupiedIds);
+      } catch {
+        setOccupiedBedPatientIds(new Set());
+      }
+      if (!isSilent) setLoading(false);
+    }
   }, [search]);
 
   useEffect(() => { const t = setTimeout(() => load(false), 300); return () => clearTimeout(t); }, [load]);

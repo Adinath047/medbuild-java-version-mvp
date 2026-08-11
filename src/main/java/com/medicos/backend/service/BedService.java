@@ -68,8 +68,51 @@ public class BedService {
 
     @Cacheable(value = "bed_history", key = "'ALL'")
     @Transactional(readOnly = true)
-    public List<BedAdmission> getBedHistory() {
-        return admissionRepository.findAll();
+    public List<Map<String, Object>> getBedHistory() {
+        List<BedAdmission> admissions = admissionRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (BedAdmission adm : admissions) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", adm.getId());
+            map.put("hospital_id", adm.getHospitalId());
+            map.put("bed_id", adm.getBedId());
+            map.put("patient_id", adm.getPatientId());
+            map.put("doctor_id", adm.getDoctorId());
+            map.put("admitted_at", adm.getAdmittedAt());
+            map.put("discharged_at", adm.getDischargedAt());
+            map.put("status", adm.getStatus());
+            map.put("billing_status", adm.getBillingStatus());
+            map.put("billing_id", adm.getBillingId());
+
+            if (adm.getPatientId() != null) {
+                patientRepository.findById(adm.getPatientId()).ifPresent(p -> {
+                    map.put("patient_name", p.getName());
+                    map.put("patient_uhid", p.getUhid());
+                });
+            }
+
+            if (adm.getBedId() != null) {
+                bedRepository.findById(adm.getBedId()).ifPresent(b -> {
+                    map.put("room", b.getRoom());
+                    map.put("bed_number", b.getBedNumber());
+                    map.put("ward", b.getWard());
+                    map.put("bed_type", b.getType());
+                });
+            }
+
+            if (adm.getDoctorId() != null) {
+                userRepository.findById(adm.getDoctorId()).ifPresent(d -> {
+                    map.put("doctor_name", d.getName());
+                });
+            }
+
+            LocalDateTime end = adm.getDischargedAt() != null ? adm.getDischargedAt() : LocalDateTime.now();
+            long days = java.time.Duration.between(adm.getAdmittedAt(), end).toDays();
+            map.put("stay_days", Math.max(1, days));
+
+            result.add(map);
+        }
+        return result;
     }
 
     @CacheEvict(value = "bed_history", allEntries = true)

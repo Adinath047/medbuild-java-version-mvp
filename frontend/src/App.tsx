@@ -238,8 +238,13 @@ export default function App() {
     dismissPrintRequest 
   } = useNotificationStore();
 
-  const [page, setPage]         = useState('');
-  const [pageData, setPageData] = useState<any>(null);
+  const [page, setPage]         = useState(() => sessionStorage.getItem('emr_current_page') || '');
+  const [pageData, setPageData] = useState<any>(() => {
+    try {
+      const stored = sessionStorage.getItem('emr_current_page_data');
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
   const [sidebarOpen, setSidebar] = useState(false);
   const [showInactivityModal, setShowInactivityModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -423,14 +428,24 @@ export default function App() {
     return () => window.removeEventListener('emr:new-notification', handleManualNotification);
   }, [user]);
 
-  // Set default page per role on login
+  // Set default page per role on login if not already stored
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'admin')        setPage('settings');
-    else                              setPage('dashboard');
+    const storedPage = sessionStorage.getItem('emr_current_page');
+    if (!storedPage || storedPage === '') {
+      const defaultPage = user.role === 'admin' ? 'settings' : 'dashboard';
+      setPage(defaultPage);
+      sessionStorage.setItem('emr_current_page', defaultPage);
+    }
   }, [user?.role]);
 
-  function navigate(p: string, data?: any) { setPage(p); setPageData(data ?? null); }
+  function navigate(p: string, data?: any) {
+    setPage(p);
+    setPageData(data ?? null);
+    sessionStorage.setItem('emr_current_page', p);
+    if (data) sessionStorage.setItem('emr_current_page_data', JSON.stringify(data));
+    else sessionStorage.removeItem('emr_current_page_data');
+  }
 
   if (isLoading) return (
     <div className="loading-screen">

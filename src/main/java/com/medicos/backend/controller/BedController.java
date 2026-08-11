@@ -30,7 +30,7 @@ public class BedController {
 
     @GetMapping("/history")
     public ResponseEntity<?> getBedHistory() {
-        List<BedAdmission> admissions = bedService.getBedHistory();
+        List<?> admissions = bedService.getBedHistory();
         return ResponseEntity.ok(admissions);
     }
 

@@ -224,7 +224,7 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
 
   function handlePrint(b: any) {
     const patient = patients.find((p: any) => p.id === b.patient_id);
-    const items   = Array.isArray(b.items) ? b.items : [];
+    const items   = Array.isArray(b.items) ? b.items : (typeof b.items === 'string' ? (() => { try { return JSON.parse(b.items); } catch { return []; } })() : []);
     const total   = items.reduce((s: number, i: any) => s + (i.quantity * i.unit_price), 0);
     printInvoice({
       invoice: { id: b.id, invoice_number: b.invoice_number, created_at: b.created_at, payment_mode: b.payment_mode, payment_status: b.payment_status },
@@ -235,6 +235,10 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
       notes: b.notes,
     });
   }
+
+  const consultationRate = doctorInfo?.consultation_fee || user?.consultationFee || 500;
+  const followupRate     = doctorInfo?.followup_fee || user?.followupFee || 200;
+  const bedRate          = doctorInfo?.bed_per_day_charge || user?.bedPerDayCharge || 1000;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
@@ -266,17 +270,27 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                       type="button"
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
-                      onClick={() => addReadyItem('Doctor Consultation', 500)}
+                      onClick={() => addReadyItem('Doctor Consultation', consultationRate)}
                     >
-                      Consultation (₹500)
+                      Consultation (₹{consultationRate})
                     </button>
+                    {followupRate > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                        onClick={() => addReadyItem('Follow-up Consultation', followupRate)}
+                      >
+                        Follow-up (₹{followupRate})
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
-                      onClick={() => addReadyItem('General Bed Ward (1 Day)', 1000)}
+                      onClick={() => addReadyItem('General Bed Ward (1 Day)', bedRate)}
                     >
-                      General Bed (₹1,000)
+                      Bed Charge (₹{bedRate}/day)
                     </button>
                     <button
                       type="button"
@@ -285,14 +299,6 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
                       onClick={() => addReadyItem('ICU Bed Stay (1 Day)', 3000)}
                     >
                       ICU Bed (₹3,000)
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: 11, padding: '6px 10px', height: 'auto', background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
-                      onClick={() => addReadyItem('Oxygen Charges (Per day)', 800)}
-                    >
-                      Oxygen Charges (₹800)
                     </button>
                     <button
                       type="button"

@@ -222,12 +222,16 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
   }
 
   // Handle Release Bed
-  async function handleRelease(bedId: string) {
+  async function handleRelease(bed: any) {
     if (!confirm('Are you sure you want to release / vacate this bed?')) return;
+    const patientId = bed.patient_id;
     try {
-      await apiClient.put(`/beds/${bedId}/release`);
+      await apiClient.put(`/beds/${bed.id}/release`);
       await fetchBeds();
       triggerSyncBroadcast();
+      if (onNavigate && patientId) {
+        onNavigate('billing', { patientId, showAdd: true, bedStay: bed });
+      }
     } catch (err: any) {
       alert(err?.response?.data?.error || 'Failed to release bed.');
     }
@@ -753,7 +757,7 @@ export default function BedsPage({ onNavigate }: { onNavigate?: (p: string, d?: 
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ color: 'var(--text-muted)', fontSize: 12, minHeight: 30 }}
-                        onClick={() => handleRelease(bed.id)}
+                        onClick={() => handleRelease(bed)}
                       >
                         Vacate
                       </button>
