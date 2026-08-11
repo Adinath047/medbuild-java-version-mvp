@@ -4,6 +4,7 @@ import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.UserRepository;
+import com.medicos.backend.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +16,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @Transactional(readOnly = true)
@@ -72,6 +75,9 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
+        // Revoke all active sessions for this user due to password change
+        jwtTokenProvider.revokeAllUserTokens(id);
+
         return Map.of("message", "Password reset successfully");
     }
 
@@ -81,7 +87,14 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
 
         Optional.ofNullable(body.get("is_active"))
-                .ifPresent(v -> user.setIsActive(Integer.parseInt(v.toString())));
+                .ifPresent(v -> {
+                    int activeVal = Integer.parseInt(v.toString());
+                    user.setIsActive(activeVal);
+                    // Revoke all active sessions if user is being deactivated
+                    if (activeVal == 0) {
+                        jwtTokenProvider.revokeAllUserTokens(id);
+                    }
+                });
 
         return userRepository.save(user);
     }

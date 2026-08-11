@@ -11,6 +11,8 @@ import com.medicos.backend.repository.UserRepository;
 import com.medicos.backend.security.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,17 +91,24 @@ public class AuthService {
 
         String token = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
 
-        // Set HttpOnly Cookies for browser auth
-        Cookie emrTokenCookie = new Cookie("emr_token", token);
-        emrTokenCookie.setHttpOnly(true);
-        emrTokenCookie.setPath("/");
-        emrTokenCookie.setMaxAge(86400); // 1 day
-        response.addCookie(emrTokenCookie);
+        // Set ResponseCookies for browser auth with modern SameSite=Lax attributes
+        ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", token)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(86400)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, emrTokenCookie.toString());
 
-        Cookie csrfCookie = new Cookie("csrf_token", UUID.randomUUID().toString());
-        csrfCookie.setPath("/");
-        csrfCookie.setMaxAge(86400);
-        response.addCookie(csrfCookie);
+        ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", UUID.randomUUID().toString())
+                .httpOnly(false) // must be false so the React client can read it
+                .secure(true)
+                .path("/")
+                .maxAge(86400)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, csrfCookie.toString());
 
         AuthDTO.UserDTO userDTO = mapToDTO(user);
         return Map.of(
@@ -174,11 +183,23 @@ public class AuthService {
             tokenProvider.invalidateToken(token);
         }
 
-        Cookie cookie = new Cookie("emr_token", null);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from("emr_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", "")
+                .httpOnly(false)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, csrfCookie.toString());
 
         return Map.of("message", "Logged out successfully");
     }

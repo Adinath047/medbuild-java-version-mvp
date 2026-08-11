@@ -47,13 +47,18 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // 6-digit OTP = 1,000,000 combinations; at 5/min it would take 138 days
     private static final int MAX_OTP_REQUESTS_PER_MINUTE = 5;
 
+    // Trial signup limit — strictly capped to prevent schema generation abuse
+    private static final int MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR = 3;
+    private static final long ONE_HOUR_IN_MS = 3600_000L;
+
     // IPv4 pattern for X-Forwarded-For validation
     private static final Pattern IP_PATTERN = Pattern.compile(
         "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]{2,39}$");
 
-    private final Map<String, RequestBucket> generalBuckets  = new ConcurrentHashMap<>();
-    private final Map<String, RequestBucket> authBuckets     = new ConcurrentHashMap<>();
-    private final Map<String, RequestBucket> otpBuckets      = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> generalBuckets     = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> authBuckets        = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> otpBuckets         = new ConcurrentHashMap<>();
+    private final Map<String, RequestBucket> trialSignupBuckets = new ConcurrentHashMap<>();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -72,8 +77,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         // Determine which bucket applies (most specific first)
         RequestBucket bucket;
         int limit;
+        String errorMessage = "Rate limit exceeded. Please try again in 60 seconds.";
+        String retryAfter = "60";
 
-        if (isOtpEndpoint(path)) {
+        if ("/api/trial/signup".equals(path)) {
+            bucket = trialSignupBuckets.computeIfAbsent(clientIp, k -> new RequestBucket(ONE_HOUR_IN_MS));
+            limit  = MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR;
+            errorMessage = "Trial signup rate limit exceeded. Please try again in an hour.";
+            retryAfter = "3600";
+        } else if (isOtpEndpoint(path)) {
             bucket = otpBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
             limit  = MAX_OTP_REQUESTS_PER_MINUTE;
         } else if (isAuthEndpoint(path)) {
@@ -87,10 +99,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         if (!bucket.allowRequest(limit)) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
-            response.setHeader("Retry-After", "60");
+            response.setHeader("Retry-After", retryAfter);
             response.getWriter().write(
                 "{\"error\":\"Too Many Requests\"," +
-                "\"message\":\"Rate limit exceeded. Please try again in 60 seconds.\"}");
+                "\"message\":\"" + errorMessage + "\"}");
             return;
         }
 
@@ -144,16 +156,25 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static class RequestBucket {
         private final AtomicInteger count     = new AtomicInteger(0);
         private final AtomicLong    windowStart = new AtomicLong(System.currentTimeMillis());
+        private final long          windowDurationMs;
+
+        public RequestBucket() {
+            this(60_000L); // 1 minute default
+        }
+
+        public RequestBucket(long windowDurationMs) {
+            this.windowDurationMs = windowDurationMs;
+        }
 
         /**
-         * Returns true if the request should be allowed under the given per-minute limit.
-         * Uses a fixed 60-second window with atomic compare-and-swap reset.
+         * Returns true if the request should be allowed under the given limit.
+         * Uses a fixed window with atomic compare-and-swap reset.
          */
         public boolean allowRequest(int maxRequests) {
             long now   = System.currentTimeMillis();
             long start = windowStart.get();
 
-            if (now - start > 60_000L) {
+            if (now - start > windowDurationMs) {
                 // CAS to reset: only one thread resets, others just increment into the new window
                 if (windowStart.compareAndSet(start, now)) {
                     count.set(0);

@@ -41,11 +41,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // ── Blacklist check ──────────────────────────────────────────
                 // Reject tokens that have been explicitly revoked (e.g. via logout).
-                if (tokenProvider.isTokenBlacklisted(jwt)) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                try {
+                    if (tokenProvider.isTokenBlacklisted(jwt)) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write(
+                            "{\"error\":\"Unauthorized\",\"message\":\"Token has been revoked. Please log in again.\"}");
+                        return;
+                    }
+                } catch (org.springframework.dao.DataAccessException e) {
+                    logger.error("Redis connection failed during token validation. Failing closed.", e);
+                    response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                     response.setContentType("application/json");
                     response.getWriter().write(
-                        "{\"error\":\"Unauthorized\",\"message\":\"Token has been revoked. Please log in again.\"}");
+                        "{\"error\":\"Service Unavailable\",\"message\":\"Authentication service is temporarily unavailable. Please try again later.\"}");
                     return;
                 }
 

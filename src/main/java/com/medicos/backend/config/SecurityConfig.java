@@ -12,6 +12,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -57,8 +59,23 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .ignoringRequestMatchers(
+                    "/api/auth/login",
+                    "/api/auth/register",
+                    "/api/trial/signup",
+                    "/api/super-admin/unlock",
+                    "/api/mobile/**"
+                )
+                .ignoringRequestMatchers(request -> {
+                    String authHeader = request.getHeader("Authorization");
+                    return authHeader != null && authHeader.startsWith("Bearer ");
+                })
+            )
             .headers(headers -> headers
+
                 // ── Clickjacking protection ──────────────────────────────────
                 .frameOptions(frame -> frame.deny())
 

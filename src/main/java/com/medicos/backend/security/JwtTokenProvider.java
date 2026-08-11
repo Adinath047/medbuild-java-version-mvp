@@ -195,13 +195,41 @@ public class JwtTokenProvider {
      * Returns true if the token's JTI has been blacklisted (user logged out or token revoked).
      */
     public boolean isTokenBlacklisted(String token) {
-        try {
-            String jti = getJtiFromToken(token);
-            if (jti == null) return false;
-            return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + jti));
-        } catch (Exception e) {
-            log.warn("Could not check token blacklist in Redis: {}", e.getMessage());
-            return false; // fail-open: if Redis is down, don't lock out all users
+        String jti = getJtiFromToken(token);
+        if (jti != null) {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + jti))) {
+                return true;
+            }
         }
+
+        // Check global user revocation
+        String userId = getUserIdFromToken(token);
+        if (userId != null) {
+            String key = "user:revoked:" + userId;
+            String revocationTimeStr = redisTemplate.opsForValue().get(key);
+            if (revocationTimeStr != null) {
+                try {
+                    long revocationTime = Long.parseLong(revocationTimeStr);
+                    Date issuedAt = getClaims(token).getIssuedAt();
+                    if (issuedAt != null && issuedAt.getTime() < revocationTime) {
+                        log.info("Token for user {} rejected: issued at {} is before revocation time {}",
+                                userId, issuedAt.getTime(), revocationTime);
+                        return true;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Set a revocation timestamp for the user in Redis. Any token issued
+     * prior to this timestamp will be rejected.
+     */
+    public void revokeAllUserTokens(String userId) {
+        String key = "user:revoked:" + userId;
+        redisTemplate.opsForValue().set(key, String.valueOf(System.currentTimeMillis()), Duration.ofDays(7));
+        log.info("All active tokens for user {} have been globally revoked.", userId);
     }
 }
+
