@@ -56,13 +56,16 @@ function getNav(user: any) {
     { icon: 'settings',     label: 'Settings',       page: 'settings' },
   ];
 
+  const isReception = user?.role === 'receptionist';
+
   return [
     { section: 'WORKSPACE' },
     { icon: 'home',         label: 'Home',           page: 'dashboard' },
-    { icon: 'patients',     label: 'My Patients',    page: 'patients' },
-    { icon: 'beds',         label: 'My Beds & Vitals', page: 'beds' },
+    { icon: 'patients',     label: isReception ? 'Patients' : 'My Patients',    page: 'patients' },
+    { icon: 'beds',         label: isReception ? 'Beds & Vitals' : 'My Beds & Vitals', page: 'beds' },
     { icon: 'appointments', label: 'Appointments',   page: 'appointments' },
     { icon: 'prescription', label: 'Prescriptions',  page: 'prescriptions' },
+    { icon: 'billing',      label: 'Billing',        page: 'billing' },
     { icon: 'profile',      label: 'Profile',        page: 'settings' },
   ];
 }

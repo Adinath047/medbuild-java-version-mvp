@@ -78,9 +78,20 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
     e.preventDefault();
     if (!recordPaymentBill) return;
     
+    const dueAmount = Math.max(0, (recordPaymentBill.net_amount || 0) - (recordPaymentBill.paid_amount || 0));
+    if (dueAmount <= 0) {
+      alert('This invoice is already fully paid.');
+      return;
+    }
+
     const amt = parseFloat(newPaidAmount || '0');
     if (isNaN(amt) || amt <= 0) {
-      alert('Please enter a valid payment amount.');
+      alert('Please enter a valid payment amount greater than ₹0.');
+      return;
+    }
+
+    if (amt > dueAmount) {
+      alert(`Payment amount (₹${amt}) cannot exceed the balance due (₹${dueAmount}).`);
       return;
     }
     
@@ -389,63 +400,78 @@ export default function BillingPage({ onNavigate, data }: { onNavigate:(p:string
         </div>
       )}
 
-      {recordPaymentBill && (
-        <div className="modal-overlay" onClick={() => setRecordPaymentBill(null)}>
-          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">Record Payment</div>
-              <button className="modal-close" onClick={() => setRecordPaymentBill(null)}>✕</button>
-            </div>
-            <form onSubmit={handleRecordPaymentSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: 'var(--surface-alt)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>INVOICE #{recordPaymentBill.invoice_number || recordPaymentBill.id.slice(0,8)}</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>Patient: {recordPaymentBill.patient_name || '—'}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10, fontSize: 12 }}>
-                    <div>Net Total: <strong>₹{recordPaymentBill.net_amount}</strong></div>
-                    <div>Paid: <strong style={{ color: 'var(--success)' }}>₹{recordPaymentBill.paid_amount || 0}</strong></div>
-                    <div>Due: <strong style={{ color: 'var(--danger)' }}>₹{recordPaymentBill.net_amount - (recordPaymentBill.paid_amount || 0)}</strong></div>
+      {recordPaymentBill && (() => {
+        const netAmt = recordPaymentBill.net_amount || 0;
+        const paidAmt = recordPaymentBill.paid_amount || 0;
+        const dueAmt = Math.max(0, netAmt - paidAmt);
+        const isFullyPaid = dueAmt <= 0;
+
+        return (
+          <div className="modal-overlay" onClick={() => setRecordPaymentBill(null)}>
+            <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <div className="modal-title">Record Payment</div>
+                <button className="modal-close" onClick={() => setRecordPaymentBill(null)}>✕</button>
+              </div>
+              <form onSubmit={handleRecordPaymentSubmit}>
+                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ background: 'var(--surface-alt)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>INVOICE #{recordPaymentBill.invoice_number || recordPaymentBill.id.slice(0,8)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>Patient: {recordPaymentBill.patient_name || '—'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10, fontSize: 12 }}>
+                      <div>Net Total: <strong>₹{netAmt}</strong></div>
+                      <div>Paid: <strong style={{ color: 'var(--success)' }}>₹{paidAmt}</strong></div>
+                      <div>Due: <strong style={{ color: dueAmt > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>₹{dueAmt}</strong></div>
+                    </div>
+                  </div>
+
+                  {isFullyPaid && (
+                    <div style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600 }}>
+                      ✓ This invoice is fully paid. No balance is due.
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label">New Payment Amount (₹) *</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min={isFullyPaid ? "0" : "1"}
+                      max={isFullyPaid ? undefined : dueAmt}
+                      placeholder={isFullyPaid ? "Invoice fully paid" : "Enter collected amount"}
+                      value={newPaidAmount}
+                      onChange={e => setNewPaidAmount(e.target.value)}
+                      disabled={isFullyPaid}
+                      required={!isFullyPaid}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Payment Mode *</label>
+                    <select
+                      className="input"
+                      value={newPayMode}
+                      onChange={e => setNewPayMode(e.target.value)}
+                      disabled={isFullyPaid}
+                      required={!isFullyPaid}
+                    >
+                      {PAY_MODES.map(mode => (
+                        <option key={mode} value={mode}>{mode}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">New Payment Amount (₹) *</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max={recordPaymentBill.net_amount - (recordPaymentBill.paid_amount || 0)}
-                    placeholder="Enter collected amount"
-                    value={newPaidAmount}
-                    onChange={e => setNewPaidAmount(e.target.value)}
-                    required
-                  />
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-ghost" onClick={() => setRecordPaymentBill(null)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={submittingPayment || isFullyPaid}>
+                    {submittingPayment ? 'Saving...' : 'Record Payment'}
+                  </button>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Payment Mode *</label>
-                  <select
-                    className="input"
-                    value={newPayMode}
-                    onChange={e => setNewPayMode(e.target.value)}
-                    required
-                  >
-                    {PAY_MODES.map(mode => (
-                      <option key={mode} value={mode}>{mode}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setRecordPaymentBill(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={submittingPayment}>
-                  {submittingPayment ? 'Saving...' : 'Record Payment'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Page Header */}
       <div style={{
