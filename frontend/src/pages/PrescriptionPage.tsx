@@ -1730,9 +1730,6 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         </label>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}}>
           <button className="btn btn-primary" onClick={printSlip}>Print Slip Now</button>
-          <button className="btn btn-secondary" onClick={handleSendPrintToReceptionist} style={{ background: '#f0fdfa', borderColor: '#99f6e4', color: '#0f766e', fontWeight: 600 }}>
-            🖨️ Send Print Alert to Receptionist
-          </button>
           <button className="btn btn-secondary" onClick={() => onNavigate('patient_detail', { patientId, ts: Date.now() })}>View Patient</button>
           <button className="btn btn-ghost" onClick={() => { setSuccess(null); setMeds([{...EMPTY_MED}]); setAdvice(''); setFollowUp(''); setPatientId(patientId); }}>+ New Prescription</button>
         </div>
@@ -1775,7 +1772,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
           <div className="page-title" style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span>Write Prescription</span>
             <span style={{ fontSize: 11.5, fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary-dark)', padding: '3px 10px', borderRadius: 9999 }}>
-              {user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Dr. Aarav Mehta'}
+              {user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Doctor'}
               {user?.specialization ? ` (${user.specialization})` : ''}
             </span>
           </div>
@@ -1786,9 +1783,6 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button type="button" className="btn btn-ghost" onClick={() => onNavigate('prescriptions')} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>← Back</button>
           <button type="button" className="btn btn-secondary" onClick={printDraftSlip} style={{ border: '1px solid var(--border)', background: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 500, color: 'var(--text-sec)' }}>Print Draft</button>
-          <button type="button" className="btn btn-secondary" onClick={handleSendPrintToReceptionist} style={{ border: '1px solid #99f6e4', background: '#f0fdfa', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            🖨️ Send to Receptionist
-          </button>
           <button type="submit" className="btn btn-primary" disabled={saving} onClick={() => { printAfterSaveRef.current = true; }} style={{ borderRadius: '8px', padding: '8px 18px', fontSize: 13, fontWeight: 600 }}>
             {saving ? <><div className="spinner spinner-sm" />Saving…</> : 'Save & Print'}
           </button>

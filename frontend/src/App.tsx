@@ -44,7 +44,9 @@ const Icons: Record<string, JSX.Element> = {
 
 // NAV definition matching ClinicalHub layout
 function getNav(user: any) {
-  if (user?.role === 'admin') return [
+  const role = user?.role?.toLowerCase() || '';
+
+  if (role === 'admin') return [
     { section: 'WORKSPACE' },
     { icon: 'dashboard',    label: 'Dashboard',      page: 'dashboard' },
     { icon: 'patients',     label: 'Patients',       page: 'patients' },
@@ -56,7 +58,38 @@ function getNav(user: any) {
     { icon: 'settings',     label: 'Settings',       page: 'settings' },
   ];
 
-  const isReception = user?.role === 'receptionist';
+  if (role.includes('lab') || role.includes('pathologist')) return [
+    { section: 'WORKSPACE' },
+    { icon: 'home',         label: 'Home',                  page: 'dashboard' },
+    { icon: 'patients',     label: 'Referred Patients',     page: 'patients' },
+    { icon: 'profile',      label: 'Profile',               page: 'settings' },
+  ];
+
+  if (role.includes('billing') || role.includes('finance')) return [
+    { section: 'WORKSPACE' },
+    { icon: 'home',         label: 'Home',           page: 'dashboard' },
+    { icon: 'patients',     label: 'My Patients',    page: 'patients' },
+    { icon: 'billing',      label: 'Billing',        page: 'billing' },
+    { icon: 'profile',      label: 'Profile',        page: 'settings' },
+  ];
+
+  if (role.includes('nurse')) return [
+    { section: 'WORKSPACE' },
+    { icon: 'home',         label: 'Home',           page: 'dashboard' },
+    { icon: 'patients',     label: 'Patients',       page: 'patients' },
+    { icon: 'beds',         label: 'Beds & Vitals',  page: 'beds' },
+    { icon: 'profile',      label: 'Profile',        page: 'settings' },
+  ];
+
+  if (role.includes('pharm')) return [
+    { section: 'WORKSPACE' },
+    { icon: 'home',         label: 'Home',           page: 'dashboard' },
+    { icon: 'prescription', label: 'Prescriptions',  page: 'prescriptions' },
+    { icon: 'billing',      label: 'Pharmacy Sales', page: 'billing' },
+    { icon: 'profile',      label: 'Profile',        page: 'settings' },
+  ];
+
+  const isReception = role.includes('reception');
 
   return [
     { section: 'WORKSPACE' },
@@ -307,30 +340,58 @@ export default function App() {
     }
   }
 
-  // ⏱️ Auto-Logout Inactivity Monitor (15 Minutes)
+  // ⏱️ Auto-Logout Inactivity Monitor (15 Minutes Wall-Clock Aware for Device Sleep/Wake)
   useEffect(() => {
     if (!user) return;
 
-    let timeoutId: any;
     const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes in ms
+    const STORAGE_KEY = 'medicos_last_activity';
 
-    function resetTimer() {
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        console.warn('[Security] Logging out due to 15 minutes of inactivity.');
-        setShowInactivityModal(true);
-        logout();
-      }, INACTIVITY_TIMEOUT);
+    function recordActivity() {
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
     }
 
-    resetTimer();
+    function checkInactivity() {
+      const lastActivityStr = localStorage.getItem(STORAGE_KEY);
+      const lastActivity = lastActivityStr ? parseInt(lastActivityStr, 10) : Date.now();
+      const elapsed = Date.now() - lastActivity;
 
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    events.forEach(event => window.addEventListener(event, resetTimer));
+      if (elapsed >= INACTIVITY_TIMEOUT) {
+        console.warn(`[Security] Logging out due to inactivity (${Math.round(elapsed / 1000)}s wall-clock elapsed).`);
+        localStorage.removeItem(STORAGE_KEY);
+        setShowInactivityModal(true);
+        logout();
+      }
+    }
+
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      recordActivity();
+    }
+
+    const checkInterval = setInterval(checkInactivity, 5000);
+
+    const handleUserActivity = () => {
+      checkInactivity();
+      recordActivity();
+    };
+
+    const userActivityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    userActivityEvents.forEach(event => window.addEventListener(event, handleUserActivity, { passive: true }));
+
+    const handleWakeOrFocus = () => {
+      checkInactivity();
+    };
+
+    document.addEventListener('visibilitychange', handleWakeOrFocus);
+    window.addEventListener('focus', handleWakeOrFocus);
+    window.addEventListener('online', handleWakeOrFocus);
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      events.forEach(event => window.removeEventListener(event, resetTimer));
+      clearInterval(checkInterval);
+      userActivityEvents.forEach(event => window.removeEventListener(event, handleUserActivity));
+      document.removeEventListener('visibilitychange', handleWakeOrFocus);
+      window.removeEventListener('focus', handleWakeOrFocus);
+      window.removeEventListener('online', handleWakeOrFocus);
     };
   }, [user, logout]);
 

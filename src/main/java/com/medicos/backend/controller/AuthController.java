@@ -51,4 +51,13 @@ public class AuthController {
         Map<String, String> result = authService.logout(request, response);
         return ResponseEntity.ok(result);
     }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@AuthenticationPrincipal User user,
+                                            @RequestBody Map<String, String> payload) {
+        String currentPassword = payload.get("current_password");
+        String newPassword = payload.get("new_password");
+        authService.changePassword(user, currentPassword, newPassword);
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully. Please log in with your new password."));
+    }
 }

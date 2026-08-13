@@ -64,6 +64,7 @@ public class SecurityConfig {
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 .ignoringRequestMatchers(
                     "/api/auth/login",
+                    "/api/auth/logout",
                     "/api/auth/register",
                     "/api/trial/signup",
                     "/api/super-admin/unlock",

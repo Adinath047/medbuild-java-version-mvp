@@ -136,7 +136,7 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Payment settlements received</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#ecfdf5', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span style={{ fontSize: 20, fontWeight: 700, color: '#047857', lineHeight: 1 }}>₹</span>
           </div>
         </div>
 
@@ -380,7 +380,7 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
                 <tbody>
                   {pendingBills.slice(0, 10).map((b: any) => {
                     const due = b.net_amount - (b.paid_amount || 0);
-                    const patName = b.patient_name || patientsMap[b.patient_id]?.name || '—';
+                    const patName = b.patient_name || patientsMap[b.patient_id]?.name || 'Registered Patient';
                     return (
                       <tr key={b.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                         <td style={{ padding: '14px 20px', fontWeight: 700 }}>#{b.invoice_number || b.id.slice(0, 8)}</td>

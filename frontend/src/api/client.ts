@@ -57,11 +57,9 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (!err.response && err.message === 'Network Error') {
-      console.error(
-        '[client] Network Error — likely CORS or Spring Boot server unreachable.\n' +
-        `  Attempted URL: ${err.config?.baseURL}${err.config?.url}\n` +
-        '  Check: 1) Spring Boot Java Backend is running on port 8080  2) CORS permits origin'
+    if (!err.response && (err.message === 'Network Error' || !navigator.onLine)) {
+      console.warn(
+        `[client] Offline Mode — Server unreachable (${err.config?.url}). Falling back to local IndexedDB.`
       );
     }
 

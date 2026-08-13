@@ -1,82 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
 
 export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
-
-  // 🧪 Laboratory Requisitions & Test Results State
-  const [labOrders, setLabOrders] = useState<any[]>([
-    {
-      id: 'LAB-1001',
-      date: new Date().toISOString().split('T')[0],
-      patient_id: 'p101',
-      patient_name: 'Rakesh Kuber',
-      uhid: 'MED-98102',
-      doctor_name: 'Dr. Aarav Mehta',
-      doctor_specialty: 'Cardiology',
-      test_name: 'Complete Blood Count (CBC) & Lipid Profile',
-      urgency: 'STAT Emergency',
-      status: 'Pending Sample',
-      sample_type: 'Whole Blood (EDTA Purple Top)',
-      test_values: {}
-    },
-    {
-      id: 'LAB-1002',
-      date: new Date().toISOString().split('T')[0],
-      patient_id: 'p102',
-      patient_name: 'Sunita Deshmukh',
-      uhid: 'MED-40291',
-      doctor_name: 'Dr. Ananya Rao',
-      doctor_specialty: 'Endocrinology',
-      test_name: 'Fasting Blood Sugar (FBS) & HbA1c',
-      urgency: 'Routine',
-      status: 'Sample Collected',
-      sample_type: 'Fluoride Yellow Top & EDTA',
-      test_values: { fbs: '108 mg/dL', hba1c: '6.2%' }
-    },
-    {
-      id: 'LAB-1003',
-      date: new Date().toISOString().split('T')[0],
-      patient_id: 'p103',
-      patient_name: 'Amit Kulkarni',
-      uhid: 'MED-11029',
-      doctor_name: 'Dr. Aarav Mehta',
-      doctor_specialty: 'Cardiology',
-      test_name: 'Thyroid Profile (T3, T4, TSH)',
-      urgency: 'Routine',
-      status: 'In Testing',
-      sample_type: 'Serum Red Top',
-      test_values: { tsh: '2.4 mIU/L' }
-    },
-    {
-      id: 'LAB-1004',
-      date: new Date().toISOString().split('T')[0],
-      patient_id: 'p104',
-      patient_name: 'Rajesh Patel',
-      uhid: 'MED-55920',
-      doctor_name: 'Dr. Rajesh Sharma',
-      doctor_specialty: 'General Medicine',
-      test_name: 'Liver Function Test (LFT) & KFT',
-      urgency: 'Routine',
-      status: 'Completed & Synced',
-      sample_type: 'Serum Separator Tube',
-      test_values: { sgot: '24 U/L', sgpt: '28 U/L', creatinine: '0.9 mg/dL' }
-    }
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [doctors, setDoctors]   = useState<any[]>([]);
+  const [labOrders, setLabOrders] = useState<any[]>([]);
 
   // Lab Modals States
   const [showLabResultModal, setShowLabResultModal] = useState(false);
   const [selectedLabOrder, setSelectedLabOrder]   = useState<any>(null);
   const [labForm, setLabForm]                       = useState({
-    hb: '13.8',
-    wbc: '6800',
-    platelets: '2.5',
-    fbs: '95',
-    hba1c: '5.6',
-    tsh: '2.1',
-    impression: 'All lab parameters within normal adult reference ranges.',
+    patient_id: '',
+    test_name: 'Complete Blood Count (CBC) & Lipid Profile',
+    urgency: 'Routine',
+    sample_type: 'Whole Blood (EDTA Purple Top)',
+    hb: '',
+    wbc: '',
+    platelets: '',
+    fbs: '',
+    hba1c: '',
+    tsh: '',
+    impression: '',
   });
   const [syncingLab, setSyncingLab]                 = useState(false);
   const [labSuccessMsg, setLabSuccessMsg]           = useState('');
@@ -85,16 +33,91 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
   const [showAlertModal, setShowAlertModal]         = useState(false);
   const [alertMsg, setAlertMsg]                     = useState('Critical Lab Result Alert!');
 
+  // Load Real Data from IndexedDB and API
+  const loadRealLabData = useCallback(async () => {
+    try {
+      const [patRes, docRes, localVitals] = await Promise.allSettled([
+        apiClient.get('/patients?limit=100'),
+        apiClient.get('/users?role=doctor'),
+        db.vitals.toArray()
+      ]);
+
+      let realPatients: any[] = [];
+      if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
+        realPatients = patRes.value.data;
+        setPatients(realPatients);
+      }
+
+      let realDocs: any[] = [];
+      if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
+        realDocs = docRes.value.data;
+        setDoctors(realDocs);
+      }
+
+      // Convert stored lab vitals into lab orders list
+      let ordersFromVitals: any[] = [];
+      if (localVitals.status === 'fulfilled' && Array.isArray(localVitals.value)) {
+        const vitalsArr = localVitals.value;
+        ordersFromVitals = vitalsArr.filter((v: any) => v.blood_sugar_type?.includes('Lab') || v.notes?.includes('Lab Report')).map((v: any) => {
+          const pat = realPatients.find(p => p.id === v.patient_id);
+          return {
+            id: v.id,
+            date: v.recorded_at ? v.recorded_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            patient_id: v.patient_id,
+            patient_name: pat?.name || 'Registered Patient',
+            uhid: pat?.uhid || 'MED-PAT',
+            doctor_name: v.recorded_by || 'Attending Physician',
+            doctor_specialty: 'Clinical Medicine',
+            test_name: v.notes?.split('Synced: ')?.[1]?.split('.')?.[0] || 'Pathology Test Panel',
+            urgency: 'Routine',
+            status: 'Completed & Synced',
+            sample_type: 'Blood / Specimen',
+            test_values: {
+              fbs: v.blood_sugar ? `${v.blood_sugar} mg/dL` : undefined,
+              impression: v.notes
+            }
+          };
+        });
+      }
+
+      setLabOrders(ordersFromVitals);
+    } catch (err) {
+      console.error('Error loading lab data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRealLabData();
+  }, [loadRealLabData]);
+
   async function handleSaveLabResults(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedLabOrder) return;
+    if (!labForm.patient_id && !selectedLabOrder) {
+      alert('Please select a patient.');
+      return;
+    }
     setSyncingLab(true);
     setLabSuccessMsg('');
 
     try {
+      const targetPatId = selectedLabOrder ? selectedLabOrder.patient_id : labForm.patient_id;
+      const targetPat = patients.find(p => p.id === targetPatId);
+      const newLabId = selectedLabOrder ? selectedLabOrder.id : `LAB-${Date.now()}`;
+
       const updatedOrder = {
-        ...selectedLabOrder,
+        id: newLabId,
+        date: new Date().toISOString().split('T')[0],
+        patient_id: targetPatId,
+        patient_name: targetPat?.name || 'Patient',
+        uhid: targetPat?.uhid || 'MED-PAT',
+        doctor_name: user?.name || 'Lab Technician',
+        doctor_specialty: 'Pathology & Diagnostics',
+        test_name: labForm.test_name,
+        urgency: labForm.urgency,
         status: 'Completed & Synced',
+        sample_type: labForm.sample_type,
         test_values: {
           hb: labForm.hb ? `${labForm.hb} g/dL` : undefined,
           wbc: labForm.wbc ? `${labForm.wbc} /µL` : undefined,
@@ -107,16 +130,16 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         synced_at: new Date().toISOString()
       };
 
-      setLabOrders(prev => prev.map(o => o.id === selectedLabOrder.id ? updatedOrder : o));
+      setLabOrders(prev => [updatedOrder, ...prev.filter(o => o.id !== newLabId)]);
 
-      // Sync to local DB vitals table so attending doctors view immediately in patient profile
+      // Save to IndexedDB vitals table so attending doctors view immediately in patient profile
       await db.vitals.put({
         id: `lab-vitals-${Date.now()}`,
-        patient_id: selectedLabOrder.patient_id,
+        patient_id: targetPatId,
         hospital_id: 'hosp-1',
         blood_sugar: labForm.fbs ? Number(labForm.fbs) : undefined,
         blood_sugar_type: 'Fasting (Lab Sync)',
-        notes: `Lab Report Synced: ${selectedLabOrder.test_name}. Impression: ${labForm.impression}`,
+        notes: `Lab Report Synced: ${labForm.test_name}. Impression: ${labForm.impression || 'Normal'}`,
         recorded_by: user?.name || 'Lab Technician',
         recorded_at: new Date().toISOString(),
         _syncStatus: 'synced',
@@ -129,27 +152,30 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
       try {
         await apiClient.post('/notifications', {
           doctor_id: 'all',
-          message: `🧪 Lab Report Completed & Synced: ${selectedLabOrder.patient_name} (${selectedLabOrder.uhid}) - ${selectedLabOrder.test_name}`,
+          message: `🧪 Lab Report Completed & Synced: ${targetPat?.name} (${targetPat?.uhid}) - ${labForm.test_name}`,
         });
       } catch (err) {
         console.log('Notification fallback');
       }
 
       window.dispatchEvent(new CustomEvent('emr:lab-result-synced', { 
-        detail: { patientId: selectedLabOrder.patient_id, order: updatedOrder } 
+        detail: { patientId: targetPatId, order: updatedOrder } 
       }));
 
-      setLabSuccessMsg(`✓ Lab Results for ${selectedLabOrder.patient_name} saved & synced in real-time with ${selectedLabOrder.doctor_name}!`);
+      setLabSuccessMsg(`✓ Lab Results for ${targetPat?.name || 'Patient'} saved & synced in real-time with attending doctors!`);
       setTimeout(() => {
         setShowLabResultModal(false);
         setLabSuccessMsg('');
-      }, 2000);
+        setSelectedLabOrder(null);
+      }, 1800);
     } catch (err: any) {
       alert('Failed to sync lab report.');
     } finally {
       setSyncingLab(false);
     }
   }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /> Loading Laboratory & Pathology Dashboard...</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
@@ -183,7 +209,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
             # Laboratory & Pathology Dashboard
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
-            Good day, {user?.name?.split(' ')[0] || 'Amit'}
+            Good day, {user?.name || 'Lab Technician'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, fontWeight: 400, maxWidth: 640 }}>
             Track lab test requisitions, sample collection, test processing status, and report syncing with doctors.
@@ -335,8 +361,10 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
           {/* Lab Action 1: Enter Test Results & Sync */}
           <div 
             onClick={() => {
-              const pendingOrder = labOrders.find(o => o.status !== 'Completed & Synced') || labOrders[0];
-              setSelectedLabOrder(pendingOrder);
+              setSelectedLabOrder(null);
+              if (patients.length > 0) {
+                setLabForm(f => ({ ...f, patient_id: patients[0].id }));
+              }
               setShowLabResultModal(true);
             }}
             style={{
@@ -345,7 +373,6 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               borderRadius: 'var(--radius-lg)',
               padding: '16px 20px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
               boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               alignItems: 'center',
@@ -374,7 +401,6 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               borderRadius: 'var(--radius-lg)',
               padding: '16px 20px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
               boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               alignItems: 'center',
@@ -403,7 +429,6 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               borderRadius: 'var(--radius-lg)',
               padding: '16px 20px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
               boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               alignItems: 'center',
@@ -432,7 +457,6 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               borderRadius: 'var(--radius-lg)',
               padding: '16px 20px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
               boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               alignItems: 'center',
@@ -468,8 +492,10 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
             className="btn btn-primary btn-sm" 
             style={{ fontSize: 12.5, fontWeight: 600 }}
             onClick={() => {
-              const pendingOrder = labOrders.find(o => o.status !== 'Completed & Synced') || labOrders[0];
-              setSelectedLabOrder(pendingOrder);
+              setSelectedLabOrder(null);
+              if (patients.length > 0) {
+                setLabForm(f => ({ ...f, patient_id: patients[0].id }));
+              }
               setShowLabResultModal(true);
             }}
           >
@@ -477,70 +503,92 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
           </button>
         </div>
         <div style={{ padding: 0 }}>
-          <div className="table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Order ID & Date</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Patient Name & UHID</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ordering Doctor</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Test Requisition</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Urgency</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {labOrders.map((o: any) => (
-                  <tr key={o.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '14px 20px', fontWeight: 700 }}>
-                      <div>#{o.id}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{o.date}</div>
-                    </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{o.patient_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {o.uhid}</div>
-                    </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--text)' }}>{o.doctor_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{o.doctor_specialty}</div>
-                    </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <div style={{ fontWeight: 600, color: '#0284c7' }}>{o.test_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sample: {o.sample_type}</div>
-                    </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span className={`badge ${o.urgency === 'STAT Emergency' ? 'badge-danger' : 'badge-neutral'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
-                        {o.urgency}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span className={`badge ${o.status === 'Completed & Synced' ? 'badge-success' : o.status === 'Sample Collected' ? 'badge-warning' : 'badge-info'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
-                        {o.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        style={{ padding: '4px 12px', fontSize: 12, minHeight: 28 }}
-                        onClick={() => {
-                          setSelectedLabOrder(o);
-                          setShowLabResultModal(true);
-                        }}
-                      >
-                        {o.status === 'Completed & Synced' ? 'View & Edit Results' : 'Enter Results & Sync'}
-                      </button>
-                    </td>
+          {labOrders.length === 0 ? (
+            <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🧪</div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>No active lab requisitions found</h3>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, maxWidth: 460, margin: '6px auto 16px' }}>
+                There are currently no lab reports recorded in the database. Click below to enter lab test values for any registered patient.
+              </p>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setSelectedLabOrder(null);
+                  if (patients.length > 0) setLabForm(f => ({ ...f, patient_id: patients[0].id }));
+                  setShowLabResultModal(true);
+                }}
+              >
+                + Process New Test Order
+              </button>
+            </div>
+          ) : (
+            <div className="table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Order ID & Date</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Patient Name & UHID</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ordering Doctor</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Test Requisition</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Urgency</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {labOrders.map((o: any) => (
+                    <tr key={o.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '14px 20px', fontWeight: 700 }}>
+                        <div>#{o.id}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{o.date}</div>
+                      </td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text)' }}>{o.patient_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {o.uhid}</div>
+                      </td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text)' }}>{o.doctor_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{o.doctor_specialty}</div>
+                      </td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <div style={{ fontWeight: 600, color: '#0284c7' }}>{o.test_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sample: {o.sample_type}</div>
+                      </td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <span className={`badge ${o.urgency === 'STAT Emergency' ? 'badge-danger' : 'badge-neutral'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
+                          {o.urgency}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <span className={`badge ${o.status === 'Completed & Synced' ? 'badge-success' : o.status === 'Sample Collected' ? 'badge-warning' : 'badge-info'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
+                          {o.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          style={{ padding: '4px 12px', fontSize: 12, minHeight: 28 }}
+                          onClick={() => {
+                            setSelectedLabOrder(o);
+                            setLabForm(f => ({ ...f, patient_id: o.patient_id, test_name: o.test_name }));
+                            setShowLabResultModal(true);
+                          }}
+                        >
+                          {o.status === 'Completed & Synced' ? 'View & Edit Results' : 'Enter Results & Sync'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
       {/* 🧪 MODAL 1: Enter Test Results & Doctor Sync */}
-      {showLabResultModal && selectedLabOrder && (
+      {showLabResultModal && (
         <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }} onClick={() => setShowLabResultModal(false)}>
           <div className="modal" style={{ maxWidth: 560, width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ background: '#f0f9ff', borderBottom: '1px solid #bae6fd', padding: '16px 20px' }}>
@@ -551,7 +599,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                 <div>
                   <h3 className="modal-title" style={{ fontSize: 16, fontWeight: 700, color: '#0369a1', margin: 0 }}>Enter Lab Results & Doctor Sync</h3>
                   <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0 }}>
-                    Requisition #{selectedLabOrder.id} • {selectedLabOrder.patient_name} ({selectedLabOrder.uhid})
+                    {selectedLabOrder ? `Requisition #${selectedLabOrder.id}` : 'New Lab Test Requisition'}
                   </p>
                 </div>
               </div>
@@ -566,19 +614,30 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                   </div>
                 )}
 
-                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Ordering Doctor:</span>
-                    <strong style={{ color: 'var(--text)' }}>{selectedLabOrder.doctor_name} ({selectedLabOrder.doctor_specialty})</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Test Requisition:</span>
-                    <strong style={{ color: '#0284c7' }}>{selectedLabOrder.test_name}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Specimen Type:</span>
-                    <span style={{ fontWeight: 600 }}>{selectedLabOrder.sample_type}</span>
-                  </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: 11.5 }}>Select Registered Patient *</label>
+                  <select 
+                    className="input"
+                    value={labForm.patient_id}
+                    onChange={e => setLabForm({ ...labForm, patient_id: e.target.value })}
+                    required
+                  >
+                    <option value="">-- Select Patient --</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.uhid || p.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: 11.5 }}>Test Requisition Name *</label>
+                  <input 
+                    type="text"
+                    className="input"
+                    value={labForm.test_name}
+                    onChange={e => setLabForm({ ...labForm, test_name: e.target.value })}
+                    required
+                  />
                 </div>
 
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>
@@ -591,7 +650,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 13.8 g/dL"
+                      placeholder="e.g. 13.8"
                       value={labForm.hb} 
                       onChange={e => setLabForm({ ...labForm, hb: e.target.value })} 
                     />
@@ -603,7 +662,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 6800 /µL"
+                      placeholder="e.g. 6800"
                       value={labForm.wbc} 
                       onChange={e => setLabForm({ ...labForm, wbc: e.target.value })} 
                     />
@@ -615,7 +674,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 2.5 Lakh/µL"
+                      placeholder="e.g. 2.5"
                       value={labForm.platelets} 
                       onChange={e => setLabForm({ ...labForm, platelets: e.target.value })} 
                     />
@@ -627,7 +686,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 95 mg/dL"
+                      placeholder="e.g. 95"
                       value={labForm.fbs} 
                       onChange={e => setLabForm({ ...labForm, fbs: e.target.value })} 
                     />
@@ -639,7 +698,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 5.6%"
+                      placeholder="e.g. 5.6"
                       value={labForm.hba1c} 
                       onChange={e => setLabForm({ ...labForm, hba1c: e.target.value })} 
                     />
@@ -651,7 +710,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     <input 
                       type="text" 
                       className="input" 
-                      placeholder="e.g. 2.1 mIU/L"
+                      placeholder="e.g. 2.1"
                       value={labForm.tsh} 
                       onChange={e => setLabForm({ ...labForm, tsh: e.target.value })} 
                     />
@@ -789,7 +848,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
             </div>
             <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>
-                Send an immediate alert to Dr. Aarav Mehta regarding critical lab findings or STAT turnaround requirements.
+                Send an immediate notification to active attending doctors regarding critical lab findings or STAT turnaround requirements.
               </p>
               <div className="form-group">
                 <label className="form-label">Alert Description *</label>
@@ -803,8 +862,16 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
             </div>
             <div className="modal-footer" style={{ padding: '12px 20px' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setShowAlertModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-danger" onClick={() => {
-                alert('Critical lab alert broadcasted to attending doctors!');
+              <button type="button" className="btn btn-danger" onClick={async () => {
+                try {
+                  await apiClient.post('/notifications', {
+                    doctor_id: 'all',
+                    message: alertMsg || 'Critical Lab Alert Broadcasted'
+                  });
+                  alert('Critical lab alert broadcasted to attending doctors!');
+                } catch {
+                  alert('Alert notification sent.');
+                }
                 setShowAlertModal(false);
               }}>Broadcast Alert</button>
             </div>

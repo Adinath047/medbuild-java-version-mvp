@@ -225,7 +225,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
             Cardiology
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
-            Good day, {user?.name ? (user.name.toLowerCase().startsWith('dr.') ? user.name : `Dr. ${user.name}`) : 'Dr. Aarav Mehta'}
+            Good day, {user?.name ? (user.name.toLowerCase().startsWith('dr.') ? user.name : `Dr. ${user.name}`) : 'Doctor'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, fontWeight: 400, maxWidth: 640 }}>
             Here's a focused view of your patients, appointments, and critical alerts — updated live.

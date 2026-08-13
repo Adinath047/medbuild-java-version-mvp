@@ -1,0 +1,183 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL Database ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: medicos-postgres
+    environment:
+      POSTGRES_DB: medicos_db
+      POSTGRES_USER: medicos_user
+      POSTGRES_PASSWORD: medicos_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medicos_user -d medicos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - medicos-network
+
+  # ── Redis Cache & Token Store ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: medicos-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - medicos-network
+
+  # ── API Gateway Service (Port 8080) ────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: medicos-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      AUTH_SERVICE_URL: http://auth-service:8081
+      PATIENT_SERVICE_URL: http://patient-service:8082
+      CLINICAL_SERVICE_URL: http://clinical-service:8083
+      PRESCRIPTION_SERVICE_URL: http://prescription-service:8084
+      BILLING_SERVICE_URL: http://billing-service:8085
+      BED_SERVICE_URL: http://bed-service:8086
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,https://app.medicos.com
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      - auth-service
+      - patient-service
+      - clinical-service
+      - prescription-service
+      - billing-service
+      - bed-service
+    networks:
+      - medicos-network
+
+  # ── Auth & Identity Microservice (Port 8081) ───────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: medicos-auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+  # ── Patient Management Microservice (Port 8082) ────────────────────────────
+  patient-service:
+    build:
+      context: .
+      dockerfile: services/patient-service/Dockerfile
+    container_name: medicos-patient-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+  # ── Clinical & Encounters Microservice (Port 8083) ─────────────────────────
+  clinical-service:
+    build:
+      context: .
+      dockerfile: services/clinical-service/Dockerfile
+    container_name: medicos-clinical-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+  # ── Prescriptions & Medicines Microservice (Port 8084) ──────────────────────
+  prescription-service:
+    build:
+      context: .
+      dockerfile: services/prescription-service/Dockerfile
+    container_name: medicos-prescription-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+  # ── Billing & Revenue Microservice (Port 8085) ─────────────────────────────
+  billing-service:
+    build:
+      context: .
+      dockerfile: services/billing-service/Dockerfile
+    container_name: medicos-billing-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+  # ── Bed & Ward Management Microservice (Port 8086) ──────────────────────────
+  bed-service:
+    build:
+      context: .
+      dockerfile: services/bed-service/Dockerfile
+    container_name: medicos-bed-service
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medicos_db
+      SPRING_DATASOURCE_USERNAME: medicos_user
+      SPRING_DATASOURCE_PASSWORD: medicos_secure_password_2026
+      JWT_SECRET: Production_Super_Secret_Key_For_Medicos_EMR_Security_Token_2026_Must_Be_At_Least_256_Bits!
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicos-network
+
+volumes:
+  postgres_data:
+
+networks:
+  medicos-network:
+    driver: bridge

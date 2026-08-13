@@ -636,13 +636,21 @@ function HospitalConfigTab() {
 
 // ── Security & Audit Logs Tab ──────────────────────────────────────────
 function AuditLogsTab() {
-  const logs = [
-    { id: '1', event: 'Staff Login', user: 'Dr. Rajesh Patel', role: 'Doctor', timestamp: '2026-08-12 13:45', status: 'Success' },
-    { id: '2', event: 'Password Reset', user: 'Admin User', role: 'Admin', timestamp: '2026-08-12 12:10', status: 'Success' },
-    { id: '3', event: 'Staff Registered', user: 'Admin User', role: 'Admin', timestamp: '2026-08-12 11:30', status: 'Success' },
-    { id: '4', event: 'DPDP Erasure Query', user: 'Admin User', role: 'Admin', timestamp: '2026-08-12 10:15', status: 'Logged' },
-    { id: '5', event: 'MFA Verification', user: 'Pooja Verma', role: 'Billing', timestamp: '2026-08-12 09:00', status: 'Success' },
-  ];
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get('/audit-logs');
+        setLogs(res.data || []);
+      } catch {
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <div>
@@ -660,9 +668,9 @@ function AuditLogsTab() {
         </div>
 
         <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Active User Sessions</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>9 Active</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Tokens monitored</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Recorded Logs</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{logs.length} Logged</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail items</div>
         </div>
       </div>
 
@@ -671,30 +679,36 @@ function AuditLogsTab() {
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Recent Security & Administrative Audit Log</h3>
         </div>
         <div className="table-wrap" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Event Action</th>
-                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Executed By</th>
-                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Role</th>
-                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</th>
-                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Audit Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map(l => (
-                <tr key={l.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <td style={{ padding: '14px 20px', fontWeight: 600 }}>{l.event}</td>
-                  <td style={{ padding: '14px 20px' }}>{l.user}</td>
-                  <td style={{ padding: '14px 20px' }}>{l.role}</td>
-                  <td style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 12 }}>{l.timestamp}</td>
-                  <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                    <span className="badge badge-success" style={{ fontSize: 10.5, padding: '3px 10px' }}>{l.status}</span>
-                  </td>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /></div>
+          ) : logs.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No audit logs recorded yet.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Event Action</th>
+                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Executed By</th>
+                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Role</th>
+                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</th>
+                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Audit Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map((l: any) => (
+                  <tr key={l.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                    <td style={{ padding: '14px 20px', fontWeight: 600 }}>{l.action || l.event || 'System Action'}</td>
+                    <td style={{ padding: '14px 20px' }}>{l.userName || l.user_id || l.user || 'System'}</td>
+                    <td style={{ padding: '14px 20px' }}>{l.userRole || l.role || 'User'}</td>
+                    <td style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 12 }}>{l.timestamp ? new Date(l.timestamp).toLocaleString('en-IN') : '—'}</td>
+                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                      <span className="badge badge-success" style={{ fontSize: 10.5, padding: '3px 10px' }}>{l.status || 'Recorded'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

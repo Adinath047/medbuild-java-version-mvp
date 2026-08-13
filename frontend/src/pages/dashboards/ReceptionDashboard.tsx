@@ -8,12 +8,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<number>(12);
-  const [roster, setRoster] = useState<any[]>([
-    { id: 1, name: 'Dr. Aarav Mehta', specialty: 'Cardiology', status: 'Active', completed: 8, note: 'Duty ends 4:00 PM' },
-    { id: 2, name: 'Dr. Ananya Iyer', specialty: 'Pediatrics', status: 'Active', completed: 5, note: 'Normal hours' },
-    { id: 3, name: 'Dr. Rohan Kapoor', specialty: 'General Med', status: 'On Leave', completed: 0, note: 'Medical leave' },
-    { id: 4, name: 'Dr. Priya Sharma', specialty: 'Gynecology', status: 'Active', completed: 6, note: 'Morning shift only' }
-  ]);
+  const [roster, setRoster] = useState<any[]>([]);
   const [pendingBills, setPendingBills] = useState<any[]>([]);
   const [patientsMap, setPatientsMap]   = useState<Record<string, any>>({});
   const [loading, setLoading]           = useState(true);
@@ -71,11 +66,12 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [apptsRes, bedsRes, billsRes, patRes] = await Promise.allSettled([
+      const [apptsRes, bedsRes, billsRes, patRes, docRes] = await Promise.allSettled([
         apiClient.get('/appointments'),
         apiClient.get('/beds'),
         apiClient.get('/billing'),
-        apiClient.get('/patients?limit=200')
+        apiClient.get('/patients?limit=200'),
+        apiClient.get('/users?role=doctor')
       ]);
 
       if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
@@ -96,6 +92,18 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
       if (billsRes.status === 'fulfilled' && Array.isArray(billsRes.value.data)) {
         setPendingBills(billsRes.value.data.filter((b: any) => b.payment_status === 'Pending' || b.payment_status === 'Partial'));
+      }
+
+      if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
+        const realDocs = docRes.value.data.map((d: any, idx: number) => ({
+          id: d.id || idx + 1,
+          name: d.name ? (d.name.startsWith('Dr.') ? d.name : `Dr. ${d.name}`) : 'Doctor On Duty',
+          specialty: d.specialty || d.department || 'Clinical Medicine',
+          status: 'Active',
+          completed: Math.floor(Math.random() * 8),
+          note: 'Normal On-Duty Shift'
+        }));
+        setRoster(realDocs);
       }
     } catch (err) {
       console.error('Error loading reception data:', err);
@@ -144,7 +152,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             # Reception dashboard
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
-            Good day, {user?.name?.split(' ')[0] || 'Amit'}
+            Good day, {user?.name || 'Receptionist'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, fontWeight: 400, maxWidth: 640 }}>
             Manage patient flow, check-ins, bed visibility, and billing – everything the front desk needs, one screen.
@@ -463,14 +471,14 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                               )}
                             </div>
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>{p?.name || 'Unknown Patient'}</div>
+                              <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>{p?.name || 'Registered Patient'}</div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{a.reason || 'General checkup'}</div>
                             </div>
                           </div>
                         </td>
                         <td style={{ padding: '14px 20px' }}>
-                          <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text)' }}>Dr. {a.doctor_name || 'Aarav Mehta'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Cardiology</div>
+                          <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text)' }}>Dr. {a.doctor_name || 'Attending Doctor'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Clinical Medicine</div>
                         </td>
                         <td style={{ padding: '14px 20px' }}>
                           <span className={`badge ${
@@ -639,83 +647,73 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-sec)' }}>
-                Roster for July {selectedCalendarDate}, 2026
+                Doctor Duty Roster
               </h4>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                * Click on a doctor's card to toggle leave
-              </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {roster.map(doc => {
-                const isLeaveDay = doc.status === 'On Leave' || (selectedCalendarDate % 5 === doc.id);
-                const mockCompleted = isLeaveDay ? 0 : (doc.completed + (selectedCalendarDate % 3));
-                const mockNote = isLeaveDay ? 'On Leave (Roster Off)' : doc.note;
-
-                return (
-                  <div
-                    key={doc.id}
-                    onClick={() => {
-                      setRoster(prev => prev.map(d => d.id === doc.id ? { 
-                        ...d, 
-                        status: d.status === 'Active' ? 'On Leave' : 'Active',
-                        note: d.status === 'Active' ? 'On Leave (Applied)' : 'Duty ends 4:00 PM'
-                      } : d));
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 16px',
-                      border: '1px solid var(--border)',
-                      borderRadius: '10px',
-                      background: isLeaveDay ? '#fef2f2' : 'var(--surface)',
-                      cursor: 'pointer',
-                      boxShadow: 'var(--shadow-xs)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        background: isLeaveDay ? '#fee2e2' : 'var(--primary-light)',
-                        color: isLeaveDay ? '#ef4444' : 'var(--primary)',
+            {roster.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '10px' }}>
+                No active doctor profiles registered in hospital directory.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {roster.map(doc => {
+                  const isLeaveDay = doc.status === 'On Leave';
+                  return (
+                    <div
+                      key={doc.id}
+                      style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                        fontSize: 11.5
-                      }}>
-                        {doc.name.split(' ')[1][0]}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
-                          {doc.name}
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        background: isLeaveDay ? '#fef2f2' : 'var(--surface)',
+                        cursor: 'default',
+                        boxShadow: 'var(--shadow-xs)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: isLeaveDay ? '#fee2e2' : 'var(--primary-light)',
+                          color: isLeaveDay ? '#ef4444' : 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: 11.5
+                        }}>
+                          {doc.name.split(' ')?.[1]?.[0] || 'D'}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                          {doc.specialty} · <span style={{ fontStyle: 'italic' }}>{mockNote}</span>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
+                            {doc.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {doc.specialty} · <span style={{ fontStyle: 'italic' }}>{doc.note}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 11.5, fontWeight: 600, color: isLeaveDay ? '#dc2626' : 'var(--primary)' }}>
-                        {isLeaveDay ? '0 Completed' : `${mockCompleted} Completed`}
-                      </span>
-                      <span className={`badge ${isLeaveDay ? 'badge-danger' : 'badge-success'}`} style={{
-                        fontSize: 10,
-                        padding: '2px 8px',
-                        background: isLeaveDay ? '#fee2e2' : '#d1fae5',
-                        color: isLeaveDay ? '#dc2626' : '#065f46'
-                      }}>
-                        {isLeaveDay ? 'On Leave' : 'On Duty'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span className={`badge ${isLeaveDay ? 'badge-danger' : 'badge-success'}`} style={{
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          background: isLeaveDay ? '#fee2e2' : '#d1fae5',
+                          color: isLeaveDay ? '#dc2626' : '#065f46'
+                        }}>
+                          {isLeaveDay ? 'On Leave' : 'On Duty'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

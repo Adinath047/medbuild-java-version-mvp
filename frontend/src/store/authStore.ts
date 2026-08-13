@@ -40,6 +40,7 @@ interface AuthState {
 function clearLocalAuth() {
   localStorage.removeItem('emr_user');
   localStorage.removeItem('emr_token');
+  localStorage.removeItem('medicos_last_activity');
 }
 
 function persistLocalAuth(user: AuthUser, token?: string) {

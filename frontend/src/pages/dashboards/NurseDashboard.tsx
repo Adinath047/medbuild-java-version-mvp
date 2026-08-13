@@ -8,11 +8,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
   const [loading, setLoading] = useState(true);
   const [bedStats, setBedStats] = useState({ occupied: 0, total: 0 });
   const [patients, setPatients] = useState<any[]>([]);
-  const [vitalsList, setVitalsList] = useState<any[]>([
-    { id: 'v1', patient_name: 'Rakesh Kuber', bp: '120/80', hr: 72, temp: 98.6, spo2: 99, status: 'Normal', time: '10:15 AM' },
-    { id: 'v2', patient_name: 'Sunita Deshmukh', bp: '138/92', hr: 88, temp: 99.1, spo2: 96, status: 'Pre-hypertensive', time: '11:00 AM' },
-    { id: 'v3', patient_name: 'Amit Kulkarni', bp: '118/76', hr: 68, temp: 98.4, spo2: 98, status: 'Normal', time: '11:30 AM' },
-  ]);
+  const [vitalsList, setVitalsList] = useState<any[]>([]);
 
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -28,9 +24,10 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
 
   const loadNurseData = useCallback(async () => {
     try {
-      const [bedsRes, patRes] = await Promise.allSettled([
+      const [bedsRes, patRes, localVitals] = await Promise.allSettled([
         apiClient.get('/beds'),
-        apiClient.get('/patients?limit=50')
+        apiClient.get('/patients?limit=100'),
+        db.vitals.toArray()
       ]);
 
       if (bedsRes.status === 'fulfilled' && Array.isArray(bedsRes.value.data)) {
@@ -39,8 +36,29 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
         setBedStats({ occupied: occ, total: beds.length || 10 });
       }
 
+      let realPatients: any[] = [];
       if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
-        setPatients(patRes.value.data);
+        realPatients = patRes.value.data;
+        setPatients(realPatients);
+      }
+
+      if (localVitals.status === 'fulfilled' && Array.isArray(localVitals.value)) {
+        const mapped = localVitals.value.map((v: any) => {
+          const pat = realPatients.find(p => p.id === v.patient_id);
+          const isHighBp = (v.bp_systolic && v.bp_systolic > 130) || (v.bp_diastolic && v.bp_diastolic > 85);
+          const isLowSpo2 = v.spo2 && v.spo2 < 95;
+          return {
+            id: v.id,
+            patient_name: pat?.name || 'Patient Record',
+            bp: (v.bp_systolic && v.bp_diastolic) ? `${v.bp_systolic}/${v.bp_diastolic}` : '120/80',
+            hr: v.heart_rate || 72,
+            temp: v.temperature || 98.6,
+            spo2: v.spo2 || 98,
+            status: isLowSpo2 ? 'Hypoxemic Alert' : isHighBp ? 'Pre-hypertensive' : 'Normal',
+            time: v.recorded_at ? new Date(v.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'
+          };
+        });
+        setVitalsList(mapped);
       }
     } catch (err) {
       console.error('Error loading nurse dashboard data:', err);
@@ -55,7 +73,10 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
 
   async function handleRecordVitals(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedPatientId) return;
+    if (!selectedPatientId) {
+      alert('Please select a patient.');
+      return;
+    }
 
     try {
       const pat = patients.find(p => p.id === selectedPatientId);
@@ -133,7 +154,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             # Nursing Suite Dashboard
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
-            Good day, {user?.name?.split(' ')[0] || 'Nurse'}
+            Good day, {user?.name || 'Nurse'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, fontWeight: 400, maxWidth: 640 }}>
             Manage inpatient ward rounds, record vitals, monitor medication administration, and coordinate bed care.
@@ -214,7 +235,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
           }}
         >
           <div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Vitals Logs Today</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Vitals Logs Recorded</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--primary)', marginTop: 8, lineHeight: 1 }}>{vitalsList.length}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Nursing round recordings</div>
           </div>
@@ -223,30 +244,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
           </div>
         </div>
 
-        {/* Metric 3: MEDICATION DOSES DUE */}
-        <div 
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-xl)',
-            padding: '20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            boxShadow: 'var(--shadow-sm)'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Doses Administered</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#059669', marginTop: 8, lineHeight: 1 }}>12</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Shift medication schedule</div>
-          </div>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>
-          </div>
-        </div>
-
-        {/* Metric 4: PATIENTS REQUIRING ATTENTION */}
+        {/* Metric 3: VITALS ALERTS */}
         <div 
           style={{
             background: 'var(--surface)',
@@ -261,11 +259,38 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Vitals Alerts</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#d97706', marginTop: 8, lineHeight: 1 }}>1</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Pre-hypertensive monitor</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#d97706', marginTop: 8, lineHeight: 1 }}>
+              {vitalsList.filter(v => v.status !== 'Normal').length}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Abnormal vitals flag</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+        </div>
+
+        {/* Metric 4: REGISTERED PATIENTS */}
+        <div 
+          onClick={() => onNavigate('patients')}
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer'
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Hospital Patients</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{patients.length}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Active registered patients</div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           </div>
         </div>
       </div>
@@ -345,7 +370,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Recent Patient Vitals Logged</h3>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              {vitalsList.length} nursing vitals entries recorded today
+              {vitalsList.length} nursing vitals entries recorded
             </div>
           </div>
           <button 
@@ -361,36 +386,56 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
           </button>
         </div>
         <div style={{ padding: 0 }}>
-          <div className="table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Time</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Patient Name</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Blood Pressure</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Heart Rate</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temp / SpO2</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vitalsList.map(v => (
-                  <tr key={v.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-muted)' }}>{v.time}</td>
-                    <td style={{ padding: '14px 20px', fontWeight: 700 }}>{v.patient_name}</td>
-                    <td style={{ padding: '14px 20px', fontWeight: 600 }}>{v.bp} mmHg</td>
-                    <td style={{ padding: '14px 20px' }}>{v.hr} bpm</td>
-                    <td style={{ padding: '14px 20px' }}>{v.temp}°F • {v.spo2}%</td>
-                    <td style={{ padding: '14px 20px' }}>
-                      <span className={`badge ${v.status === 'Normal' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
-                        {v.status}
-                      </span>
-                    </td>
+          {vitalsList.length === 0 ? (
+            <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🩺</div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>No patient vitals recorded yet</h3>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, maxWidth: 460, margin: '6px auto 16px' }}>
+                There are no vitals logs in the database. Use "+ Record New Vitals" to log blood pressure, heart rate, temperature, and SpO2 for a patient.
+              </p>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  if (patients.length > 0) setSelectedPatientId(patients[0].id);
+                  setShowVitalsModal(true);
+                }}
+              >
+                + Record New Vitals
+              </button>
+            </div>
+          ) : (
+            <div className="table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Time</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Patient Name</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Blood Pressure</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Heart Rate</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temp / SpO2</th>
+                    <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {vitalsList.map(v => (
+                    <tr key={v.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-muted)' }}>{v.time}</td>
+                      <td style={{ padding: '14px 20px', fontWeight: 700 }}>{v.patient_name}</td>
+                      <td style={{ padding: '14px 20px', fontWeight: 600 }}>{v.bp} mmHg</td>
+                      <td style={{ padding: '14px 20px' }}>{v.hr} bpm</td>
+                      <td style={{ padding: '14px 20px' }}>{v.temp}°F • {v.spo2}%</td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <span className={`badge ${v.status === 'Normal' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 10.5, padding: '3px 10px' }}>
+                          {v.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

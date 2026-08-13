@@ -310,4 +310,20 @@ public class AuthService {
         dto.setPrintFontSize(user.getPrintFontSize());
         return dto;
     }
+
+    @Transactional
+    public void changePassword(User user, String currentPassword, String newPassword) {
+        if (currentPassword == null || currentPassword.trim().isEmpty()) {
+            throw new BadRequestException("Current password is required.");
+        }
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new BadRequestException("New password must be at least 6 characters long.");
+        }
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new BadRequestException("Current password does not match.");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        tokenProvider.revokeAllUserTokens(user.getId());
+    }
 }

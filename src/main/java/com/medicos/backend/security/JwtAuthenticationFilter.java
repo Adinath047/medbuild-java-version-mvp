@@ -71,6 +71,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Optional<User> userOptional = jwtUserLookupService.findUserByIdWithTenant(userId, hospitalId);
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
+                    if (user.getIsActive() != null && user.getIsActive() == 0) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Account has been deactivated. Access revoked.\"}");
+                        return;
+                    }
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase());
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(user, null, Collections.singletonList(authority));
@@ -84,6 +90,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Optional<Patient> patientOptional = jwtUserLookupService.findPatientByIdWithTenant(userId, hospitalId);
                     if (patientOptional.isPresent()) {
                         Patient patient = patientOptional.get();
+                        if (patient.getIsActive() != null && patient.getIsActive() == 0) {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Patient account is inactive. Access revoked.\"}");
+                            return;
+                        }
                         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_PATIENT");
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(patient, null, Collections.singletonList(authority));

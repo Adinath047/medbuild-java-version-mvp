@@ -60,7 +60,7 @@ function AddUserModal({ onClose, onDone }: { onClose:()=>void; onDone:(u:any)=>v
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               <div style={{gridColumn:'1/-1'}} className="form-group">
                 <label className="form-label">Full Name *</label>
-                <input className="input" placeholder="Dr. Ramesh Kumar" value={form.name} onChange={e=>set('name',e.target.value)} required />
+                <input className="input" placeholder="Full Name" value={form.name} onChange={e=>set('name',e.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Email *</label>
