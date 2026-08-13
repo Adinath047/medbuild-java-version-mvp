@@ -388,7 +388,9 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
         <div style={{ padding: 0 }}>
           {vitalsList.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>🩺</div>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>No patient vitals recorded yet</h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, maxWidth: 460, margin: '6px auto 16px' }}>
                 There are no vitals logs in the database. Use "+ Record New Vitals" to log blood pressure, heart rate, temperature, and SpO2 for a patient.

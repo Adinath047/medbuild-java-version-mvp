@@ -199,4 +199,37 @@ public class BedService {
 
         return Map.of("message", "Bed released successfully", "bed", bed);
     }
+
+    @CacheEvict(value = "bed_history", allEntries = true)
+    @Transactional
+    public Bed updateBed(String id, Bed updated, User user) {
+        Bed bed = bedRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
+
+        if (updated.getBedNumber() != null && !updated.getBedNumber().trim().isEmpty()) {
+            bed.setBedNumber(updated.getBedNumber().trim());
+        }
+        if (updated.getRoom() != null) {
+            bed.setRoom(updated.getRoom().trim());
+        }
+        if (updated.getWard() != null && !updated.getWard().trim().isEmpty()) {
+            bed.setWard(updated.getWard().trim());
+        }
+        if (updated.getType() != null) {
+            bed.setType(updated.getType().trim());
+        }
+        if (updated.getStatus() != null && !updated.getStatus().trim().isEmpty()) {
+            bed.setStatus(updated.getStatus().trim());
+        }
+
+        return bedRepository.save(bed);
+    }
+
+    @CacheEvict(value = "bed_history", allEntries = true)
+    @Transactional
+    public void deleteBed(String id) {
+        Bed bed = bedRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
+        bedRepository.delete(bed);
+    }
 }

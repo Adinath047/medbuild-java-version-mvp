@@ -7,8 +7,6 @@ import { triggerSyncBroadcast } from '../../sync/syncManager';
 export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<number>(12);
-  const [roster, setRoster] = useState<any[]>([]);
   const [pendingBills, setPendingBills] = useState<any[]>([]);
   const [patientsMap, setPatientsMap]   = useState<Record<string, any>>({});
   const [loading, setLoading]           = useState(true);
@@ -66,12 +64,11 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [apptsRes, bedsRes, billsRes, patRes, docRes] = await Promise.allSettled([
+      const [apptsRes, bedsRes, billsRes, patRes] = await Promise.allSettled([
         apiClient.get('/appointments'),
         apiClient.get('/beds'),
         apiClient.get('/billing'),
-        apiClient.get('/patients?limit=200'),
-        apiClient.get('/users?role=doctor')
+        apiClient.get('/patients?limit=200')
       ]);
 
       if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
@@ -92,18 +89,6 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
       if (billsRes.status === 'fulfilled' && Array.isArray(billsRes.value.data)) {
         setPendingBills(billsRes.value.data.filter((b: any) => b.payment_status === 'Pending' || b.payment_status === 'Partial'));
-      }
-
-      if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
-        const realDocs = docRes.value.data.map((d: any, idx: number) => ({
-          id: d.id || idx + 1,
-          name: d.name ? (d.name.startsWith('Dr.') ? d.name : `Dr. ${d.name}`) : 'Doctor On Duty',
-          specialty: d.specialty || d.department || 'Clinical Medicine',
-          status: 'Active',
-          completed: Math.floor(Math.random() * 8),
-          note: 'Normal On-Duty Shift'
-        }));
-        setRoster(realDocs);
       }
     } catch (err) {
       console.error('Error loading reception data:', err);
@@ -290,7 +275,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>₹{Math.round(totalOutstanding).toLocaleString('en-IN')} outstanding</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="10" y1="10" x2="23" y2="10"/><path d="M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
           </div>
         </div>
       </div>
@@ -583,140 +568,6 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
           </div>
         </div>
       )}
-
-      {/* Roster & Daily Activity Calendar Panel */}
-      <div className="card" style={{
-        boxShadow: 'var(--shadow-sm)',
-        borderRadius: 'var(--radius-xl)',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        padding: '24px 28px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Roster & Activity Calendar</h3>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Daily attendance, completed visits, and roster notes</span>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-sec)', background: 'var(--surface-alt)', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              July 2026
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: 28, flexWrap: 'wrap' }}>
-          {/* Mini Monthly Calendar Display */}
-          <div style={{ borderRight: '1px solid var(--border-light)', paddingRight: 24 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
-              {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <span key={d}>{d}</span>)}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-              {Array.from({ length: 2 }).map((_, i) => <div key={`empty-${i}`} />)}
-              {Array.from({ length: 31 }).map((_, idx) => {
-                const dayNum = idx + 1;
-                const isSelected = selectedCalendarDate === dayNum;
-                const isToday = dayNum === 12;
-                return (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    onClick={() => setSelectedCalendarDate(dayNum)}
-                    style={{
-                      aspectRatio: '1',
-                      background: isSelected ? 'var(--primary)' : isToday ? 'var(--primary-light)' : 'transparent',
-                      color: isSelected ? '#fff' : isToday ? 'var(--primary)' : 'var(--text)',
-                      fontWeight: isSelected || isToday ? 700 : 500,
-                      fontSize: 12,
-                      borderRadius: '50%',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      border: isToday && !isSelected ? '1.5px solid var(--primary-mid)' : 'none'
-                    }}
-                  >
-                    {dayNum}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Roster & Completed Visits list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-sec)' }}>
-                Doctor Duty Roster
-              </h4>
-            </div>
-
-            {roster.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '10px' }}>
-                No active doctor profiles registered in hospital directory.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {roster.map(doc => {
-                  const isLeaveDay = doc.status === 'On Leave';
-                  return (
-                    <div
-                      key={doc.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        border: '1px solid var(--border)',
-                        borderRadius: '10px',
-                        background: isLeaveDay ? '#fef2f2' : 'var(--surface)',
-                        cursor: 'default',
-                        boxShadow: 'var(--shadow-xs)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          background: isLeaveDay ? '#fee2e2' : 'var(--primary-light)',
-                          color: isLeaveDay ? '#ef4444' : 'var(--primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontSize: 11.5
-                        }}>
-                          {doc.name.split(' ')?.[1]?.[0] || 'D'}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>
-                            {doc.name}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                            {doc.specialty} · <span style={{ fontStyle: 'italic' }}>{doc.note}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span className={`badge ${isLeaveDay ? 'badge-danger' : 'badge-success'}`} style={{
-                          fontSize: 10,
-                          padding: '2px 8px',
-                          background: isLeaveDay ? '#fee2e2' : '#d1fae5',
-                          color: isLeaveDay ? '#dc2626' : '#065f46'
-                        }}>
-                          {isLeaveDay ? 'On Leave' : 'On Duty'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
     </div>
   );

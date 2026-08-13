@@ -53,4 +53,16 @@ public class BedController {
         Map<String, Object> result = bedService.releaseBed(id);
         return ResponseEntity.ok(result);
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateBed(@PathVariable("id") String id, @RequestBody Bed bed, @AuthenticationPrincipal User user) {
+        Bed updated = bedService.updateBed(id, bed, user);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteBed(@PathVariable("id") String id) {
+        bedService.deleteBed(id);
+        return ResponseEntity.ok(Map.of("message", "Bed deleted successfully", "id", id));
+    }
 }

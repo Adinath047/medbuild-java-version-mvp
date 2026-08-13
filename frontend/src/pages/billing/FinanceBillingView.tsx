@@ -1,30 +1,32 @@
 // client/src/pages/billing/FinanceBillingView.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../../api/client';
 import { db, markPending } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
+import { useSync } from '../../sync/useSync';
 import { triggerSyncBroadcast } from '../../sync/syncManager';
 import { v4 as uuid } from 'uuid';
 import { printInvoice } from '../../utils/printTemplates';
 
-const PAY_MODES = ['Cash','Card','UPI','Insurance','Online'];
-const EMPTY_ITEM = { description:'', quantity:1, unit_price:0, amount:0 };
+const PAY_MODES = ['Cash', 'Card', 'UPI', 'Insurance', 'Online'];
+const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, amount: 0 };
 
 export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (p: string, d?: any) => void; data?: any }) {
   const { user } = useAuthStore();
-  const [bills, setBills]       = useState<any[]>([]);
+  const { syncCount } = useSync();
+  const [bills, setBills] = useState<any[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [showAdd, setShowAdd]   = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
   const [patientId, setPatientId] = useState('');
-  const [items, setItems]       = useState([{ ...EMPTY_ITEM }]);
+  const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
   const [discount, setDiscount] = useState('0');
-  const [payMode, setPayMode]   = useState('Cash');
-  const [paidAmount, setPaid]   = useState('');
-  const [notes, setNotes]       = useState('');
+  const [payMode, setPayMode] = useState('Cash');
+  const [paidAmount, setPaid] = useState('');
+  const [notes, setNotes] = useState('');
   const [patientFilterId, setPatientFilterId] = useState(data?.patientId || '');
-  const [saving, setSaving]     = useState(false);
-  const [filter, setFilter]     = useState('All');
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState<'All' | 'Pending' | 'Paid'>('All');
   
   // Record Payment modal state
   const [recordPaymentBill, setRecordPaymentBill] = useState<any>(null);
@@ -36,6 +38,30 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const [activeTab, setActiveTab] = useState<'opd' | 'bed'>('opd');
   const [bedStays, setBedStays] = useState<any[]>([]);
   const [loadingStays, setLoadingStays] = useState(false);
+
+  const fetchBills = async () => {
+    try {
+      const r = await apiClient.get('/billing');
+      if (Array.isArray(r.data)) {
+        setBills(r.data);
+      }
+    } catch {
+      const local = await db.billing.toArray();
+      setBills(local);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const r = await apiClient.get('/patients', { params: { limit: 200 } });
+      setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || []));
+    } catch {
+      const local = await db.patients.toArray();
+      setPatients(local);
+    }
+  };
 
   async function fetchBedStays() {
     setLoadingStays(true);
@@ -50,19 +76,17 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }
   }
 
-  function handleBillStay(stay: any) {
-    setPatientId(stay.patient_id);
-    setItems([{
-      description: `Bed Stay: Room ${stay.room} (${stay.bed_number}) — ${stay.stay_days} days`,
-      quantity: stay.stay_days,
-      unit_price: 0,
-      amount: 0,
-    }]);
-    setDiscount('0');
-    setPaid('');
-    setNotes(`Bed stay charges for admission on ${new Date(stay.admitted_at).toLocaleDateString('en-IN')}`);
-    setShowAdd(true);
-  }
+  useEffect(() => {
+    fetchBills();
+    fetchPatients();
+  }, []);
+
+  useEffect(() => {
+    if (syncCount > 0) {
+      fetchBills();
+      fetchPatients();
+    }
+  }, [syncCount]);
 
   useEffect(() => {
     if (activeTab === 'bed') {
@@ -70,13 +94,41 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (data?.patientId) {
+      setPatientFilterId(data.patientId);
+      setPatientId(data.patientId);
+    }
+    if (data?.showAdd) {
+      setShowAdd(true);
+    }
+  }, [data?.patientId, data?.showAdd]);
+
+  function handleBillStay(stay: any) {
+    setPatientId(stay.patient_id);
+    setItems([{
+      description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.stay_days || 1} days`,
+      quantity: stay.stay_days || 1,
+      unit_price: 1000,
+      amount: (stay.stay_days || 1) * 1000,
+    }]);
+    setDiscount('0');
+    setPaid('');
+    setNotes(`Bed stay charges for admission on ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : 'admission'}`);
+    setShowAdd(true);
+  }
+
   async function handleRecordPaymentSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!recordPaymentBill) return;
     
-    const dueAmount = Math.max(0, (recordPaymentBill.net_amount || 0) - (recordPaymentBill.paid_amount || 0));
+    const net = Number(recordPaymentBill.net_amount) || 0;
+    const currentPaid = Number(recordPaymentBill.paid_amount) || 0;
+    const dueAmount = Math.max(0, net - currentPaid);
+    
     if (dueAmount <= 0) {
       alert('This invoice is already fully paid.');
+      setRecordPaymentBill(null);
       return;
     }
 
@@ -92,22 +144,34 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }
     
     setSubmittingPayment(true);
-    const cumulativePaid = (recordPaymentBill.paid_amount || 0) + amt;
+    const cumulativePaid = currentPaid + amt;
+    const isFullyPaidNow = cumulativePaid >= net;
+    const calculatedStatus = isFullyPaidNow ? 'Paid' : 'Partial';
     
     try {
       const res = await apiClient.put(`/billing/${recordPaymentBill.id}/payment`, {
         paid_amount: cumulativePaid,
         payment_mode: newPayMode,
+        payment_status: calculatedStatus,
       });
       
-      setBills(prev => prev.map(b => b.id === recordPaymentBill.id ? res.data : b));
+      const updated = res.data || {
+        ...recordPaymentBill,
+        paid_amount: cumulativePaid,
+        balance_due: Math.max(0, net - cumulativePaid),
+        payment_mode: newPayMode,
+        payment_status: calculatedStatus,
+      };
+
+      setBills(prev => prev.map(b => b.id === recordPaymentBill.id ? updated : b));
+      await db.billing.put(updated);
       setRecordPaymentBill(null);
-      alert('Payment recorded successfully.');
       triggerSyncBroadcast();
     } catch (err: any) {
       alert(err?.response?.data?.error || 'Failed to record payment.');
     } finally {
       setSubmittingPayment(false);
+      fetchBills();
     }
   }
 
@@ -123,33 +187,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     });
   };
 
-  const total    = items.reduce((s,i)=>s+(i.quantity*i.unit_price),0);
-  const net      = Math.max(0, total - parseFloat(discount||'0'));
-  const paid     = parseFloat(paidAmount||'0');
+  const total = items.reduce((s, i) => s + (i.quantity * i.unit_price), 0);
+  const net = Math.max(0, total - parseFloat(discount || '0'));
+  const paid = parseFloat(paidAmount || '0');
 
-  const setItem  = (i:number, k:string, v:any) => setItems(ms=>ms.map((m,j)=>j===i ? { ...m, [k]:v, amount: k==='quantity'||k==='unit_price' ? (k==='quantity'?v:m.quantity) * (k==='unit_price'?v:m.unit_price) : m.amount } : m));
-
-  useEffect(() => {
-    if (data?.patientId) {
-      setPatientFilterId(data.patientId);
-      setPatientId(data.patientId);
-    }
-    if (data?.showAdd) {
-      setShowAdd(true);
-    }
-  }, [data?.patientId, data?.showAdd]);
-
-  useEffect(()=>{
-    (async()=>{
-      try { const r=await apiClient.get('/billing'); setBills(r.data); }
-      catch { setBills(await db.billing.toArray()); }
-      finally { setLoading(false); }
-    })();
-    (async()=>{
-      try { const r=await apiClient.get('/patients',{params:{limit:200}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
-      catch { setPatients(await db.patients.toArray()); }
-    })();
-  },[]);
+  const setItem = (i: number, k: string, v: any) => setItems(ms => ms.map((m, j) => j === i ? { ...m, [k]: v, amount: k === 'quantity' || k === 'unit_price' ? (k === 'quantity' ? v : m.quantity) * (k === 'unit_price' ? v : m.unit_price) : m.amount } : m));
 
   useEffect(() => {
     if (!patientId) { setDoctorInfo(null); return; }
@@ -193,7 +235,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     const validItems = items.filter(i => i.description.trim() && i.amount > 0);
     if (validItems.length === 0) return alert('Add at least one valid item');
     setSaving(true);
-    const pat = patients.find(p=>p.id===patientId);
+    const pat = patients.find(p => p.id === patientId);
+
+    const isPaid = paid >= net && net > 0;
+    const computedStatus = isPaid ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
 
     const b = {
       id: uuid(),
@@ -205,13 +250,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       bill_type: activeTab === 'bed' ? 'bed_stay' : 'OPD',
       items: validItems,
       gross_amount: total,
-      discount: parseFloat(discount||'0'),
+      discount: parseFloat(discount || '0'),
       tax: 0,
       net_amount: net,
       paid_amount: paid,
       balance_due: Math.max(0, net - paid),
       payment_mode: payMode,
-      payment_status: paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Pending',
+      payment_status: computedStatus,
       notes,
       created_at: new Date().toISOString(),
       sync_status: 'synced'
@@ -234,6 +279,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       setPaid('');
       setNotes('');
       triggerSyncBroadcast();
+      fetchBills();
     }
   }
 
@@ -249,21 +295,41 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     });
   }
 
-  const selectedPatientForFilter = patients.find(p => p.id === patientFilterId);
-  const filteredBills = bills.filter(b => {
-    if (patientFilterId && b.patient_id !== patientFilterId) return false;
-    if (filter === 'Paid') return b.payment_status === 'Paid';
-    if (filter === 'Pending') return ['Pending','Partial'].includes(b.payment_status);
-    return true;
-  });
+  // Filtered bills list
+  const filteredBills = useMemo(() => {
+    return bills.filter(b => {
+      const isPaid = (b.payment_status === 'Paid') || ((b.paid_amount || 0) >= (b.net_amount || 0) && (b.net_amount || 0) > 0);
+      if (filter === 'Paid') return isPaid;
+      if (filter === 'Pending') return !isPaid;
+      return true;
+    });
+  }, [bills, filter]);
 
-  const totalCollected = bills.reduce((s,b)=>s+(b.paid_amount||0), 0);
-  const totalPending   = bills.filter(b=>['Pending','Partial'].includes(b.payment_status)).reduce((s,b)=>s+(b.net_amount - (b.paid_amount||0)), 0);
+  // Financial KPIs
+  const totalCollected = useMemo(() => {
+    return bills.reduce((s, b) => s + (Number(b.paid_amount) || 0), 0);
+  }, [bills]);
+
+  const totalPending = useMemo(() => {
+    return bills.reduce((s, b) => {
+      const netAmt = Number(b.net_amount) || 0;
+      const paidAmt = Number(b.paid_amount) || 0;
+      const due = Math.max(0, netAmt - paidAmt);
+      return s + due;
+    }, 0);
+  }, [bills]);
+
+  const pendingInvoicesCount = useMemo(() => {
+    return bills.filter(b => {
+      const netAmt = Number(b.net_amount) || 0;
+      const paidAmt = Number(b.paid_amount) || 0;
+      return netAmt > paidAmt;
+    }).length;
+  }, [bills]);
 
   const dueAmt = recordPaymentBill ? Math.max(0, (recordPaymentBill.net_amount || 0) - (recordPaymentBill.paid_amount || 0)) : 0;
   const netAmt = recordPaymentBill ? (recordPaymentBill.net_amount || 0) : 0;
   const paidAmt = recordPaymentBill ? (recordPaymentBill.paid_amount || 0) : 0;
-  const isFullyPaid = dueAmt <= 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -291,23 +357,25 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
         <div className="card" style={{ margin: 0, padding: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Outstanding Dues</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--danger)', marginTop: 8 }}>₹{Math.round(totalPending).toLocaleString('en-IN')}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: totalPending > 0 ? 'var(--danger)' : 'var(--text-muted)', marginTop: 8 }}>
+            ₹{Math.round(totalPending).toLocaleString('en-IN')}
+          </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Across pending invoices</div>
         </div>
 
         <div className="card" style={{ margin: 0, padding: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pending Invoices</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{bills.filter(b=>['Pending','Partial'].includes(b.payment_status)).length}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{pendingInvoicesCount}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Awaiting collection</div>
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Table Card */}
       <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Invoice Records</h3>
           <div style={{ display: 'flex', gap: 8 }}>
-            {['All', 'Pending', 'Paid'].map(f => (
+            {(['All', 'Pending', 'Paid'] as const).map(f => (
               <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f)}>
                 {f}
               </button>
@@ -335,6 +403,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
             <tbody>
               {filteredBills.map(b => {
                 const patient = patients.find(p => p.id === b.patient_id);
+                const netAmount = Number(b.net_amount) || 0;
+                const paidAmount = Number(b.paid_amount) || 0;
+                const isFullyPaid = paidAmount >= netAmount && netAmount > 0;
+                const displayStatus = isFullyPaid ? 'Paid' : (b.payment_status || (paidAmount > 0 ? 'Partial' : 'Pending'));
+
                 return (
                   <tr key={b.id}>
                     <td><code>#{b.invoice_number || b.id.slice(0, 8)}</code></td>
@@ -342,21 +415,29 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                       <div style={{ fontWeight: 600 }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || patient?.uhid || '—'}</div>
                     </td>
-                    <td>{new Date(b.created_at).toLocaleDateString('en-IN')}</td>
+                    <td>{b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}</td>
                     <td>{b.notes || (b.bill_type === 'bed_stay' ? 'Bed stay IPD accommodation' : 'OPD Consultation')}</td>
                     <td>
-                      <div>Net: <strong>₹{b.net_amount?.toLocaleString('en-IN')}</strong></div>
-                      <div style={{ color: 'var(--success)', fontSize: 11 }}>Paid: ₹{b.paid_amount || 0}</div>
+                      <div>Net: <strong>₹{netAmount.toLocaleString('en-IN')}</strong></div>
+                      <div style={{ color: 'var(--success)', fontSize: 11 }}>Paid: ₹{paidAmount.toLocaleString('en-IN')}</div>
                     </td>
                     <td>
-                      <span className={`badge ${b.payment_status === 'Paid' ? 'badge-success' : 'badge-warning'}`}>
-                        {b.payment_status}
+                      <span className={`badge ${displayStatus === 'Paid' ? 'badge-success' : 'badge-warning'}`}>
+                        {displayStatus}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
-                        {['Pending', 'Partial'].includes(b.payment_status) && (
-                          <button className="btn btn-secondary btn-sm" onClick={() => { setRecordPaymentBill(b); setNewPaidAmount((b.net_amount - (b.paid_amount || 0)).toFixed(0)); setNewPayMode(b.payment_mode || 'Cash'); }}>
+                        {!isFullyPaid && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setRecordPaymentBill(b);
+                              const remaining = Math.max(0, netAmount - paidAmount);
+                              setNewPaidAmount(remaining.toString());
+                              setNewPayMode(b.payment_mode || 'Cash');
+                            }}
+                          >
                             Record Payment
                           </button>
                         )}
@@ -408,6 +489,76 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 <button type="button" className="btn btn-secondary" onClick={() => setRecordPaymentBill(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={submittingPayment}>
                   {submittingPayment ? 'Saving...' : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Invoice Modal */}
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">Create Hospital Invoice</div>
+              <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateBill}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Select Patient *</label>
+                  <select className="input" value={patientId} onChange={e => setPatientId(e.target.value)} required>
+                    <option value="">-- Choose Patient --</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.uhid || p.phone || 'No UHID'})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Items list */}
+                <div className="form-group">
+                  <label className="form-label">Invoice Items & Charges</label>
+                  {items.map((item, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
+                      <input className="input" placeholder="Service description" value={item.description} onChange={e => setItem(i, 'description', e.target.value)} required />
+                      <input className="input" type="number" min="1" placeholder="Qty" value={item.quantity} onChange={e => setItem(i, 'quantity', parseInt(e.target.value) || 1)} required />
+                      <input className="input" type="number" min="0" placeholder="Unit Price" value={item.unit_price} onChange={e => setItem(i, 'unit_price', parseFloat(e.target.value) || 0)} required />
+                      {items.length > 1 && (
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setItems(items.filter((_, idx) => idx !== i))}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setItems([...items, { ...EMPTY_ITEM }])}>+ Add Item</button>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Discount (₹)</label>
+                    <input className="input" type="number" value={discount} onChange={e => setDiscount(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Paid Amount (₹)</label>
+                    <input className="input" type="number" value={paidAmount} onChange={e => setPaid(e.target.value)} placeholder={`Total: ₹${net}`} />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select className="input" value={payMode} onChange={e => setPayMode(e.target.value)}>
+                    {PAY_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Notes & Observations</label>
+                  <textarea className="input" placeholder="Additional billing notes..." value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Generating Invoice...' : `Create Invoice (Net: ₹${net})`}
                 </button>
               </div>
             </form>
