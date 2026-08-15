@@ -1,8 +1,11 @@
 package com.medicos.backend.controller;
 
+import com.medicos.backend.dto.AuthDTO;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.UnauthorizedException;
+import com.medicos.backend.service.AuthService;
 import com.medicos.backend.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +18,20 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final AuthService authService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createUser(
+            @RequestBody AuthDTO.RegisterRequest request,
+            @AuthenticationPrincipal User caller) {
+        if (caller == null) throw new UnauthorizedException("Authentication required.");
+        Map<String, Object> result = authService.register(request, caller);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     /**

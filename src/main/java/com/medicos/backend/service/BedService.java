@@ -61,15 +61,27 @@ public class BedService {
 
     @Transactional(readOnly = true)
     public List<Bed> getAllBeds() {
-        List<Bed> beds = bedRepository.findAll();
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        List<Bed> beds;
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            beds = bedRepository.findByHospitalId(hospitalId);
+        } else {
+            beds = bedRepository.findAll();
+        }
         beds.forEach(this::populateBedDetails);
         return beds;
     }
 
-    @Cacheable(value = "bed_history", key = "'ALL'")
+    @Cacheable(value = "bed_history", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_ALL'")
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getBedHistory() {
-        List<BedAdmission> admissions = admissionRepository.findAll();
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        List<BedAdmission> admissions;
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            admissions = admissionRepository.findByHospitalIdOrderByAdmittedAtDesc(hospitalId);
+        } else {
+            admissions = admissionRepository.findAll();
+        }
         List<Map<String, Object>> result = new ArrayList<>();
         for (BedAdmission adm : admissions) {
             Map<String, Object> map = new HashMap<>();

@@ -18,8 +18,7 @@ public class SyncController {
         this.syncService = syncService;
     }
 
-    @GetMapping("/pull")
-    @PostMapping("/pull")
+    @RequestMapping(value = "/pull", method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<?> pullData(@AuthenticationPrincipal User user,
                                       @RequestParam(value = "since", required = false) String since,
                                       @RequestParam(value = "tables", required = false) String tables) {

@@ -18,24 +18,27 @@ import { getSpecialtyCode, SPECIALTY_THEMES, SPECIALTY_TEMPLATES, getMedicineSpe
  * Matching is case-insensitive and uses substring detection so
  * "Penicillin" allergy catches "Amoxicillin" (a penicillin antibiotic).
  */
-function checkAllergyConflict(medName: string, allergies: string[], medicinesList: Medicine[]): string | null {
-  if (!medName.trim() || allergies.length === 0) return null;
+function checkAllergyConflict(medName: string, allergies: string[], drugMap?: Map<string, Medicine>, medicinesList?: Medicine[]): string | null {
+  if (!medName || !medName.trim() || !allergies || allergies.length === 0) return null;
 
-  // Gather all search terms: the drug name itself + all its brand/generic names
-  const drug = medicinesList.find(m =>
-    m.name.toLowerCase() === medName.toLowerCase() ||
-    m.generics.some(g => g.toLowerCase() === medName.toLowerCase())
-  );
+  const key = medName.toLowerCase().trim();
+  let drug: Medicine | undefined = drugMap ? drugMap.get(key) : undefined;
+  if (!drug && medicinesList && medicinesList.length > 0) {
+    drug = medicinesList.find(m =>
+      m.name.toLowerCase() === key ||
+      (m.generics && m.generics.some(g => g.toLowerCase() === key))
+    );
+  }
+
   const terms = drug
-    ? [drug.name, ...drug.generics, drug.category]
+    ? [drug.name, ...(drug.generics || []), drug.category || '']
     : [medName];
 
-  const termsLower = terms.map(t => t.toLowerCase());
+  const termsLower = terms.filter(Boolean).map(t => t.toLowerCase());
 
   for (const allergy of allergies) {
     const a = allergy.toLowerCase().trim();
     if (!a) continue;
-    // Check if any drug term contains the allergy keyword OR allergy keyword contains a drug term
     for (const t of termsLower) {
       if (t.includes(a) || a.includes(t.split(' ')[0])) {
         return allergy; // return original casing
@@ -418,18 +421,17 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
 
 
 // ── Medicine row ──────────────────────────────────────────────────────
-function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, medicinesList }: {
+function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, medicinesList, drugMap }: {
   med: any; index: number;
   onUpdate: (k: string, v: string) => void;
   onDelete: () => void; canDelete: boolean;
   patientAllergies: string[];
   medicinesList: Medicine[];
+  drugMap?: Map<string, Medicine>;
 }) {
-  const drugInfo = medicinesList.find(m =>
-    m.name.toLowerCase() === med.name.toLowerCase() ||
-    m.generics.some(g => g.toLowerCase() === med.name.toLowerCase())
-  );
-  const allergyMatch = checkAllergyConflict(med.name, patientAllergies, medicinesList);
+  const medKey = (med.name || '').toLowerCase().trim();
+  const drugInfo = drugMap ? drugMap.get(medKey) : medicinesList.find(m => m.name.toLowerCase() === medKey);
+  const allergyMatch = checkAllergyConflict(med.name, patientAllergies, drugMap, medicinesList);
 
   function handleSelect(m: Medicine) {
     onUpdate('name', m.name);
@@ -1114,10 +1116,21 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     try { return JSON.parse(raw).filter(Boolean); } catch { return []; }
   }, [selectedPatient]);
 
+  // Fast O(1) indexed lookup map for medicines
+  const drugMapByName = useMemo(() => {
+    const map = new Map<string, Medicine>();
+    for (const m of medicinesList) {
+      if (m && m.name) {
+        map.set(m.name.toLowerCase().trim(), m);
+      }
+    }
+    return map;
+  }, [medicinesList]);
+
   // Compute which medicine rows have allergy conflicts
   const allergyConflicts = useMemo(() =>
-    meds.map(m => checkAllergyConflict(m.name, patientAllergies, medicinesList)),
-  [meds, patientAllergies, medicinesList]);
+    meds.map(m => checkAllergyConflict(m.name, patientAllergies, drugMapByName, medicinesList)),
+  [meds, patientAllergies, drugMapByName, medicinesList]);
   const hasAllergyConflict = allergyConflicts.some(Boolean);
 
   const handleFavoriteClick = (fav: any) => {
@@ -2124,6 +2137,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
               canDelete={meds.length > 1}
               patientAllergies={patientAllergies}
               medicinesList={medicinesList}
+              drugMap={drugMapByName}
             />
           ))}
 

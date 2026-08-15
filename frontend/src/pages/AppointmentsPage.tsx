@@ -45,33 +45,43 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
         params.doctor_id = user.id;
       }
       const res = await apiClient.get('/appointments', { params });
-      setAppts(res.data);
+      setAppts(Array.isArray(res.data) ? res.data : (res.data?.appointments || []));
     } catch {
       let data = await db.appointments.toArray();
       if (user?.role === 'doctor') {
         data = data.filter((a: any) => a.doctor_id === user.id);
       }
-      setAppts(data);
+      setAppts(Array.isArray(data) ? data : []);
     } finally { if (!isSilent) setLoading(false); }
   }, [user]);
 
   useEffect(() => { load(false); }, [load]);
+  
+  useEffect(() => {
+    // Realtime polling (every 8s)
+    const interval = setInterval(() => {
+      load(true);
+    }, 8000);
+
+    const handleUpdate = () => {
+      load(true);
+    };
+    window.addEventListener('emr:appointments-update', handleUpdate);
+    window.addEventListener('emr_sync_complete', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('emr:appointments-update', handleUpdate);
+      window.removeEventListener('emr_sync_complete', handleUpdate);
+    };
+  }, [load]);
+
   useEffect(() => {
     if (syncCount > 0) {
       load(true);
     }
   }, [syncCount, load]);
-  useEffect(() => {
-    const handleUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (!customEvent.detail?.date || customEvent.detail?.date === date) {
-        console.log('[ws] Reloading appointments silently for date:', date);
-        load(true);
-      }
-    };
-    window.addEventListener('emr:appointments-update', handleUpdate);
-    return () => window.removeEventListener('emr:appointments-update', handleUpdate);
-  }, [date, load]);
+
   useEffect(() => {
     (async () => {
       try { const r = await apiClient.get('/patients',{params:{limit:200}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
@@ -211,7 +221,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
             <div className="modal-header"><div className="modal-title">Book Appointment</div><button className="modal-close" onClick={()=>setShowAdd(false)}>✕</button></div>
             <form onSubmit={bookAppt}>
               <div className="modal-body">
-                {bookError && <div className="alert alert-danger" style={{marginBottom:12}}>⚠️ {bookError}</div>}
+                {bookError && <div className="alert alert-danger" style={{marginBottom:12, display: 'flex', alignItems: 'center', gap: 6}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> {bookError}</div>}
                 <div style={{display:'flex',gap:10,marginBottom:12}}>
                   <label style={{display:'flex',gap:4,alignItems:'center'}}>
                     <input type="radio" checked={!isNewPatient} onChange={()=>setIsNewPatient(false)} /> Existing Patient
@@ -291,7 +301,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
           flex: 1,
           maxWidth: 360
         }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>🔍</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input 
             placeholder="Search patient, doctor..." 
             value={searchText} 
@@ -347,16 +357,21 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
         <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
       ) : (
         (() => {
-          const filtered = appts.filter(a => {
+          const list = Array.isArray(appts) ? appts : [];
+          const filtered = list.filter(a => {
+            if (!a) return false;
             const todayStr = today();
+            const aDate = a.date || '';
+            const aStatus = (a.status || '').toLowerCase();
+
             if (selectedFilter === 'Today') {
-              if (a.date !== todayStr) return false;
+              if (!aDate.startsWith(todayStr)) return false;
             } else if (selectedFilter === 'Upcoming') {
-              if (a.date <= todayStr || a.status === 'Cancelled' || a.status === 'Completed') return false;
+              if (aDate <= todayStr || aStatus === 'cancelled' || aStatus === 'completed') return false;
             } else if (selectedFilter === 'Completed') {
-              if (a.status !== 'Completed') return false;
+              if (aStatus !== 'completed') return false;
             } else if (selectedFilter === 'Cancelled') {
-              if (a.status !== 'Cancelled') return false;
+              if (aStatus !== 'cancelled') return false;
             }
 
             if (searchText.trim()) {

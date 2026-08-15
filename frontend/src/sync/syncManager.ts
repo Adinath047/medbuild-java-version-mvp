@@ -66,8 +66,9 @@ if (typeof window !== 'undefined') {
 
 // ── Main sync function ────────────────────────────────────────────────────
 export async function syncNow(): Promise<void> {
+  const token = localStorage.getItem('emr_token');
   const user = useAuthStore.getState().user;
-  if (!user) return; // not logged in — never sync
+  if (!user || !token) return; // not logged in — never sync
 
   if (!isOnline) {
     emit('offline', await getPendingCount());

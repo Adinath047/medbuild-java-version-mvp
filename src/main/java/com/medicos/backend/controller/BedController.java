@@ -40,15 +40,13 @@ public class BedController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    @PutMapping("/{id}/allocate")
-    @PostMapping("/{id}/allocate")
+    @RequestMapping(value = "/{id}/allocate", method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<?> allocateBed(@PathVariable("id") String id, @RequestBody Map<String, String> body, @AuthenticationPrincipal User user) {
         Map<String, Object> result = bedService.allocateBed(id, body, user);
         return ResponseEntity.ok(result);
     }
 
-    @PutMapping("/{id}/release")
-    @PostMapping("/{id}/release")
+    @RequestMapping(value = "/{id}/release", method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<?> releaseBed(@PathVariable("id") String id) {
         Map<String, Object> result = bedService.releaseBed(id);
         return ResponseEntity.ok(result);

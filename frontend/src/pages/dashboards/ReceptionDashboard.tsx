@@ -9,6 +9,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
   const [appointments, setAppointments] = useState<any[]>([]);
   const [pendingBills, setPendingBills] = useState<any[]>([]);
   const [patientsMap, setPatientsMap]   = useState<Record<string, any>>({});
+  const [doctorsMap, setDoctorsMap]     = useState<Record<string, any>>({});
   const [loading, setLoading]           = useState(true);
   const [bedStats, setBedStats]         = useState({ occupied: 0, total: 0 });
 
@@ -63,18 +64,29 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
   }
 
   const loadDashboardData = useCallback(async () => {
+    const token = localStorage.getItem('emr_token');
+    if (!token) return;
+
     try {
-      const [apptsRes, bedsRes, billsRes, patRes] = await Promise.allSettled([
+      const [apptsRes, bedsRes, billsRes, patRes, docRes] = await Promise.allSettled([
         apiClient.get('/appointments'),
         apiClient.get('/beds'),
         apiClient.get('/billing'),
-        apiClient.get('/patients?limit=200')
+        apiClient.get('/patients?limit=200'),
+        apiClient.get('/users/doctors')
       ]);
 
-      if (patRes.status === 'fulfilled' && Array.isArray(patRes.value.data)) {
+      if (patRes.status === 'fulfilled') {
+        const pList = Array.isArray(patRes.value.data) ? patRes.value.data : (patRes.value.data?.patients || []);
         const pMap: Record<string, any> = {};
-        patRes.value.data.forEach((p: any) => { pMap[p.id] = p; });
+        pList.forEach((p: any) => { pMap[p.id] = p; });
         setPatientsMap(pMap);
+      }
+
+      if (docRes.status === 'fulfilled' && Array.isArray(docRes.value.data)) {
+        const dMap: Record<string, any> = {};
+        docRes.value.data.forEach((d: any) => { dMap[d.id] = d; });
+        setDoctorsMap(dMap);
       }
 
       if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
@@ -462,8 +474,12 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                           </div>
                         </td>
                         <td style={{ padding: '14px 20px' }}>
-                          <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text)' }}>Dr. {a.doctor_name || 'Attending Doctor'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Clinical Medicine</div>
+                          <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--text)' }}>
+                            {doctorsMap[a.doctor_id]?.name || (a.doctor_name ? (a.doctor_name.startsWith('Dr.') ? a.doctor_name : `Dr. ${a.doctor_name}`) : 'Attending Doctor')}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {doctorsMap[a.doctor_id]?.specialization || 'Clinical Medicine'}
+                          </div>
                         </td>
                         <td style={{ padding: '14px 20px' }}>
                           <span className={`badge ${

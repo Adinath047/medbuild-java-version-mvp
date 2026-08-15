@@ -23,6 +23,7 @@
         <cloud-sql-connector.version>1.21.0</cloud-sql-connector.version>
         <node.version>v20.11.1</node.version>
         <npm.version>10.2.4</npm.version>
+        <frontend.skip>false</frontend.skip>
     </properties>
     <dependencies>
         <!-- Spring Boot Web Starter -->
@@ -235,6 +236,7 @@
                 <configuration>
                     <workingDirectory>frontend</workingDirectory>
                     <installDirectory>target</installDirectory>
+                    <skip>${frontend.skip}</skip>
                 </configuration>
                 <executions>
                     <execution>

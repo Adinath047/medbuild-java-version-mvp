@@ -23,10 +23,14 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<Billing> getBills(String patientId) {
-        return Optional.ofNullable(patientId)
-                .filter(id -> !id.isEmpty())
-                .map(billingRepository::findByPatientIdOrderByCreatedAtDesc)
-                .orElseGet(() -> billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")));
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (patientId != null && !patientId.isEmpty()) {
+            return billingRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+        } else if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            return billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
+        } else {
+            return billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
     }
 
     @Transactional

@@ -18,6 +18,12 @@ public interface PatientRepository extends JpaRepository<Patient, String> {
     @Query("SELECT p FROM Patient p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.uhid) LIKE LOWER(CONCAT('%', :query, '%')) OR p.phone LIKE CONCAT('%', :query, '%')")
     List<Patient> searchPatients(@Param("query") String query);
 
+    @Query("SELECT p FROM Patient p WHERE p.hospitalId = :hospitalId AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.uhid) LIKE LOWER(CONCAT('%', :query, '%')) OR p.phone LIKE CONCAT('%', :query, '%'))")
+    List<Patient> searchPatientsByHospital(@Param("query") String query, @Param("hospitalId") String hospitalId);
+
     @Query("SELECT COUNT(p) FROM Patient p")
     long countTotalPatients();
+
+    @Query("SELECT COUNT(p) FROM Patient p WHERE p.hospitalId = :hospitalId")
+    long countTotalPatientsByHospital(@Param("hospitalId") String hospitalId);
 }

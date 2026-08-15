@@ -32,24 +32,39 @@ public class AppointmentService {
         this.patientRepository = patientRepository;
     }
 
-    @Cacheable(value = "appointments", key = "'p_' + (#patientId != null ? #patientId : 'null') + '_d_' + (#doctorId != null ? #doctorId : 'null') + '_dt_' + (#date != null ? #date : 'null')")
+    @Cacheable(value = "appointments", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_p_' + (#patientId != null ? #patientId : 'null') + '_d_' + (#doctorId != null ? #doctorId : 'null') + '_dt_' + (#date != null ? #date : 'null')")
     @Transactional(readOnly = true)
     public List<Appointment> getAppointments(String patientId, String doctorId, String date) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+
         if (patientId != null && !patientId.isEmpty()) {
-            return appointmentRepository.findByPatientIdOrderByDateDesc(patientId);
-        } else if (date != null && !date.isEmpty()) {
-            return appointmentRepository.findByDate(date);
+            return isTenantScoped
+                    ? appointmentRepository.findByHospitalIdAndPatientIdOrderByDateDesc(hospitalId, patientId)
+                    : appointmentRepository.findByPatientIdOrderByDateDesc(patientId);
         } else if (doctorId != null && !doctorId.isEmpty()) {
-            return appointmentRepository.findByDoctorIdOrderByDateDesc(doctorId);
+            return isTenantScoped
+                    ? appointmentRepository.findByHospitalIdAndDoctorIdOrderByDateDesc(hospitalId, doctorId)
+                    : appointmentRepository.findByDoctorIdOrderByDateDesc(doctorId);
+        } else if (date != null && !date.isEmpty()) {
+            return isTenantScoped
+                    ? appointmentRepository.findByHospitalIdAndDate(hospitalId, date)
+                    : appointmentRepository.findByDate(date);
         } else {
-            return appointmentRepository.findAll();
+            return isTenantScoped
+                    ? appointmentRepository.findByHospitalIdOrderByDateDesc(hospitalId)
+                    : appointmentRepository.findAll();
         }
     }
 
-    @Cacheable(value = "today_appointments", key = "T(java.time.LocalDate).now().toString()")
+    @Cacheable(value = "today_appointments", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + T(java.time.LocalDate).now().toString()")
     @Transactional(readOnly = true)
     public List<Appointment> getTodayAppointments() {
         String todayStr = LocalDate.now().toString();
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            return appointmentRepository.findByHospitalIdAndDate(hospitalId, todayStr);
+        }
         return appointmentRepository.findByDate(todayStr);
     }
 

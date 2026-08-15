@@ -34,26 +34,45 @@ public class PatientService {
         this.appointmentRepository = appointmentRepository;
     }
 
-    @Cacheable(value = "patients", key = "(#search != null ? #search : 'ALL') + '_' + #limit")
+    @Cacheable(value = "patients", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + (#search != null ? #search : 'ALL') + '_' + #limit")
     @Transactional(readOnly = true)
     public PatientDTO.PatientListResponse getPatients(String search, int limit) {
-        List<Patient> list = Optional.ofNullable(search)
-                .filter(s -> !s.trim().isEmpty())
-                .map(s -> patientRepository.searchPatients(s.trim()))
-                .orElseGet(patientRepository::findAll);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        List<Patient> list;
+        long total;
 
-        long total = patientRepository.countTotalPatients();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            list = Optional.ofNullable(search)
+                    .filter(s -> !s.trim().isEmpty())
+                    .map(s -> patientRepository.searchPatientsByHospital(s.trim(), hospitalId))
+                    .orElseGet(() -> patientRepository.findByHospitalId(hospitalId));
+            total = patientRepository.countTotalPatientsByHospital(hospitalId);
+        } else {
+            list = Optional.ofNullable(search)
+                    .filter(s -> !s.trim().isEmpty())
+                    .map(s -> patientRepository.searchPatients(s.trim()))
+                    .orElseGet(patientRepository::findAll);
+            total = patientRepository.countTotalPatients();
+        }
+
         return new PatientDTO.PatientListResponse(list, total);
     }
 
-    @Cacheable(value = "patient_by_id", key = "#id")
+    @Cacheable(value = "patient_by_id", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
     @Transactional(readOnly = true)
     public Patient getPatientById(String id) {
-        return patientRepository.findById(id)
+        Patient p = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (p.getHospitalId() != null && !hospitalId.equals(p.getHospitalId())) {
+                throw new ResourceNotFoundException("Patient not found with ID: " + id);
+            }
+        }
+        return p;
     }
 
-    @Cacheable(value = "patient_summary", key = "#id")
+    @Cacheable(value = "patient_summary", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
     @Transactional(readOnly = true)
     public PatientDTO.PatientSummaryResponse getPatientSummary(String id) {
         Patient patient = patientRepository.findById(id)

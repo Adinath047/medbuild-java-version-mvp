@@ -14,4 +14,10 @@ public interface MedicineRepository extends JpaRepository<Medicine, String> {
     
     @Query("SELECT m FROM Medicine m WHERE LOWER(m.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(m.genericName) LIKE LOWER(CONCAT('%', :query, '%'))")
     List<Medicine> searchMedicines(@Param("query") String query);
+
+    @Query("SELECT m FROM Medicine m WHERE (m.hospitalId = :hospitalId OR m.hospitalId IS NULL OR m.hospitalId = '') AND (LOWER(m.name) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(m.genericName) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<Medicine> searchMedicinesByHospital(@Param("query") String query, @Param("hospitalId") String hospitalId);
+
+    @Query("SELECT m FROM Medicine m WHERE m.hospitalId = :hospitalId OR m.hospitalId IS NULL OR m.hospitalId = ''")
+    List<Medicine> findByHospitalIdOrGlobal(@Param("hospitalId") String hospitalId);
 }

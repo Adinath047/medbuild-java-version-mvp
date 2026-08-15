@@ -22,10 +22,13 @@ public class EncounterService {
 
     @Transactional(readOnly = true)
     public List<Encounter> getEncounters(String patientId, String doctorId) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
         if (patientId != null && !patientId.isEmpty()) {
             return encounterRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
         } else if (doctorId != null && !doctorId.isEmpty()) {
             return encounterRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId);
+        } else if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            return encounterRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
         } else {
             return encounterRepository.findAll();
         }

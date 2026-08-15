@@ -39,6 +39,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   activePrintModalData: null,
 
   fetchNotifications: async (userRole?: string) => {
+    const token = localStorage.getItem('emr_token');
+    if (!token) {
+      set({ notifications: [], emergencyAlerts: [], printRequests: [], unreadCount: 0, isLoading: false });
+      return;
+    }
     try {
       set({ isLoading: true });
       const res = await apiClient.get('/notifications/active');

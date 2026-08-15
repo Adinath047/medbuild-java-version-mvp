@@ -12,6 +12,7 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Stri
     List<Prescription> findByPatientIdOrderByCreatedAtDesc(String patientId);
     List<Prescription> findByDoctorIdOrderByCreatedAtDesc(String doctorId);
     List<Prescription> findByHospitalIdOrderByCreatedAtDesc(String hospitalId);
+    List<Prescription> findByHospitalIdAndPatientIdOrderByCreatedAtDesc(String hospitalId, String patientId);
     List<Prescription> findByPatientIdAndDoctorIdOrderByCreatedAtDesc(String patientId, String doctorId);
     Optional<Prescription> findBySlipToken(String slipToken);
 }

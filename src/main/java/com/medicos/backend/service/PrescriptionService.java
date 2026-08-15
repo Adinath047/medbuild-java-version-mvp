@@ -44,10 +44,19 @@ public class PrescriptionService {
 
     @Transactional(readOnly = true)
     public List<PrescriptionDTO> getPrescriptions(String patientId) {
-        List<Prescription> list = Optional.ofNullable(patientId)
-                .filter(id -> !id.trim().isEmpty())
-                .map(prescriptionRepository::findByPatientIdOrderByCreatedAtDesc)
-                .orElseGet(prescriptionRepository::findAll);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+        List<Prescription> list;
+
+        if (patientId != null && !patientId.trim().isEmpty()) {
+            list = isTenantScoped
+                    ? prescriptionRepository.findByHospitalIdAndPatientIdOrderByCreatedAtDesc(hospitalId, patientId.trim())
+                    : prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(patientId.trim());
+        } else {
+            list = isTenantScoped
+                    ? prescriptionRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId)
+                    : prescriptionRepository.findAll();
+        }
 
         return list.stream().map(this::enrichPrescription).collect(Collectors.toList());
     }
@@ -56,6 +65,12 @@ public class PrescriptionService {
     public PrescriptionDTO getPrescriptionById(String id) {
         Prescription rx = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found with ID: " + id));
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (rx.getHospitalId() != null && !hospitalId.equals(rx.getHospitalId())) {
+                throw new ResourceNotFoundException("Prescription not found with ID: " + id);
+            }
+        }
         return enrichPrescription(rx);
     }
 

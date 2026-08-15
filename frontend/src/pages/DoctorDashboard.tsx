@@ -95,34 +95,37 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       });
 
       // 2. Load Appointments to calculate today's appointments for this doctor
-      let apptsList = [];
+      let apptsList: any[] = [];
       try {
         const r = await apiClient.get('/appointments');
-        apptsList = r.data || [];
+        apptsList = Array.isArray(r.data) ? r.data : (r.data?.appointments || []);
       } catch {
         apptsList = await db.appointments.toArray();
       }
 
       const isMyDoctorAppt = (a: any) => {
-        if (a.doctor_id === user?.id) return true;
+        if (!a) return false;
+        if (a.doctor_id && user?.id && a.doctor_id === user.id) return true;
         if (user?.name && a.doctor_name && a.doctor_name.toLowerCase().includes(user.name.toLowerCase())) return true;
         if (user?.name && a.doctor_name && user.name.toLowerCase().includes(a.doctor_name.toLowerCase())) return true;
         return false;
       };
 
-      const myAppts = apptsList.filter((a: any) => 
-        isMyDoctorAppt(a) && 
-        (a.date?.startsWith(todayStr) || a.date === todayStr) && 
-        a.status !== 'Pending' &&
-        a.status !== 'Cancelled' &&
-        a.status !== 'No-Show'
-      );
+      const myAppts = apptsList.filter((a: any) => {
+        if (!isMyDoctorAppt(a)) return false;
+        const st = (a.status || '').toLowerCase();
+        if (st === 'cancelled' || st === 'no-show') return false;
+        const d = a.date || '';
+        return d.startsWith(todayStr);
+      });
 
       const upcoming = apptsList.filter((a: any) => {
         if (!isMyDoctorAppt(a)) return false;
-        if (a.status === 'Pending') return false;
-        if (a.date > todayStr) return true;
-        if (a.date === todayStr && a.time > nowHourMin) return true;
+        const st = (a.status || '').toLowerCase();
+        if (st === 'cancelled' || st === 'no-show' || st === 'completed') return false;
+        const d = a.date || '';
+        if (d > todayStr) return true;
+        if (d === todayStr && a.time > nowHourMin) return true;
         return false;
       }).sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
 
@@ -152,6 +155,24 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
 
   useEffect(() => {
     loadData();
+    // Realtime polling interval (every 8 seconds)
+    const interval = setInterval(() => {
+      loadData();
+    }, 8000);
+
+    const handleUpdate = () => loadData();
+    window.addEventListener('emr:appointments-update', handleUpdate);
+    window.addEventListener('emr:beds-update', handleUpdate);
+    window.addEventListener('emr:patients-update', handleUpdate);
+    window.addEventListener('emr_sync_complete', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('emr:appointments-update', handleUpdate);
+      window.removeEventListener('emr:beds-update', handleUpdate);
+      window.removeEventListener('emr:patients-update', handleUpdate);
+      window.removeEventListener('emr_sync_complete', handleUpdate);
+    };
   }, [loadData, syncCount]);
 
   if (loading) {

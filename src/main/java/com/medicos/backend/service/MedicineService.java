@@ -30,13 +30,21 @@ public class MedicineService {
         this.objectMapper = objectMapper;
     }
 
-    @Cacheable(value = "medicines", key = "#search != null ? #search : 'ALL'")
+    @Cacheable(value = "medicines", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + (#search != null ? #search : 'ALL')")
     @Transactional(readOnly = true)
     public List<Medicine> getMedicines(String search) {
-        return Optional.ofNullable(search)
-                .filter(s -> !s.trim().isEmpty())
-                .map(s -> medicineRepository.searchMedicines(s.trim()))
-                .orElseGet(medicineRepository::findAll);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+
+        if (search != null && !search.trim().isEmpty()) {
+            return isTenantScoped
+                    ? medicineRepository.searchMedicinesByHospital(search.trim(), hospitalId)
+                    : medicineRepository.searchMedicines(search.trim());
+        } else {
+            return isTenantScoped
+                    ? medicineRepository.findByHospitalIdOrGlobal(hospitalId)
+                    : medicineRepository.findAll();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +52,13 @@ public class MedicineService {
         if (q == null || q.trim().length() < 2) {
             return Collections.emptyList();
         }
-        List<Medicine> results = medicineRepository.searchMedicines(q.trim());
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+
+        List<Medicine> results = isTenantScoped
+                ? medicineRepository.searchMedicinesByHospital(q.trim(), hospitalId)
+                : medicineRepository.searchMedicines(q.trim());
+
         if (results.size() > 20) {
             return results.subList(0, 20);
         }
