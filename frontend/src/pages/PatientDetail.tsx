@@ -201,9 +201,23 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
     }
   }, [tab, patientId]);
 
-  if (!patientId) return <div className="empty-state"><span className="empty-icon">👤</span><h3>No patient selected</h3></div>;
-  if (loading)   return <div className="loading-screen" style={{height:'60vh'}}><div className="spinner"/></div>;
-  if (!summary?.patient) return <div className="empty-state"><span className="empty-icon">❌</span><h3>Patient not found</h3></div>;
+  if (!patientId) return (
+    <div className="empty-state">
+      <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <h3>No patient selected</h3>
+    </div>
+  );
+  if (loading) return <div className="loading-screen" style={{height:'60vh'}}><div className="spinner"/></div>;
+  if (!summary?.patient) return (
+    <div className="empty-state">
+      <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--danger)' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </div>
+      <h3>Patient not found</h3>
+    </div>
+  );
 
   const p = summary.patient;
   const encounters = safeJsonArray(summary.encounters);
@@ -1121,7 +1135,9 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
 
           {prescriptions.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px' }}>
-              <span className="empty-icon">💊</span>
+              <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/></svg>
+              </div>
               <h3>No prescriptions yet</h3>
               <p>Click "+ Write Prescription" to prescribe medicines.</p>
             </div>
@@ -1210,7 +1226,19 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
             <button className="btn btn-secondary btn-sm" onClick={()=>onNavigate('appointments')}>+ Book</button>
           </div>
           {apptUpcoming.length === 0
-            ? <div className="empty-state"><span className="empty-icon">📅</span><h3>No appointments</h3></div>
+            ? (
+              <div className="empty-state" style={{ padding: '36px 20px' }}>
+                <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: 14, fontWeight: 600, margin: '4px 0 0' }}>No appointments</h3>
+              </div>
+            )
             : <div style={{display:'flex',flexDirection:'column',gap:0}}>
                 {apptUpcoming.map((a:any)=>(
                   <div key={a.id} style={{padding:'12px 18px',borderBottom:'1px solid var(--border-light)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1242,7 +1270,9 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
           
           {patientBills.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px' }}>
-              <span className="empty-icon">🧾</span>
+              <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
               <h3>No Billing History</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>This patient has no OPD or IPD invoices recorded.</p>
             </div>
@@ -1488,7 +1518,9 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
               <div className="alert alert-danger">{uploadsError}</div>
             ) : uploads.length === 0 ? (
               <div className="empty-state">
-                <span className="empty-icon">📁</span>
+                <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
                 <h3>No documents uploaded</h3>
                 <p>Saved prescriptions and other patient records will appear here.</p>
               </div>
@@ -1563,42 +1595,50 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                             </body>
                           </html>
                         `);
-                        printWindow.document.close();
-                        setTimeout(() => {
-                          printWindow.focus();
-                          printWindow.print();
-                        }, 500);
-                      }
-                    }}
-                  >
-                    🖨 Print
-                  </button>
-                )}
-                <button className="modal-close" onClick={() => setPreviewDoc(null)}>✕</button>
-              </div>
+                    printWindow.document.close();
+                    setTimeout(() => {
+                      printWindow.focus();
+                      printWindow.print();
+                    }, 500);
+                  }
+                }}
+              >
+                Print
+              </button>
+            )}
+            <button className="modal-close" onClick={() => setPreviewDoc(null)}>✕</button>
+          </div>
+        </div>
+        <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f1f5f9' }}>
+          {previewDoc.file_url.startsWith('data:application/pdf') || previewDoc.file_url.endsWith('.pdf') ? (
+            <object
+              data={previewDoc.file_url}
+              type="application/pdf"
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+            >
+              <iframe
+                title="Document Preview"
+                src={previewDoc.file_url}
+                width="100%"
+                height="100%"
+                style={{ border: 'none' }}
+              />
+            </object>
+          ) : previewDoc.file_url.startsWith('data:image') ? (
+            <img
+              src={previewDoc.file_url}
+              alt={previewDoc.title}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            />
+          ) : (
+            <div style={{ padding: 20, textAlign: 'center' }}>
+              <p>Preview not supported for this file type.</p>
+              <a href={previewDoc.file_url} download={previewDoc.title} className="btn btn-primary">Download File</a>
             </div>
-            <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f1f5f9' }}>
-              {previewDoc.file_url.startsWith('data:application/pdf') ? (
-                <iframe
-                  title="Document Preview"
-                  src={previewDoc.file_url}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 'none' }}
-                />
-              ) : previewDoc.file_url.startsWith('data:image') ? (
-                <img
-                  src={previewDoc.file_url}
-                  alt={previewDoc.title}
-                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                />
-              ) : (
-                <div style={{ padding: 20, textAlign: 'center' }}>
-                  <p>Preview not supported for this file type.</p>
-                  <a href={previewDoc.file_url} download={previewDoc.title} className="btn btn-primary">Download File</a>
-                </div>
-              )}
-            </div>
+          )}
+        </div>
           </div>
         </div>
       )}

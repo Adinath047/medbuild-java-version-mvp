@@ -1,9 +1,10 @@
-// client/src/pages/beds/AdminDoctorBedsView.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
 import { useSync } from '../../sync/useSync';
+import { v4 as uuid } from 'uuid';
+import { triggerSyncBroadcast } from '../../sync/syncManager';
 
 // ── SVG Icon Components (Strictly NO Emojis) ───────────────────────────
 function PlusIcon() {
@@ -488,6 +489,7 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
   const [vitalsLogBed, setVitalsLogBed] = useState<Bed | null>(null);
   const [vitalsLogList, setVitalsLogList] = useState<any[]>([]);
   const [loadingVitalsLog, setLoadingVitalsLog] = useState(false);
+  const [vacateModalBed, setVacateModalBed] = useState<Bed | null>(null);
 
   const fetchBeds = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -526,14 +528,8 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
     }
   };
 
-  const handleRelease = async (bed: Bed) => {
-    if (!window.confirm(`Are you sure you want to vacate Room ${bed.room} (${bed.bed_number})?`)) return;
-    try {
-      await apiClient.post(`/beds/${bed.id}/release`);
-      await fetchBeds(false);
-    } catch (err: any) {
-      alert(err?.response?.data?.error || 'Failed to vacate bed.');
-    }
+  const handleRelease = (bed: Bed) => {
+    setVacateModalBed(bed);
   };
 
   // Dynamically compute stats from actual data
@@ -949,6 +945,20 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
           list={vitalsLogList}
           loading={loadingVitalsLog}
           onClose={() => setVitalsLogBed(null)}
+        />
+      )}
+
+      {vacateModalBed && (
+        <VacateBedBillModal
+          bed={vacateModalBed}
+          onClose={() => setVacateModalBed(null)}
+          onDone={(invoiceCreated?: boolean, patientId?: string) => {
+            setVacateModalBed(null);
+            fetchBeds(false);
+            if (invoiceCreated && onNavigate && patientId) {
+              onNavigate('billing', { patientId });
+            }
+          }}
         />
       )}
     </div>
@@ -1701,6 +1711,299 @@ function VitalsLogModal({ bed, list, loading, onClose }: { bed: Bed; list: any[]
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Discharge & Bed Billing Modal ───────────────────────────────────────
+function VacateBedBillModal({ bed, onClose, onDone }: {
+  bed: Bed;
+  onClose: () => void;
+  onDone: (invoiceCreated?: boolean, patientId?: string) => void;
+}) {
+  const { user } = useAuthStore();
+  
+  // Calculate duration of stay
+  const admittedDate = bed.admitted_at ? new Date(bed.admitted_at) : new Date();
+  const dischargeDate = new Date();
+  const diffTime = Math.max(0, dischargeDate.getTime() - admittedDate.getTime());
+  const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+  // Auto-detect daily rate based on ward and bed type
+  const getInitialDailyRate = () => {
+    const w = (bed.ward || '').toLowerCase();
+    const t = (bed.type || '').toLowerCase();
+    if (w.includes('icu') || t.includes('icu')) return 4500;
+    if (w.includes('semi') || t.includes('semi')) return 2500;
+    if (w.includes('private') || t.includes('private')) return 3500;
+    if (w.includes('emergency') || t.includes('emergency') || w.includes('day') || t.includes('day')) return 1000;
+    return 1500; // General Ward
+  };
+
+  const [stayDays, setStayDays] = useState<number>(calculatedDays);
+  const [dailyRate, setDailyRate] = useState<number>(getInitialDailyRate());
+  const [discount, setDiscount] = useState<string>('0');
+  const [paidAmount, setPaidAmount] = useState<string>('');
+  const [isManualPaid, setIsManualPaid] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<string>('Cash');
+  const [notes, setNotes] = useState<string>(`Bed stay discharge invoice for Room ${bed.room} (${bed.bed_number})`);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const grossTotal = (Number(stayDays) || 1) * (Number(dailyRate) || 0);
+  const discountVal = parseFloat(discount || '0') || 0;
+  const netAmount = Math.max(0, grossTotal - discountVal);
+  const paidVal = isManualPaid ? (parseFloat(paidAmount || '0') || 0) : (paidAmount ? parseFloat(paidAmount) : 0);
+
+  async function handleDischargeAndBill(createInvoice: boolean) {
+    setSubmitting(true);
+    setError('');
+    try {
+      // 1. Release bed in backend
+      await apiClient.post(`/beds/${bed.id}/release`);
+
+      // 2. If creating invoice, post to billing
+      if (createInvoice && bed.patient_id) {
+        const isFullyPaid = paidVal >= netAmount && netAmount > 0;
+        const computedStatus = isFullyPaid ? 'Paid' : (paidVal > 0 ? 'Partial' : 'Pending');
+
+        const invoiceData = {
+          id: uuid(),
+          patient_id: bed.patient_id,
+          patient_name: bed.patient_name || 'Inpatient',
+          uhid: bed.patient_uhid || '—',
+          doctor_id: user?.id || null,
+          doctor_name: bed.doctor_name || user?.name || null,
+          bill_type: 'bed_stay',
+          items: [
+            {
+              description: `Bed Stay: Room ${bed.room} (${bed.bed_number}) — ${bed.ward || 'General'} Ward (${stayDays} days @ ₹${dailyRate}/day)`,
+              quantity: stayDays,
+              unit_price: dailyRate,
+              amount: grossTotal
+            }
+          ],
+          gross_amount: grossTotal,
+          discount: discountVal,
+          tax: 0,
+          net_amount: netAmount,
+          paid_amount: paidVal,
+          balance_due: Math.max(0, netAmount - paidVal),
+          payment_mode: paymentMode,
+          payment_status: computedStatus,
+          notes: notes.trim(),
+          created_at: new Date().toISOString(),
+          sync_status: 'synced'
+        };
+
+        try {
+          const res = await apiClient.post('/billing', invoiceData);
+          if (res.data) {
+            await db.billing.put(res.data);
+          }
+        } catch {
+          await db.billing.put(invoiceData as any);
+        }
+        triggerSyncBroadcast();
+        onDone(true, bed.patient_id);
+      } else {
+        triggerSyncBroadcast();
+        onDone(false);
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to discharge bed and process billing.');
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div className="modal-title" style={{ fontSize: 17, fontWeight: 700 }}>Discharge & Bed Billing</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Vacate Room {bed.room} ({bed.bed_number}) and create IPD invoice</div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {error && <div className="alert alert-danger">{error}</div>}
+
+          {/* Patient & Bed Summary Header */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{bed.patient_name || 'Patient'}</span>
+                <span style={{ fontSize: 12, color: '#64748b', marginLeft: 8 }}>UHID: <strong style={{ fontFamily: 'monospace' }}>{bed.patient_uhid || '—'}</strong></span>
+              </div>
+              <span className="badge badge-primary" style={{ fontSize: 11 }}>{bed.ward || 'General'} Ward</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 11.5, color: '#475569', borderTop: '1px dashed #e2e8f0', paddingTop: 6 }}>
+              <div>Room: <strong>{bed.room} ({bed.bed_number})</strong></div>
+              <div>Admitted: <strong>{bed.admitted_at ? new Date(bed.admitted_at).toLocaleDateString('en-IN') : 'Today'}</strong></div>
+              <div>Attending: <strong>{bed.doctor_name || 'Doctor'}</strong></div>
+            </div>
+          </div>
+
+          {/* Duration & Daily Rate Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 600 }}>Stay Duration (Days) *</label>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                value={stayDays}
+                onChange={e => setStayDays(Math.max(1, parseInt(e.target.value) || 1))}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 600 }}>Daily Bed Rate (₹) *</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={dailyRate}
+                onChange={e => setDailyRate(parseFloat(e.target.value) || 0)}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Bed Pricing Presets Quick Select */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Quick Rate:</span>
+            {[
+              { label: 'General (₹1500)', rate: 1500 },
+              { label: 'Semi-Private (₹2500)', rate: 2500 },
+              { label: 'Private (₹3500)', rate: 3500 },
+              { label: 'ICU (₹4500)', rate: 4500 },
+              { label: 'Day Care (₹1000)', rate: 1000 },
+            ].map(p => (
+              <button
+                key={p.label}
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDailyRate(p.rate)}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  borderRadius: 14,
+                  border: dailyRate === p.rate ? '1px solid #0d9488' : '1px solid #e2e8f0',
+                  background: dailyRate === p.rate ? '#f0fdf4' : '#fff',
+                  color: dailyRate === p.rate ? '#0d9488' : '#475569'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Financial Calculation Box */}
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#166534' }}>
+                Bed Stay Total ({stayDays} days × ₹{dailyRate}):
+              </span>
+              <strong style={{ fontSize: 16, color: '#15803d' }}>₹{grossTotal.toLocaleString('en-IN')}</strong>
+            </div>
+          </div>
+
+          {/* Discount and Payment Mode */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 600 }}>Discount (₹)</label>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={discount}
+                onChange={e => setDiscount(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 600 }}>Paid Amount (₹)</label>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setIsManualPaid(false);
+                    setPaidAmount(netAmount > 0 ? String(netAmount) : '');
+                  }}
+                  style={{ padding: '0 4px', fontSize: 11, color: 'var(--primary)', fontWeight: 600, minHeight: 'auto' }}
+                >
+                  Full (₹{netAmount})
+                </button>
+              </div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                value={paidAmount}
+                onChange={e => {
+                  setIsManualPaid(true);
+                  setPaidAmount(e.target.value);
+                }}
+                placeholder={`Total: ₹${netAmount}`}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" style={{ fontWeight: 600 }}>Payment Mode</label>
+            <select className="input" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
+              {['Cash', 'Card', 'UPI', 'Insurance', 'Online'].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" style={{ fontWeight: 600 }}>Discharge & Billing Notes</label>
+            <textarea
+              className="input"
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Clinical discharge notes or billing remarks..."
+            />
+          </div>
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 13.5 }}>
+            Net Total: <strong style={{ color: 'var(--primary)', fontSize: 15 }}>₹{netAmount.toLocaleString('en-IN')}</strong>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => handleDischargeAndBill(false)}
+              disabled={submitting}
+              style={{ border: '1px solid #e2e8f0' }}
+            >
+              Vacate Only (Bill Later)
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => handleDischargeAndBill(true)}
+              disabled={submitting}
+            >
+              {submitting ? 'Processing Discharge...' : `Vacate & Create Invoice (₹${netAmount})`}
+            </button>
+          </div>
         </div>
       </div>
     </div>

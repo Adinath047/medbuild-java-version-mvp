@@ -155,7 +155,9 @@ export default function AuditLogViewer() {
         <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
       ) : filteredLogs.length === 0 ? (
         <div className="empty-state" style={{ padding: '48px 24px', background: 'var(--surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
-          <span className="empty-icon">🛡️</span>
+          <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--text-muted)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
           <h3>No audit records found</h3>
           <p>Clinical interactions and patient record updates will automatically populate this append-only trail.</p>
         </div>

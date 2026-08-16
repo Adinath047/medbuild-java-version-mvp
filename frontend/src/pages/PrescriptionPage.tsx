@@ -214,6 +214,87 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
+// ── Safe Medicine Normalization Helper ─────────────────────────────────
+function normalizeMedicine(raw: any): Medicine {
+  if (!raw) {
+    return {
+      name: '',
+      generics: [],
+      strengths: [],
+      defaultDose: '1 tablet',
+      category: 'General'
+    };
+  }
+
+  const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+
+  // Safe parse strengths
+  let strengths: string[] = [];
+  if (Array.isArray(raw.strengths)) {
+    strengths = raw.strengths.map((s: any) => String(s).trim()).filter(Boolean);
+  } else if (typeof raw.strengths === 'string' && raw.strengths.trim()) {
+    try {
+      const parsed = JSON.parse(raw.strengths);
+      if (Array.isArray(parsed)) {
+        strengths = parsed.map((s: any) => String(s).trim()).filter(Boolean);
+      } else if (typeof parsed === 'string' && parsed.trim()) {
+        strengths = [parsed.trim()];
+      }
+    } catch {
+      strengths = [raw.strengths.trim()];
+    }
+  } else if (typeof raw.strength === 'string' && raw.strength.trim()) {
+    strengths = [raw.strength.trim()];
+  }
+
+  // Safe parse generics
+  let generics: string[] = [];
+  if (Array.isArray(raw.generics)) {
+    generics = raw.generics.map((g: any) => String(g).trim()).filter(Boolean);
+  } else if (typeof raw.generics === 'string' && raw.generics.trim()) {
+    try {
+      const parsed = JSON.parse(raw.generics);
+      if (Array.isArray(parsed)) {
+        generics = parsed.map((g: any) => String(g).trim()).filter(Boolean);
+      } else if (typeof parsed === 'string' && parsed.trim()) {
+        generics = [parsed.trim()];
+      }
+    } catch {
+      generics = [raw.generics.trim()];
+    }
+  } else if (typeof raw.genericName === 'string' && raw.genericName.trim()) {
+    generics = [raw.genericName.trim()];
+  } else if (typeof raw.generic_name === 'string' && raw.generic_name.trim()) {
+    generics = [raw.generic_name.trim()];
+  }
+
+  const defaultDose = typeof raw.defaultDose === 'string' && raw.defaultDose.trim()
+    ? cleanDefaultDose(raw.defaultDose)
+    : (typeof raw.default_dose === 'string' && raw.default_dose.trim()
+      ? cleanDefaultDose(raw.default_dose)
+      : (typeof raw.dose === 'string' && raw.dose.trim()
+        ? cleanDefaultDose(raw.dose)
+        : (strengths[0] || '1 tablet')));
+
+  const category = typeof raw.category === 'string' && raw.category.trim()
+    ? raw.category.trim()
+    : (typeof raw.groupName === 'string' && raw.groupName.trim()
+      ? raw.groupName.trim()
+      : (typeof raw.group_name === 'string' && raw.group_name.trim() ? raw.group_name.trim() : 'General'));
+
+  return {
+    name,
+    generics,
+    strengths,
+    defaultDose,
+    category,
+    srNo: raw.srNo ?? raw.sr_no,
+    drugCode: raw.drugCode ?? raw.drug_code,
+    genericName: raw.genericName ?? raw.generic_name,
+    groupName: raw.groupName ?? raw.group_name
+  };
+}
+
 // ── Drug search autocomplete ──────────────────────────────────────────
 function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
   value: string;
@@ -235,18 +316,18 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
     async function loadFrequent() {
       try {
         const res = await apiClient.get('/medicines/frequent');
-        if (res.data && res.data.length > 0) {
-          setPopular(res.data);
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setPopular(res.data.map(normalizeMedicine));
         } else {
           // Fallback to static POPULAR suggestions
           const p = POPULAR.map(n => {
             const q = n.toLowerCase();
             return medicinesList.find(m =>
               m.name.toLowerCase() === q ||
-              m.generics.some(g => g.toLowerCase() === q)
+              (m.generics && m.generics.some(g => g.toLowerCase() === q))
             );
           }).filter(Boolean) as Medicine[];
-          setPopular(p);
+          setPopular(p.map(normalizeMedicine));
         }
       } catch (err) {
         // Fallback to static POPULAR suggestions
@@ -254,10 +335,10 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
           const q = n.toLowerCase();
           return medicinesList.find(m =>
             m.name.toLowerCase() === q ||
-            m.generics.some(g => g.toLowerCase() === q)
+            (m.generics && m.generics.some(g => g.toLowerCase() === q))
           );
         }).filter(Boolean) as Medicine[];
-        setPopular(p);
+        setPopular(p.map(normalizeMedicine));
       }
     }
 
@@ -286,17 +367,18 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
         const res = await apiClient.get('/medicines/search', {
           params: { q: qTrim }
         });
-        searchCache.current[qTrim.toLowerCase()] = res.data;
-        setResults(res.data);
+        const normalized = Array.isArray(res.data) ? res.data.map(normalizeMedicine) : [];
+        searchCache.current[qTrim.toLowerCase()] = normalized;
+        setResults(normalized);
       } catch (err) {
         // Fallback to local filter if network fails or offline
         const q = qTrim.toLowerCase();
         const filtered = medicinesList.filter(m =>
           m.name.toLowerCase().includes(q) ||
-          m.generics.some(g => g.toLowerCase().includes(q)) ||
-          m.category.toLowerCase().includes(q)
+          (m.generics && m.generics.some(g => g.toLowerCase().includes(q))) ||
+          (m.category && m.category.toLowerCase().includes(q))
         ).slice(0, 12);
-        setResults(filtered);
+        setResults(filtered.map(normalizeMedicine));
       }
     }, 200);
 
@@ -320,12 +402,13 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
     if (el) el.scrollIntoView({ block:'nearest' });
   }, [focused]);
 
-  const displayed = value.trim().length === 0 ? popular : results;
+  const displayed = (value.trim().length === 0 ? popular : results).map(normalizeMedicine);
   const isPopular = value.trim().length === 0;
 
   function pick(m: Medicine) {
-    onSelect(m);
-    onChange(m.name);
+    const norm = normalizeMedicine(m);
+    onSelect(norm);
+    onChange(norm.name);
     setOpen(false);
     inputRef.current?.blur();
   }
@@ -382,7 +465,7 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
             </div>
           ) : (
             displayed.map((m, i) => (
-              <div key={m.name}
+              <div key={`${m.name}-${i}`}
                 data-idx={i}
                 onMouseDown={e => { e.preventDefault(); pick(m); }}
                 onMouseEnter={() => setFocused(i)}
@@ -398,18 +481,22 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
                     <span style={{ fontWeight:600, fontSize:13, color: i === focused ? '#0d9488' : '#111827' }}>
                       <Highlight text={m.name} query={isPopular ? '' : value} />
                     </span>
-                    <span style={{ fontSize:10, background: i===focused?'#d1fae5':'#f3f4f6', color: i===focused?'#065f46':'#6b7280', padding:'1px 7px', borderRadius:20, fontWeight:600, border: i===focused?'1px solid #a7f3d0':'1px solid #e5e7eb' }}>{m.category}</span>
+                    <span style={{ fontSize:10, background: i===focused?'#d1fae5':'#f3f4f6', color: i===focused?'#065f46':'#6b7280', padding:'1px 7px', borderRadius:20, fontWeight:600, border: i===focused?'1px solid #a7f3d0':'1px solid #e5e7eb' }}>{m.category || 'General'}</span>
                   </div>
-                  <span style={{ fontSize:10, color:'#9ca3af', flexShrink:0 }}>{m.strengths[0]}</span>
+                  {m.strengths && m.strengths.length > 0 && (
+                    <span style={{ fontSize:10, color:'#9ca3af', flexShrink:0 }}>{m.strengths[0]}</span>
+                  )}
                 </div>
-                <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>
-                  {m.generics.slice(0, 4).map((g, gi) => (
-                    <span key={g}>
-                      {gi > 0 && <span style={{ margin:'0 3px', color:'#d1d5db' }}>·</span>}
-                      <Highlight text={g} query={isPopular ? '' : value} />
-                    </span>
-                  ))}
-                </div>
+                {m.generics && m.generics.length > 0 && (
+                  <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>
+                    {m.generics.slice(0, 4).map((g, gi) => (
+                      <span key={`${g}-${gi}`}>
+                        {gi > 0 && <span style={{ margin:'0 3px', color:'#d1d5db' }}>·</span>}
+                        <Highlight text={g} query={isPopular ? '' : value} />
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -430,13 +517,15 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
   drugMap?: Map<string, Medicine>;
 }) {
   const medKey = (med.name || '').toLowerCase().trim();
-  const drugInfo = drugMap ? drugMap.get(medKey) : medicinesList.find(m => m.name.toLowerCase() === medKey);
+  const rawDrugInfo = drugMap ? drugMap.get(medKey) : medicinesList.find(m => m.name.toLowerCase() === medKey);
+  const drugInfo = rawDrugInfo ? normalizeMedicine(rawDrugInfo) : undefined;
   const allergyMatch = checkAllergyConflict(med.name, patientAllergies, drugMap, medicinesList);
 
   function handleSelect(m: Medicine) {
-    onUpdate('name', m.name);
-    if (m.strengths.length > 0) onUpdate('strength', m.strengths[0]);
-    onUpdate('dose', m.defaultDose);
+    const norm = normalizeMedicine(m);
+    onUpdate('name', norm.name);
+    if (norm.strengths && norm.strengths.length > 0) onUpdate('strength', norm.strengths[0]);
+    onUpdate('dose', norm.defaultDose);
   }
 
   return (
@@ -1046,13 +1135,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       .then(records => {
         const active = records.filter(m => m.is_active !== 0);
         if (active.length > 0) {
-          const mapped = active.map(m => ({
-            name: m.name,
-            generics: m.generics || [],
-            strengths: m.strengths || [],
-            defaultDose: m.default_dose || m.strengths[0] || '1 tablet',
-            category: m.category || ''
-          }));
+          const mapped = active.map(normalizeMedicine);
           mapped.sort((a, b) => a.name.localeCompare(b.name));
           setDbMeds(mapped);
         }
@@ -1199,7 +1282,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       
       newMedsList.push({
         name: isClean ? parsed.name : line,
-        strength: parsed.strength || (drugInfo?.strengths[0] || ''),
+        strength: parsed.strength || (drugInfo?.strengths?.[0] || ''),
         dose: defaultDose,
         frequency: parsed.frequency || 'Once daily',
         duration: parsed.duration || '7 days',

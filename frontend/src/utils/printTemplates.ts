@@ -348,33 +348,36 @@ export function printPrescriptionSlip(opts: {
     vitalsHtml = `<div class="vitals-row">${parts.join(' &nbsp;|&nbsp; ')}</div>`;
   }
 
+  const cleanDocName = (doctor.name || '').trim().replace(/^(dr\.?\s*)+/i, '');
+  const doctorDisplayName = cleanDocName ? `Dr. ${cleanDocName}` : 'Doctor';
+
   // Clinic brand letterhead
   let headerHtml = '';
   if (prePrinted) {
     headerHtml = `<div style="height: ${headerHeight}mm; width: 100%; margin-bottom: 15px;"></div>`;
   } else if (doctor.letterhead) {
     if (doctor.letterhead.startsWith('data:image/')) {
-      headerHtml = `<div style="width: 100%; height: ${headerHeight}mm; margin-bottom: 15px; border-bottom: 2.5px solid #0f766e; display: flex; align-items: center; overflow: hidden;">
+      headerHtml = `<div style="width: 100%; height: ${headerHeight}mm; margin-bottom: 15px; border-bottom: 2px solid #0f172a; display: flex; align-items: center; overflow: hidden;">
                       <img src="${doctor.letterhead}" style="width: 100%; height: 100%; object-fit: cover; display: block;" alt="Letterhead" />
                     </div>`;
     } else {
-      headerHtml = `<div style="width: 100%; height: ${headerHeight}mm; border-bottom: 2px solid #0f766e; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; overflow: hidden; padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm;">
+      headerHtml = `<div style="width: 100%; height: ${headerHeight}mm; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; overflow: hidden; padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm;">
                       <div style="font-size: ${printFontSize}pt; font-weight: 600; line-height: 1.5; color: #0f172a; white-space: pre-wrap;">${doctor.letterhead}</div>
                       <div style="text-align: right; font-size: ${printFontSize - 1.5}pt; color: #334155; line-height: 1.4;">
-                        <strong style="font-size: ${printFontSize}pt; color: #0f766e;">Dr. ${doctor.name}</strong><br/>
+                        <strong style="font-size: ${printFontSize}pt; color: #0f172a;">${doctorDisplayName}</strong><br/>
                         ${doctor.qualification || doctor.role}${doctor.regNo ? `<br/>Reg. No: ${doctor.regNo}` : ''}
                       </div>
                     </div>`;
     }
   } else {
-    headerHtml = `<div class="header" style="height: ${headerHeight}mm; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; overflow: hidden; border-bottom: 2.5px solid #0f766e; padding-bottom: 10px; padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm;">
+    headerHtml = `<div class="header" style="height: ${headerHeight}mm; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; overflow: hidden; border-bottom: 2px solid #0f172a; padding-bottom: 10px; padding-left: ${printMarginLeftRight}mm; padding-right: ${printMarginLeftRight}mm;">
         <div>
           <div class="brand-name">${BRAND.name}</div>
           <div class="brand-sub">${BRAND.tagline}</div>
           <div class="brand-addr">${BRAND.address} &nbsp;|&nbsp; Tel: ${BRAND.phone}</div>
         </div>
         <div class="doctor-block">
-          <div class="doctor-name">Dr. ${doctor.name}</div>
+          <div class="doctor-name">${doctorDisplayName}</div>
           <div class="doctor-sub">${doctor.qualification || doctor.role}${doctor.regNo ? `<br/>Reg. No: ${doctor.regNo}` : ''}</div>
         </div>
       </div>`;
@@ -390,22 +393,23 @@ export function printPrescriptionSlip(opts: {
   .page { width:100%; display:block; }
   
   /* Header */
-  .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:14px; border-bottom:2.5px solid #0f766e; }
-  .brand-name { font-size:${printFontSize + 6}pt; font-weight:900; color:#0f766e; letter-spacing:-0.5px; }
+  .header { display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:14px; border-bottom:2px solid #0f172a; }
+  .brand-name { font-size:${printFontSize + 6}pt; font-weight:900; color:#0f172a; letter-spacing:-0.5px; }
   .brand-sub  { font-size:${printFontSize - 2}pt; color:#475569; margin-top:2px; }
   .brand-addr { font-size:${printFontSize - 2}pt; color:#475569; margin-top:4px; line-height:1.5; }
   .doctor-block { text-align:right; line-height:1.4; }
-  .doctor-name  { font-size:${printFontSize + 2}pt; font-weight:800; color:#0f766e; }
+  .doctor-name  { font-size:${printFontSize + 2}pt; font-weight:800; color:#0f172a; }
   .doctor-sub   { font-size:${printFontSize - 1.5}pt; color:#475569; margin-top:2px; }
  
-  /* Patient blue pill row */
-  .pt-pill-row { margin:16px 0 18px; }
+  /* Patient plain black & white print friendly header row */
+  .pt-pill-row { margin:12px 0 16px; }
   .pt-pill { 
-    background:#1d4ed8; 
-    color:#fff; 
-    padding:8px 18px; 
-    border-radius:99px; 
-    font-size:${printFontSize - 0.5}pt; 
+    background:transparent; 
+    color:#0f172a; 
+    padding:6px 0; 
+    border-bottom:1.5px solid #0f172a; 
+    border-top:1.5px solid #0f172a; 
+    font-size:${printFontSize}pt; 
     font-weight:700; 
     display:flex; 
     justify-content:space-between; 
@@ -430,7 +434,7 @@ export function printPrescriptionSlip(opts: {
  
   /* Rx symbol */
   .rx-line { display:flex; align-items:center; gap:10px; margin:20px 0 8px; }
-  .rx-sym  { font-size:36px; font-style:italic; font-family:Georgia,serif; color:#1d4ed8; font-weight:700; line-height:1; }
+  .rx-sym  { font-size:32px; font-style:italic; font-family:Georgia,serif; color:#0f172a; font-weight:700; line-height:1; }
  
   /* Rx Medicines table */
   .rx-table { width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:25px; font-size:${printFontSize}pt; }
@@ -550,19 +554,15 @@ export function printPrescriptionSlip(opts: {
         ${doctor.signatureImage ? `<img src="${doctor.signatureImage}" style="max-height: 44px;" alt="Signature" />` : ''}
       </div>
       <div class="sig-line"></div>
-      <div class="sig-name">Dr. ${doctor.name}</div>
+      <div class="sig-name">${doctorDisplayName}</div>
       ${doctor.qualification ? `<div class="sig-sub">${doctor.qualification}</div>` : ''}
       ${doctor.regNo ? `<div class="sig-sub">Reg. No: ${doctor.regNo}</div>` : ''}
     </div>
   </div>
  
   <div class="bottom-footer">
-    <div style="display: flex; align-items: center; gap: 10px;">
-      ${slipToken ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/prescriptions/slip/' + slipToken : 'https://medicos.app/' + slipToken)}" style="width: 44px; height: 44px; border: 1px solid #cbd5e1; border-radius: 4px;" alt="Scan to Verify Digital Rx" />` : ''}
-      <div style="font-size: ${printFontSize - 3}pt; color: #475569; line-height: 1.3;">
-        <strong>Scan to Verify Digital Rx & Consent Records</strong><br/>
-        <span>🔒 DPDP Act 2023 & ABDM Compliant EMR</span>
-      </div>
+    <div style="font-size: ${printFontSize - 3}pt; color: #475569; line-height: 1.3;">
+      <span>DPDP Act 2023 & ABDM Compliant EMR</span>
     </div>
     <div class="powered" style="text-align: right;">
       <span>Powered by Medicos EMR</span><br/>
@@ -671,7 +671,7 @@ export function printInvoice(opts: {
 <div class="page">
   <div class="header">
     <div>
-      <div class="brand-name">🏥 ${BRAND.name}</div>
+      <div class="brand-name">${BRAND.name}</div>
       <div class="brand-sub">${BRAND.tagline}</div>
       <div class="brand-addr">${BRAND.address} &nbsp;|&nbsp; ${BRAND.phone}</div>
     </div>
@@ -825,7 +825,7 @@ export function printPharmacyBill(opts: {
 <div class="page">
   <div class="header">
     <div>
-      <div class="brand-name">🏥 ${BRAND.name}</div>
+      <div class="brand-name">${BRAND.name}</div>
       <div class="brand-sub">${BRAND.tagline}</div>
       <div class="brand-addr">${BRAND.address} &nbsp;|&nbsp; ${BRAND.phone}</div>
     </div>
@@ -844,7 +844,7 @@ export function printPharmacyBill(opts: {
     ${pharmacistName ? `<div class="pt-cell"><div class="pt-lbl">Dispensed By</div><div class="pt-val">${pharmacistName}</div></div>` : ''}
   </div>
 
-  <div class="phr-badge">💊 Pharmacy Dispensing Bill</div>
+  <div class="phr-badge">Pharmacy Dispensing Bill</div>
 
   <table>
     <thead><tr>

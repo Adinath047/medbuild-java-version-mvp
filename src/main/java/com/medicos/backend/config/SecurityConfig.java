@@ -101,8 +101,10 @@ public class SecurityConfig {
                         "https://cdn.tailwindcss.com https://cdn.jsdelivr.net; " +
                     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "font-src 'self' https://fonts.gstatic.com data:; " +
-                    "img-src 'self' data: https:; " +
+                    "img-src 'self' data: blob: https:; " +
                     "connect-src 'self' ws: wss: http: https:; " +
+                    "frame-src 'self' data: blob:; " +
+                    "object-src 'self' data: blob:; " +
                     "frame-ancestors 'none';"  // equivalent to X-Frame-Options: DENY
                 ))
 

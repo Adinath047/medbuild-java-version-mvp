@@ -75,7 +75,8 @@ public class MedicineService {
             prescriptions = prescriptions.subList(0, 100);
         }
 
-        Map<String, Map<String, Object>> counts = new LinkedHashMap<>();
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        Map<String, Map<?, ?>> rawMeds = new LinkedHashMap<>();
         for (Prescription rx : prescriptions) {
             if (rx.getMedicines() == null || rx.getMedicines().trim().isEmpty()) continue;
             try {
@@ -89,16 +90,8 @@ public class MedicineService {
                             if (nameObj != null && !nameObj.toString().trim().isEmpty()) {
                                 String name = nameObj.toString().trim();
                                 String key = name.toLowerCase();
-                                if (!counts.containsKey(key)) {
-                                    Map<String, Object> entry = new HashMap<>();
-                                    entry.put("name", name);
-                                    entry.put("count", 1);
-                                    entry.put("med", medMap);
-                                    counts.put(key, entry);
-                                } else {
-                                    Map<String, Object> entry = counts.get(key);
-                                    entry.put("count", ((Integer) entry.get("count")) + 1);
-                                }
+                                counts.put(key, counts.getOrDefault(key, 0) + 1);
+                                rawMeds.putIfAbsent(key, medMap);
                             }
                         }
                     }
@@ -106,11 +99,32 @@ public class MedicineService {
             } catch (Exception ignored) {}
         }
 
-        return counts.values().stream()
-                .sorted((a, b) -> Integer.compare((Integer) b.get("count"), (Integer) a.get("count")))
-                .map(entry -> entry.get("med"))
+        List<String> topKeys = counts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                 .limit(10)
-                .collect(Collectors.toList());
+                .map(Map.Entry::getKey)
+                .toList();
+
+        List<Object> result = new ArrayList<>();
+        for (String key : topKeys) {
+            Map<?, ?> raw = rawMeds.get(key);
+            String medName = raw != null && raw.get("name") != null ? raw.get("name").toString().trim() : key;
+            List<Medicine> match = medicineRepository.searchMedicines(medName);
+            if (!match.isEmpty()) {
+                result.add(match.get(0));
+            } else {
+                Medicine m = new Medicine();
+                m.setId("frequent-" + UUID.randomUUID().toString().substring(0, 8));
+                m.setName(medName);
+                m.setCategory("General");
+                m.setDefaultDose(raw != null && raw.get("dose") != null ? raw.get("dose").toString().trim() : "1 tablet");
+                String strength = raw != null && raw.get("strength") != null ? raw.get("strength").toString().trim() : "";
+                m.setStrengths(!strength.isEmpty() ? "[\"" + strength + "\"]" : "[]");
+                m.setGenerics("[\"" + medName + "\"]");
+                result.add(m);
+            }
+        }
+        return result;
     }
 
     @CacheEvict(value = "medicines", allEntries = true)

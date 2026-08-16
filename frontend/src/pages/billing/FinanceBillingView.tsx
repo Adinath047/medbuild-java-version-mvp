@@ -14,16 +14,11 @@ const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, amount: 0 };
 const PRESET_SERVICES = [
   { name: 'OPD Consultation', defaultPrice: 500, category: 'Consultation' },
   { name: 'Follow-up Consultation', defaultPrice: 300, category: 'Consultation' },
-  { name: 'General Bed Stay (Per Day)', defaultPrice: 1500, category: 'Bed Stay' },
+  { name: 'General Ward Bed (Per Day)', defaultPrice: 1500, category: 'Bed Stay' },
+  { name: 'Semi-Private Bed (Per Day)', defaultPrice: 2500, category: 'Bed Stay' },
+  { name: 'Private Room Bed (Per Day)', defaultPrice: 3500, category: 'Bed Stay' },
   { name: 'ICU Bed Stay (Per Day)', defaultPrice: 4500, category: 'Bed Stay' },
-  { name: 'Nursing & Inpatient Care', defaultPrice: 350, category: 'Nursing' },
-  { name: '12-Lead ECG Test', defaultPrice: 450, category: 'Diagnostics' },
-  { name: 'Pathology / Lab Panel', defaultPrice: 600, category: 'Lab' },
-  { name: 'Wound Dressing & Procedure', defaultPrice: 250, category: 'Procedure' },
-  { name: 'Emergency Triage & Assessment', defaultPrice: 750, category: 'Emergency' },
-  { name: 'Digital X-Ray (Single View)', defaultPrice: 550, category: 'Radiology' },
-  { name: 'Ultrasound (USG) Scan', defaultPrice: 1200, category: 'Radiology' },
-  { name: 'Nebulization Session', defaultPrice: 200, category: 'Therapy' },
+  { name: 'Emergency / Day Care Bed (Per Day)', defaultPrice: 1000, category: 'Bed Stay' },
 ];
 
 export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (p: string, d?: any) => void; data?: any }) {
@@ -81,12 +76,21 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }
   };
 
+  function getStayDailyRate(ward?: string, bedType?: string): number {
+    const w = (ward || '').toLowerCase();
+    const t = (bedType || '').toLowerCase();
+    if (w.includes('icu') || t.includes('icu')) return 4500;
+    if (w.includes('semi') || t.includes('semi')) return 2500;
+    if (w.includes('private') || t.includes('private')) return 3500;
+    if (w.includes('emergency') || t.includes('emergency') || w.includes('day') || t.includes('day')) return 1000;
+    return 1500;
+  }
+
   async function fetchBedStays() {
     setLoadingStays(true);
     try {
       const res = await apiClient.get('/beds/history');
-      const unbilled = (res.data || []).filter((stay: any) => stay.billing_status === 'Unbilled');
-      setBedStays(unbilled);
+      setBedStays(res.data || []);
     } catch (err) {
       console.error('Failed to fetch bed stays:', err);
     } finally {
@@ -97,12 +101,14 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   useEffect(() => {
     fetchBills();
     fetchPatients();
+    fetchBedStays();
   }, []);
 
   useEffect(() => {
     if (syncCount > 0) {
       fetchBills();
       fetchPatients();
+      fetchBedStays();
     }
   }, [syncCount]);
 
@@ -128,16 +134,18 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     setPatientId(stay.patient_id);
     const pat = patients.find(p => p.id === stay.patient_id);
     if (pat) setPatientSearchTerm(`${pat.name} (${pat.uhid || 'No UHID'})`);
+    const rate = getStayDailyRate(stay.ward, stay.bed_type);
+    const days = stay.stay_days || 1;
     setItems([{
-      description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.stay_days || 1} days`,
-      quantity: stay.stay_days || 1,
-      unit_price: 1000,
-      amount: (stay.stay_days || 1) * 1000,
+      description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.ward || 'General'} Ward (${days} days @ ₹${rate}/day)`,
+      quantity: days,
+      unit_price: rate,
+      amount: days * rate,
     }]);
     setDiscount('0');
     setPaid('');
     setIsManualPaid(false);
-    setNotes(`Bed stay charges for admission on ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : 'admission'}`);
+    setNotes(`Bed stay charges for Room ${stay.room || ''} (${stay.bed_number || ''}) — Admitted: ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}, Discharged: ${stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : 'Today'}`);
     setShowAdd(true);
   }
 
@@ -435,85 +443,202 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
         </div>
       </div>
 
+      {/* View Mode Tabs */}
+      <div style={{ display: 'flex', gap: 10, borderBottom: '2px solid var(--border-light)', paddingBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('opd')}
+          className={`btn btn-sm ${activeTab === 'opd' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8 }}
+        >
+          All Invoices & Payments ({bills.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('bed'); fetchBedStays(); }}
+          className={`btn btn-sm ${activeTab === 'bed' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          Bed Stay Billing Records (IPD)
+          {bedStays.filter(s => s.billing_status !== 'Billed').length > 0 && (
+            <span style={{ background: '#ef4444', color: '#fff', fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>
+              {bedStays.filter(s => s.billing_status !== 'Billed').length} Unbilled
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Main Table Card */}
       <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Invoice Records</h3>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['All', 'Pending', 'Paid'] as const).map(f => (
-              <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f)}>
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
+        {activeTab === 'opd' ? (
+          <>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Invoice Records</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['All', 'Pending', 'Paid'] as const).map(f => (
+                  <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f)}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {loading ? (
-          <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /></div>
-        ) : filteredBills.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No invoice records found.</div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Invoice #</th>
-                <th>Patient</th>
-                <th>Date</th>
-                <th>Particulars</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBills.map(b => {
-                const patient = patients.find(p => p.id === b.patient_id);
-                const netAmount = Number(b.net_amount) || 0;
-                const paidAmount = Number(b.paid_amount) || 0;
-                const isFullyPaid = paidAmount >= netAmount && netAmount > 0;
-                const displayStatus = isFullyPaid ? 'Paid' : (b.payment_status || (paidAmount > 0 ? 'Partial' : 'Pending'));
-
-                return (
-                  <tr key={b.id}>
-                    <td><code>#{b.invoice_number || b.id.slice(0, 8)}</code></td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || patient?.uhid || '—'}</div>
-                    </td>
-                    <td>{b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}</td>
-                    <td>{b.notes || (b.bill_type === 'bed_stay' ? 'Bed stay IPD accommodation' : 'OPD Consultation')}</td>
-                    <td>
-                      <div>Net: <strong>₹{netAmount.toLocaleString('en-IN')}</strong></div>
-                      <div style={{ color: 'var(--success)', fontSize: 11 }}>Paid: ₹{paidAmount.toLocaleString('en-IN')}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${displayStatus === 'Paid' ? 'badge-success' : 'badge-warning'}`}>
-                        {displayStatus}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
-                        {!isFullyPaid && (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              setRecordPaymentBill(b);
-                              const remaining = Math.max(0, netAmount - paidAmount);
-                              setNewPaidAmount(remaining.toString());
-                              setNewPayMode(b.payment_mode || 'Cash');
-                            }}
-                          >
-                            Record Payment
-                          </button>
-                        )}
-                        <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)}>Print</button>
-                      </div>
-                    </td>
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /></div>
+            ) : filteredBills.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No invoice records found.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Patient</th>
+                    <th>Date</th>
+                    <th>Particulars</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {filteredBills.map(b => {
+                    const patient = patients.find(p => p.id === b.patient_id);
+                    const netAmount = Number(b.net_amount) || 0;
+                    const paidAmount = Number(b.paid_amount) || 0;
+                    const isFullyPaid = paidAmount >= netAmount && netAmount > 0;
+                    const displayStatus = isFullyPaid ? 'Paid' : (b.payment_status || (paidAmount > 0 ? 'Partial' : 'Pending'));
+
+                    return (
+                      <tr key={b.id}>
+                        <td><code>#{b.invoice_number || b.id.slice(0, 8)}</code></td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || patient?.uhid || '—'}</div>
+                        </td>
+                        <td>{b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                        <td>{b.notes || (b.bill_type === 'bed_stay' ? 'Bed stay IPD accommodation' : 'OPD Consultation')}</td>
+                        <td>
+                          <div>Net: <strong>₹{netAmount.toLocaleString('en-IN')}</strong></div>
+                          <div style={{ color: 'var(--success)', fontSize: 11 }}>Paid: ₹{paidAmount.toLocaleString('en-IN')}</div>
+                        </td>
+                        <td>
+                          <span className={`badge ${displayStatus === 'Paid' ? 'badge-success' : 'badge-warning'}`}>
+                            {displayStatus}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            {!isFullyPaid && (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  setRecordPaymentBill(b);
+                                  const remaining = Math.max(0, netAmount - paidAmount);
+                                  setNewPaidAmount(remaining.toString());
+                                  setNewPayMode(b.payment_mode || 'Cash');
+                                }}
+                              >
+                                Record Payment
+                              </button>
+                            )}
+                            <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)}>Print</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Bed Stay Admissions & Billing Records</h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail of inpatient stays, stay durations, daily rates, and billing settlements</div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={fetchBedStays}>
+                Refresh Stays
+              </button>
+            </div>
+
+            {loadingStays ? (
+              <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /></div>
+            ) : bedStays.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No bed stay admission records found.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Room & Bed</th>
+                    <th>Ward</th>
+                    <th>Admitted</th>
+                    <th>Discharged</th>
+                    <th>Duration</th>
+                    <th>Rate & Total</th>
+                    <th>Billing Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bedStays.map((stay, idx) => {
+                    const rate = getStayDailyRate(stay.ward, stay.bed_type);
+                    const days = stay.stay_days || 1;
+                    const estimatedTotal = days * rate;
+                    const isBilled = stay.billing_status === 'Billed';
+
+                    return (
+                      <tr key={stay.id || idx}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{stay.patient_name || 'Inpatient'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {stay.patient_uhid || '—'}</div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>Room {stay.room || '—'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bed: {stay.bed_number || '—'}</div>
+                        </td>
+                        <td>
+                          <span className="badge badge-secondary" style={{ fontSize: 11 }}>{stay.ward || 'General'}</span>
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}
+                        </td>
+                        <td style={{ fontSize: 12 }}>
+                          {stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : (
+                            <span className="badge badge-success" style={{ fontSize: 10 }}>Currently Admitted</span>
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          {days} day{days !== 1 ? 's' : ''}
+                        </td>
+                        <td>
+                          <div>₹{rate}/day</div>
+                          <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 11.5 }}>
+                            Est. Total: ₹{estimatedTotal.toLocaleString('en-IN')}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${isBilled ? 'badge-success' : 'badge-warning'}`}>
+                            {isBilled ? 'Billed' : 'Unbilled'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className={`btn btn-sm ${isBilled ? 'btn-ghost' : 'btn-primary'}`}
+                            onClick={() => handleBillStay(stay)}
+                          >
+                            {isBilled ? 'Re-generate Bill' : 'Create Bed Invoice'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </div>
 
