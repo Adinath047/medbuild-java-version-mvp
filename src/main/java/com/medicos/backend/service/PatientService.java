@@ -109,6 +109,10 @@ public class PatientService {
                 .filter(name -> !name.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Patient name is required."));
 
+        if (patient.getAge() != null && (patient.getAge() < 0 || patient.getAge() > 150)) {
+            throw new BadRequestException("Patient age must be between 0 and 150.");
+        }
+
         if (patient.getId() == null || patient.getId().isEmpty()) {
             patient.setId("pat-" + UUID.randomUUID().toString().substring(0, 8));
         }
@@ -118,7 +122,10 @@ public class PatientService {
             patient.setUhid(String.format("UHID-001-%06d", count));
         }
 
-        if (patient.getHospitalId() == null || patient.getHospitalId().isEmpty()) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            patient.setHospitalId(hospitalId);
+        } else if (patient.getHospitalId() == null || patient.getHospitalId().isEmpty()) {
             patient.setHospitalId(Optional.ofNullable(currentUser).map(User::getHospitalId).orElse("hsp-001"));
         }
 
@@ -136,15 +143,26 @@ public class PatientService {
 
     @Caching(evict = {
             @CacheEvict(value = "patients", allEntries = true),
-            @CacheEvict(value = "patient_by_id", key = "#id"),
-            @CacheEvict(value = "patient_summary", key = "#id")
+            @CacheEvict(value = "patient_by_id", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id"),
+            @CacheEvict(value = "patient_summary", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
     })
     @Transactional
     public Patient updatePatient(String id, Patient updated) {
         Patient p = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
 
-        Optional.ofNullable(updated.getName()).ifPresent(p::setName);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (p.getHospitalId() != null && !hospitalId.equals(p.getHospitalId())) {
+                throw new ResourceNotFoundException("Patient not found with ID: " + id);
+            }
+        }
+
+        if (updated.getAge() != null && (updated.getAge() < 0 || updated.getAge() > 150)) {
+            throw new BadRequestException("Patient age must be between 0 and 150.");
+        }
+
+        Optional.ofNullable(updated.getName()).filter(n -> !n.trim().isEmpty()).ifPresent(p::setName);
         Optional.ofNullable(updated.getAge()).ifPresent(p::setAge);
         Optional.ofNullable(updated.getSex()).ifPresent(p::setSex);
         Optional.ofNullable(updated.getBloodGroup()).ifPresent(p::setBloodGroup);

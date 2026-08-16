@@ -10,4 +10,5 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, String> {
     List<Notification> findByIsReadFalseOrderByCreatedAtDesc();
     List<Notification> findByHospitalIdOrderByCreatedAtDesc(String hospitalId);
+    List<Notification> findByHospitalIdAndIsReadFalseOrderByCreatedAtDesc(String hospitalId);
 }

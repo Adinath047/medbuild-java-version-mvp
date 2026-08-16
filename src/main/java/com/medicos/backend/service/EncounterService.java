@@ -23,11 +23,21 @@ public class EncounterService {
     @Transactional(readOnly = true)
     public List<Encounter> getEncounters(String patientId, String doctorId) {
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+
         if (patientId != null && !patientId.isEmpty()) {
-            return encounterRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+            List<Encounter> list = encounterRepository.findByPatientIdOrderByCreatedAtDesc(patientId.trim());
+            if (isTenantScoped) {
+                return list.stream().filter(e -> hospitalId.equals(e.getHospitalId())).toList();
+            }
+            return list;
         } else if (doctorId != null && !doctorId.isEmpty()) {
-            return encounterRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId);
-        } else if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            List<Encounter> list = encounterRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId.trim());
+            if (isTenantScoped) {
+                return list.stream().filter(e -> hospitalId.equals(e.getHospitalId())).toList();
+            }
+            return list;
+        } else if (isTenantScoped) {
             return encounterRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
         } else {
             return encounterRepository.findAll();
@@ -36,21 +46,32 @@ public class EncounterService {
 
     @Transactional(readOnly = true)
     public Encounter getEncounterById(String id) {
-        return encounterRepository.findById(id)
+        Encounter enc = encounterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Encounter not found with ID: " + id));
+
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (enc.getHospitalId() != null && !hospitalId.equals(enc.getHospitalId())) {
+                throw new ResourceNotFoundException("Encounter not found with ID: " + id);
+            }
+        }
+        return enc;
     }
 
     @Transactional
     public Encounter createEncounter(Encounter encounter, User user) {
         Optional.ofNullable(encounter.getPatientId())
-                .filter(id -> !id.isEmpty())
+                .filter(id -> !id.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("patient_id is required."));
 
         if (encounter.getId() == null || encounter.getId().isEmpty()) {
             encounter.setId("enc-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
-        if (encounter.getHospitalId() == null || encounter.getHospitalId().isEmpty()) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            encounter.setHospitalId(hospitalId);
+        } else if (encounter.getHospitalId() == null || encounter.getHospitalId().isEmpty()) {
             encounter.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 

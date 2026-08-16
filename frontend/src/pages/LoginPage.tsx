@@ -44,16 +44,21 @@ export default function LoginPage() {
   // Core verification logic
   async function verifyCode(codeToVerify: string, saveToLocal = true) {
     setError('');
+    const cleanCode = (codeToVerify || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+    if (!cleanCode) {
+      setError('Please enter a valid Hospital Code (e.g. hsp-001).');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await apiClient.get(`/auth/hospital/${codeToVerify.trim()}/staff`);
+      const res = await apiClient.get(`/auth/hospital/${encodeURIComponent(cleanCode)}/staff`);
       
       if (!res.data || !res.data.hospital || !Array.isArray(res.data.staff)) {
         throw new Error('Invalid response format from server');
       }
 
       if (res.data.staff.length === 0) {
-        throw new Error(`Hospital Code '${codeToVerify}' has no active registered staff members.`);
+        throw new Error(`Hospital Code '${cleanCode}' has no active registered staff members.`);
       }
 
       setHospitalName(res.data.hospital.name);
@@ -61,7 +66,7 @@ export default function LoginPage() {
       setStep('auth');
       
       if (saveToLocal) {
-        localStorage.setItem('last_hospital_code', codeToVerify.trim().toLowerCase());
+        localStorage.setItem('last_hospital_code', cleanCode);
       }
       
       // Pre-select first user of default role if available
@@ -132,12 +137,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-root">
+    <main className="login-root" role="main" aria-label="Hospital Information System Login">
       <div className="login-card" style={{ boxShadow: 'var(--shadow-lg)' }}>
         <div className="login-logo-wrap" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6 }}>
           <img 
             src="/logo.jpg" 
-            alt="MedBuilds Logo" 
+            alt="MedBuilds Hospital Information System" 
             style={{ 
               width: 52, 
               height: 52, 
@@ -147,18 +152,19 @@ export default function LoginPage() {
             }} 
           />
           <div>
-            <div className="login-title" style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px' }}>MedBuilds</div>
+            <h1 className="login-title" style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px', margin: 0 }}>MedBuilds</h1>
             <div className="login-sub" style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Hospital Information System</div>
           </div>
         </div>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && <div className="alert alert-danger" role="alert">{error}</div>}
 
         {step === 'hospital' ? (
-          <form onSubmit={handleVerifyHospital} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleVerifyHospital} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} aria-label="Hospital Verification Form">
             <div className="form-group">
-              <label className="form-label">Enter Hospital Code *</label>
+              <label htmlFor="hospital-code" className="form-label">Enter Hospital Code *</label>
               <input
+                id="hospital-code"
                 className="input"
                 type="text"
                 placeholder="Enter Clinic or Hospital Code"
@@ -169,15 +175,16 @@ export default function LoginPage() {
                 autoCorrect="off"
                 autoComplete="off"
                 spellCheck={false}
+                aria-label="Hospital Code"
                 style={{ textTransform: 'lowercase' }}
               />
             </div>
-            <button className="btn btn-primary btn-lg" type="submit" disabled={loading}>
-              {loading ? <div className="spinner spinner-sm"/> : 'Verify Hospital →'}
+            <button className="btn btn-primary btn-lg" type="submit" disabled={loading} aria-label="Verify Hospital">
+              {loading ? <div className="spinner spinner-sm" aria-hidden="true"/> : 'Verify Hospital →'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} aria-label="Staff Login Form">
             <div style={{ background: 'var(--surface-alt)', padding: 10, borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center', marginBottom: 4 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>HOSPITAL</div>
               <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--primary)' }}>{hospitalName}</div>
@@ -193,17 +200,20 @@ export default function LoginPage() {
                   setPassword('');
                   localStorage.removeItem('last_hospital_code');
                 }}
+                aria-label="Change Selected Hospital"
               >
                 Change Hospital
               </button>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Select Role *</label>
+              <label htmlFor="select-role" className="form-label">Select Role *</label>
               <select
+                id="select-role"
                 className="input"
                 value={role}
                 onChange={e => handleRoleChange(e.target.value)}
+                aria-label="Select Role"
               >
                 {Object.entries(ROLE_LABELS).map(([r, label]) => (
                   <option key={r} value={r}>{label}</option>
@@ -212,12 +222,14 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Select Name *</label>
+              <label htmlFor="select-staff" className="form-label">Select Name *</label>
               <select
+                id="select-staff"
                 className="input"
                 value={selectedStaffId}
                 onChange={e => setSelectedStaffId(e.target.value)}
                 required
+                aria-label="Select Staff Member"
               >
                 <option value="">— Select Staff Member —</option>
                 {(Array.isArray(staff) ? staff : [])
@@ -235,8 +247,9 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Enter Password *</label>
+              <label htmlFor="login-password" className="form-label">Enter Password *</label>
               <input
+                id="login-password"
                 className="input"
                 type="password"
                 placeholder="••••••••"
@@ -244,19 +257,20 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
+                aria-label="Password"
               />
             </div>
 
-            <button className="btn btn-primary btn-lg" type="submit" disabled={loading || !selectedStaffId}>
-              {loading ? <><div className="spinner spinner-sm"/>Signing in…</> : 'Sign In'}
+            <button className="btn btn-primary btn-lg" type="submit" disabled={loading || !selectedStaffId} aria-label="Sign In">
+              {loading ? <><div className="spinner spinner-sm" aria-hidden="true"/>Signing in…</> : 'Sign In'}
             </button>
           </form>
         )}
         
         <div style={{
           textAlign: 'center',
-          fontSize: 11,
-          color: 'var(--text-light)',
+          fontSize: 11.5,
+          color: 'var(--text-muted)',
           marginTop: 20,
           fontWeight: 600,
           letterSpacing: '0.4px',
@@ -270,7 +284,8 @@ export default function LoginPage() {
           <button 
             type="button" 
             onClick={() => setShowPrivacyModal(true)} 
-            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: 0, textDecoration: 'underline' }}
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: 0, textDecoration: 'underline' }}
+            aria-label="Open Privacy Policy and Terms of Service"
           >
             Privacy Policy & Terms
           </button>
@@ -282,7 +297,7 @@ export default function LoginPage() {
           borderRadius: 8,
           background: 'rgba(245, 158, 11, 0.08)',
           border: '1px solid rgba(245, 158, 11, 0.25)',
-          fontSize: 11,
+          fontSize: 11.5,
           color: 'var(--text-sec)',
           lineHeight: 1.45,
           textAlign: 'center'
@@ -292,6 +307,6 @@ export default function LoginPage() {
 
         <PrivacyTermsModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
       </div>
-    </div>
+    </main>
   );
 }

@@ -151,6 +151,13 @@ public class PrescriptionService {
         Prescription rx = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found with ID: " + id));
 
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (rx.getHospitalId() != null && !hospitalId.equals(rx.getHospitalId())) {
+                throw new ResourceNotFoundException("Prescription not found with ID: " + id);
+            }
+        }
+
         if (body.containsKey("medicines")) {
             Object medsObj = body.get("medicines");
             if (medsObj instanceof String) {

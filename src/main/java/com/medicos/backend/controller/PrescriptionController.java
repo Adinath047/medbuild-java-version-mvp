@@ -40,12 +40,14 @@ public class PrescriptionController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public ResponseEntity<PrescriptionDTO> createPrescription(@RequestBody Map<String, Object> body, @AuthenticationPrincipal User user) {
         PrescriptionDTO saved = prescriptionService.createPrescriptionFromMap(body, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
     public ResponseEntity<PrescriptionDTO> updatePrescription(@PathVariable("id") String id, @RequestBody Map<String, Object> body) {
         PrescriptionDTO updated = prescriptionService.updatePrescription(id, body);
         return ResponseEntity.ok(updated);

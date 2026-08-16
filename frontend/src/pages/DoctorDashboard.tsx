@@ -62,30 +62,35 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       const nowHourMin = new Date().toLocaleTimeString('en-IN', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
       // 1. Load Beds to calculate myBeds and critical patients list
-      let bedsList = [];
+      let bedsList: any[] = [];
       try {
         const r = await apiClient.get('/beds');
-        bedsList = r.data || [];
+        bedsList = Array.isArray(r.data) ? r.data : (r.data?.beds || []);
       } catch {
         bedsList = [];
       }
 
-      // Filter beds belonging to this doctor (only occupied beds assigned to this doctor)
-      const myDocBeds = bedsList.filter((b: any) => 
-        b.status === 'Occupied' && (
-          b.doctor_id === user?.id || 
-          (b.doctor_name && user?.name && b.doctor_name.toLowerCase().includes(user.name.toLowerCase())) ||
-          (user?.name && b.doctor_name && user.name.toLowerCase().includes(b.doctor_name.toLowerCase()))
-        )
-      );
+      // Filter beds belonging to this doctor (only occupied beds assigned to this doctor or department)
+      const myDocBeds = bedsList.filter((b: any) => {
+        if (!b) return false;
+        const st = (b.status || '').toLowerCase();
+        if (st !== 'occupied') return false;
+        const docId = b.doctorId || b.doctor_id;
+        const docName = b.doctorName || b.doctor_name;
+        if (docId && user?.id && docId === user.id) return true;
+        if (docName && user?.name && docName.toLowerCase().includes(user.name.toLowerCase())) return true;
+        if (user?.name && docName && user.name.toLowerCase().includes(docName.toLowerCase())) return true;
+        return false;
+      });
 
       // Identify critical patients under this doctor
       const criticals = myDocBeds.filter((b: any) => {
-        if (b.status !== 'Occupied' || !b.vitals) return false;
-        const sys = b.vitals.bp_systolic || b.vitals.bpSystolic;
-        const hr = b.vitals.heart_rate || b.vitals.heartRate;
-        const o2 = b.vitals.spo2 || b.vitals.spO2;
-        const temp = b.vitals.temperature;
+        if (!b.vitals) return false;
+        const v = b.vitals;
+        const sys = v.bp_systolic || v.bpSystolic;
+        const hr = v.heart_rate || v.heartRate;
+        const o2 = v.spo2 || v.spO2;
+        const temp = v.temperature;
         return (
           (o2 && o2 < 94) || 
           (hr && (hr > 100 || hr < 60)) || 
@@ -105,9 +110,11 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
 
       const isMyDoctorAppt = (a: any) => {
         if (!a) return false;
-        if (a.doctor_id && user?.id && a.doctor_id === user.id) return true;
-        if (user?.name && a.doctor_name && a.doctor_name.toLowerCase().includes(user.name.toLowerCase())) return true;
-        if (user?.name && a.doctor_name && user.name.toLowerCase().includes(a.doctor_name.toLowerCase())) return true;
+        const docId = a.doctorId || a.doctor_id;
+        const docName = a.doctorName || a.doctor_name;
+        if (docId && user?.id && docId === user.id) return true;
+        if (user?.name && docName && docName.toLowerCase().includes(user.name.toLowerCase())) return true;
+        if (user?.name && docName && user.name.toLowerCase().includes(docName.toLowerCase())) return true;
         return false;
       };
 
@@ -131,8 +138,8 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
 
       // Compute stats
       const uniquePatients = new Set([
-        ...myDocBeds.map((b: any) => b.patient_id).filter(Boolean),
-        ...myAppts.map((a: any) => a.patient_id).filter(Boolean)
+        ...myDocBeds.map((b: any) => b.patientId || b.patient_id).filter(Boolean),
+        ...myAppts.map((a: any) => a.patientId || a.patient_id).filter(Boolean)
       ]);
 
       setStats({
@@ -185,10 +192,10 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
   }
 
   const displayedCritical = criticalList.map(c => ({
-    name: c.patient_name,
-    uhid: c.uhid,
-    ageSex: `${c.patient_age || '—'}/${c.patient_sex || '—'}`,
-    id: c.patient_id
+    name: c.patientName || c.patient_name || 'Admitted Patient',
+    uhid: c.patientUhid || c.uhid || c.patient_uhid || '—',
+    ageSex: `${c.patientAge || c.patient_age || '—'}/${c.patientSex || c.patient_sex || '—'}`,
+    id: c.patientId || c.patient_id || c.id
   }));
 
   const displayedQueue = todaysAppts;
@@ -243,7 +250,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
             textTransform: 'uppercase',
             letterSpacing: '0.4px'
           }}>
-            Cardiology
+            {user?.specialization || 'Clinical Suite'}
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
             Good day, {user?.name ? (user.name.toLowerCase().startsWith('dr.') ? user.name : `Dr. ${user.name}`) : 'Doctor'}
@@ -320,10 +327,35 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         gap: 16
       }}>
         {/* Card 1: MY PATIENTS */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div 
+          onClick={() => onNavigate('patients')}
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--border)', 
+            borderRadius: 'var(--radius-xl)', 
+            padding: '20px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+          }}
+        >
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>My Patients</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{stats.myPatients}</div>
+            <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 4, fontWeight: 600 }}>View patient list ➔</div>
           </div>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#f0fdfa', color: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-3-3.87M11 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="7" cy="7" r="4"/></svg>
@@ -331,10 +363,35 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         </div>
 
         {/* Card 2: CRITICAL */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div 
+          onClick={() => onNavigate('beds')}
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--border)', 
+            borderRadius: 'var(--radius-xl)', 
+            padding: '20px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#dc2626';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+          }}
+        >
           <div>
-            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Critical</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Critical Alerts</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: '#dc2626', marginTop: 8 }}>{stats.critical}</div>
+            <div style={{ fontSize: 11, color: '#dc2626', marginTop: 4, fontWeight: 600 }}>Manage ICU & beds ➔</div>
           </div>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -342,10 +399,35 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         </div>
 
         {/* Card 3: TODAY'S APPT */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div 
+          onClick={() => onNavigate('appointments')}
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--border)', 
+            borderRadius: 'var(--radius-xl)', 
+            padding: '20px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#d97706';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+          }}
+        >
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Today's Appts</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{stats.todayAppts}</div>
+            <div style={{ fontSize: 11, color: '#d97706', marginTop: 4, fontWeight: 600 }}>Open scheduler ➔</div>
           </div>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -353,10 +435,35 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         </div>
 
         {/* Card 4: MY BEDS */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: 'var(--shadow-sm)' }}>
+        <div 
+          onClick={() => onNavigate('beds')}
+          style={{ 
+            background: 'var(--surface)', 
+            border: '1px solid var(--border)', 
+            borderRadius: 'var(--radius-xl)', 
+            padding: '20px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#7c3aed';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+          }}
+        >
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }}>My Beds</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{stats.myBeds}</div>
+            <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 4, fontWeight: 600 }}>Ward occupancy ➔</div>
           </div>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></svg>
@@ -446,31 +553,45 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
           </div>
           <div className="card-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {displayedQueue.length > 0 ? (
-              displayedQueue.map((a: any, idx: number) => (
-                <div 
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '10px',
-                    background: '#f8fafc'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 13 }}>{a.time}</span>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{a.patient_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{a.notes || 'General checkup'}</div>
+              displayedQueue.map((a: any, idx: number) => {
+                const targetPatientId = a.patientId || a.patient_id || a.patient?.id || a.id;
+                return (
+                  <div 
+                    key={idx}
+                    onClick={() => targetPatientId ? onNavigate('patient_detail', { patientId: targetPatientId }) : onNavigate('appointments')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      background: '#f8fafc',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                      e.currentTarget.style.background = '#f0fdfa';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border-light)';
+                      e.currentTarget.style.background = '#f8fafc';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 13 }}>{a.time}</span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{a.patientName || a.patient_name || a.patient?.name || 'Patient'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{a.reason || a.notes || 'General consultation'}</div>
+                      </div>
                     </div>
+                    <span className={`badge ${a.status === 'Checked-In' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 9.5, padding: '2px 8px' }}>
+                      {a.status}
+                    </span>
                   </div>
-                  <span className={`badge ${a.status === 'Checked-In' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 9.5, padding: '2px 8px' }}>
-                    {a.status}
-                  </span>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500 }}>
                 No appointments scheduled for today.
@@ -481,32 +602,48 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
 
         {/* Upcoming appointments tracker */}
         <div className="card" style={{ boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius-xl)' }}>
-          <div className="card-header" style={{ padding: '16px 20px' }}>
-            <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Upcoming</h3>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Next scheduled visits</span>
+          <div className="card-header" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Upcoming</h3>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Next scheduled visits</span>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('appointments')} style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>All</button>
           </div>
           <div className="card-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {displayedUpcoming.length > 0 ? (
-              displayedUpcoming.map((u, idx) => (
-                <div 
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderBottom: '1px solid var(--border-light)'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{u.patient_name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{u.notes || 'Routine consultation'}</div>
+              displayedUpcoming.map((u: any, idx: number) => {
+                const targetPatientId = u.patientId || u.patient_id || u.patient?.id || u.id;
+                return (
+                  <div 
+                    key={idx}
+                    onClick={() => targetPatientId ? onNavigate('patient_detail', { patientId: targetPatientId }) : onNavigate('appointments')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderBottom: '1px solid var(--border-light)',
+                      cursor: 'pointer',
+                      borderRadius: '8px',
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'var(--surface-alt, #f8fafc)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{u.patientName || u.patient_name || u.patient?.name || 'Patient'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{u.reason || u.notes || 'Routine consultation'}</div>
+                    </div>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-sec)' }}>
+                      {new Date(u.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {u.time}
+                    </span>
                   </div>
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-sec)' }}>
-                    {new Date(u.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {u.time}
-                  </span>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500 }}>
                 No upcoming appointments.

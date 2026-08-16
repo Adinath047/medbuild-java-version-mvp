@@ -206,7 +206,18 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#a21caf';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
@@ -214,7 +225,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             <div style={{ fontSize: 32, fontWeight: 700, color: '#a21caf', marginTop: 8, lineHeight: 1 }}>
               {bedStats.occupied} <span style={{ fontSize: 18, color: 'var(--text-light)', fontWeight: 500 }}>/ {bedStats.total}</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Admitted IPD patients</div>
+            <div style={{ fontSize: 11, color: '#a21caf', marginTop: 6, fontWeight: 600 }}>Admitted IPD patients ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fae8ff', color: '#a21caf', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></svg>
@@ -223,6 +234,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
 
         {/* Metric 2: VITALS LOGGED TODAY */}
         <div 
+          onClick={() => onNavigate('vitals')}
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -231,13 +243,25 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            boxShadow: 'var(--shadow-sm)'
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Vitals Logs Recorded</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--primary)', marginTop: 8, lineHeight: 1 }}>{vitalsList.length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Nursing round recordings</div>
+            <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 6, fontWeight: 600 }}>Open vitals logs ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -246,6 +270,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
 
         {/* Metric 3: VITALS ALERTS */}
         <div 
+          onClick={() => onNavigate('vitals')}
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -254,7 +279,19 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            boxShadow: 'var(--shadow-sm)'
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#d97706';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
@@ -262,7 +299,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             <div style={{ fontSize: 32, fontWeight: 700, color: '#d97706', marginTop: 8, lineHeight: 1 }}>
               {vitalsList.filter(v => v.status !== 'Normal').length}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Abnormal vitals flag</div>
+            <div style={{ fontSize: 11, color: '#d97706', marginTop: 6, fontWeight: 600 }}>Review alert vitals ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -281,16 +318,27 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Hospital Patients</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{patients.length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Active registered patients</div>
+            <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 6, fontWeight: 600 }}>Active patient records ➔</div>
           </div>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f0fdfa', color: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-3-3.87M11 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="7" cy="7" r="4"/></svg>
           </div>
         </div>
       </div>

@@ -221,6 +221,7 @@ public class DataInitializer implements CommandLineRunner {
                 String todayStr = java.time.LocalDate.now().toString();
                 String tomorrowStr = java.time.LocalDate.now().plusDays(1).toString();
 
+                // Appointments for Dr. Ananya Rao (usr-doc-001)
                 com.medicos.backend.entity.Appointment a1 = new com.medicos.backend.entity.Appointment();
                 a1.setId("appt-001");
                 a1.setHospitalId("hsp-001");
@@ -245,17 +246,42 @@ public class DataInitializer implements CommandLineRunner {
                 a2.setStatus("Scheduled");
                 appointmentRepository.save(a2);
 
+                // Appointments for Dr. Rajesh Sharma (usr-doc-003)
                 com.medicos.backend.entity.Appointment a3 = new com.medicos.backend.entity.Appointment();
                 a3.setId("appt-003");
                 a3.setHospitalId("hsp-001");
-                a3.setPatientId("pat-003");
-                a3.setDoctorId("usr-doc-001");
-                a3.setDate(tomorrowStr);
-                a3.setTime("10:00");
+                a3.setPatientId("pat-002");
+                a3.setDoctorId("usr-doc-003");
+                a3.setDate(todayStr);
+                a3.setTime("11:15");
                 a3.setTokenNumber(1);
-                a3.setReason("ECG & BP Monitoring");
-                a3.setStatus("Scheduled");
+                a3.setReason("Post-operative Surgery Follow-up");
+                a3.setStatus("Checked-In");
                 appointmentRepository.save(a3);
+
+                com.medicos.backend.entity.Appointment a4 = new com.medicos.backend.entity.Appointment();
+                a4.setId("appt-004");
+                a4.setHospitalId("hsp-001");
+                a4.setPatientId("pat-003");
+                a4.setDoctorId("usr-doc-003");
+                a4.setDate(todayStr);
+                a4.setTime("12:30");
+                a4.setTokenNumber(2);
+                a4.setReason("Abdominal Pain & Surgical Assessment");
+                a4.setStatus("Confirmed");
+                appointmentRepository.save(a4);
+
+                com.medicos.backend.entity.Appointment a5 = new com.medicos.backend.entity.Appointment();
+                a5.setId("appt-005");
+                a5.setHospitalId("hsp-001");
+                a5.setPatientId("pat-c7757203");
+                a5.setDoctorId("usr-doc-003");
+                a5.setDate(tomorrowStr);
+                a5.setTime("10:00");
+                a5.setTokenNumber(1);
+                a5.setReason("Post-op Suture Inspection");
+                a5.setStatus("Scheduled");
+                appointmentRepository.save(a5);
             }
 
             // Seed Critical Bed & Vitals
@@ -273,6 +299,19 @@ public class DataInitializer implements CommandLineRunner {
                 b1.setAdmittedAt(LocalDateTime.now().minusHours(4));
                 bedRepository.save(b1);
 
+                com.medicos.backend.entity.Bed b2 = new com.medicos.backend.entity.Bed();
+                b2.setId("bed-surg-01");
+                b2.setHospitalId("hsp-001");
+                b2.setBedNumber("SURG-102");
+                b2.setWard("Surgery");
+                b2.setRoom("201");
+                b2.setType("General");
+                b2.setStatus("Occupied");
+                b2.setPatientId("pat-002");
+                b2.setDoctorId("usr-doc-003");
+                b2.setAdmittedAt(LocalDateTime.now().minusHours(6));
+                bedRepository.save(b2);
+
                 com.medicos.backend.entity.Vital v1 = new com.medicos.backend.entity.Vital();
                 v1.setId("vit-c7757203");
                 v1.setHospitalId("hsp-001");
@@ -282,8 +321,24 @@ public class DataInitializer implements CommandLineRunner {
                 v1.setHeartRate(104);
                 v1.setSpo2(91); // Critical low O2 saturation (<94%)
                 v1.setTemperature(99.8);
+                v1.setRespiratoryRate(22);
+                v1.setBloodSugar(145.0);
                 v1.setRecordedAt(LocalDateTime.now());
                 vitalRepository.save(v1);
+
+                com.medicos.backend.entity.Vital v2 = new com.medicos.backend.entity.Vital();
+                v2.setId("vit-002");
+                v2.setHospitalId("hsp-001");
+                v2.setPatientId("pat-002");
+                v2.setBpSystolic(148);
+                v2.setBpDiastolic(92);
+                v2.setHeartRate(102); // Critical elevated HR
+                v2.setSpo2(93); // Critical low O2 saturation (<94%)
+                v2.setTemperature(100.2);
+                v2.setRespiratoryRate(20);
+                v2.setBloodSugar(110.0);
+                v2.setRecordedAt(LocalDateTime.now());
+                vitalRepository.save(v2);
             }
         } catch (Exception e) {
             log.warn("Could not seed clinical data: {}", e.getMessage());

@@ -191,7 +191,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
       }}>
         {/* Metric 1: TODAY'S APPOINTMENTS */}
         <div 
-          onClick={() => queueRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          onClick={() => onNavigate('appointments')}
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -201,13 +201,24 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#d97706';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Today's Appointments</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{appointments.length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Scheduled today</div>
+            <div style={{ fontSize: 11, color: '#d97706', marginTop: 6, fontWeight: 600 }}>Scheduled today ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -226,13 +237,24 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--info)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Patients in Queue</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{appointments.filter(a => a.status === 'Checked-In').length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Awaiting check-in</div>
+            <div style={{ fontSize: 11, color: 'var(--info)', marginTop: 6, fontWeight: 600 }}>Scroll to queue ↓</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--info-bg)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
@@ -251,7 +273,18 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
@@ -259,7 +292,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>
               {bedStats.total - bedStats.occupied} <span style={{ fontSize: 18, color: 'var(--text-light)', fontWeight: 500 }}>/ {bedStats.total}</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Occupancy view</div>
+            <div style={{ fontSize: 11, color: 'var(--primary)', marginTop: 6, fontWeight: 600 }}>Manage ward beds ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></svg>
@@ -278,13 +311,24 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: 'var(--shadow-sm)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#db2777';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
           }}
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Unpaid Bills</div>
             <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{pendingBills.length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>₹{Math.round(totalOutstanding).toLocaleString('en-IN')} outstanding</div>
+            <div style={{ fontSize: 11, color: '#db2777', marginTop: 6, fontWeight: 600 }}>₹{Math.round(totalOutstanding).toLocaleString('en-IN')} due ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="10" y1="10" x2="23" y2="10"/><path d="M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
@@ -313,7 +357,18 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 12
+              gap: 12,
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--primary)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -325,7 +380,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>Create patient record</p>
               </div>
             </div>
-            <div style={{ color: 'var(--text-light)', fontSize: 16, fontWeight: 600 }}>↗</div>
+            <div style={{ color: 'var(--primary)', fontSize: 16, fontWeight: 700 }}>➔</div>
           </div>
 
           {/* Action 2: Schedule visit */}
@@ -341,7 +396,18 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 12
+              gap: 12,
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = '#d97706';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -353,7 +419,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>Book new appointment</p>
               </div>
             </div>
-            <div style={{ color: 'var(--text-light)', fontSize: 16, fontWeight: 600 }}>↗</div>
+            <div style={{ color: '#d97706', fontSize: 16, fontWeight: 700 }}>➔</div>
           </div>
 
           {/* Action 3: Create Invoice */}
@@ -369,7 +435,18 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 12
+              gap: 12,
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--info)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -381,7 +458,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                 <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3 }}>Bill patient services</p>
               </div>
             </div>
-            <div style={{ color: 'var(--text-light)', fontSize: 16, fontWeight: 600 }}>↗</div>
+            <div style={{ color: 'var(--info)', fontSize: 16, fontWeight: 700 }}>➔</div>
           </div>
         </div>
       </div>
@@ -429,7 +506,17 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                   {appointments.map(a => {
                     const p = patientsMap[a.patient_id];
                     return (
-                      <tr key={a.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <tr 
+                        key={a.id} 
+                        style={{ borderBottom: '1px solid var(--border-light)', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onClick={() => onNavigate('patient_detail', { patientId: a.patient_id })}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'var(--surface-alt, #f8fafc)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
                         <td style={{ padding: '14px 20px' }}>
                           <div style={{
                             display: 'inline-flex',
@@ -507,7 +594,10 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                                   color: '#fff', 
                                   fontWeight: 600 
                                 }}
-                                onClick={() => updateAppointmentStatus(a.id, 'Checked-In')}
+                                onClick={ev => {
+                                  ev.stopPropagation();
+                                  updateAppointmentStatus(a.id, 'Checked-In');
+                                }}
                               >
                                 {a.status === 'Pending' ? 'Accept' : 'Checkin'}
                               </button>
@@ -515,7 +605,10 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                             <button 
                               className="btn btn-ghost btn-sm" 
                               style={{ padding: '3px 8px', fontSize: 12, minHeight: 28, color: 'var(--text-muted)' }}
-                              onClick={() => onNavigate('patient_detail', { patientId: a.patient_id })}
+                              onClick={ev => {
+                                ev.stopPropagation();
+                                onNavigate('patient_detail', { patientId: a.patient_id });
+                              }}
                             >
                               View
                             </button>

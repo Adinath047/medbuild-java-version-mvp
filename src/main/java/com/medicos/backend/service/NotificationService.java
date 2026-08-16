@@ -21,11 +21,19 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<Notification> getActiveNotifications() {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            return notificationRepository.findByHospitalIdAndIsReadFalseOrderByCreatedAtDesc(hospitalId);
+        }
         return notificationRepository.findByIsReadFalseOrderByCreatedAtDesc();
     }
 
     @Transactional(readOnly = true)
     public List<Notification> getAllNotifications() {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            return notificationRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
+        }
         return notificationRepository.findAll();
     }
 
@@ -39,7 +47,10 @@ public class NotificationService {
             notification.setId("notif-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
-        if (notification.getHospitalId() == null || notification.getHospitalId().isEmpty()) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            notification.setHospitalId(hospitalId);
+        } else if (notification.getHospitalId() == null || notification.getHospitalId().isEmpty()) {
             notification.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
@@ -50,6 +61,13 @@ public class NotificationService {
     public Map<String, Boolean> markAsRead(String id) {
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found with ID: " + id));
+
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (notification.getHospitalId() != null && !hospitalId.equals(notification.getHospitalId())) {
+                throw new ResourceNotFoundException("Notification not found with ID: " + id);
+            }
+        }
 
         notification.setIsRead(true);
         notificationRepository.save(notification);

@@ -111,9 +111,9 @@ public class SecurityConfig {
                     .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
 
                 // ── Permissions policy ────────────────────────────────────────
-                // Restricts access to sensitive browser APIs
+                // Restricts sensitive browser APIs while allowing microphone for voice dictation
                 .permissionsPolicy(pp -> pp.policy(
-                    "geolocation=(), camera=(), microphone=(), payment=(), usb=(), " +
+                    "geolocation=(), camera=(), microphone=(self), payment=(), usb=(), " +
                     "accelerometer=(), gyroscope=(), magnetometer=()"
                 ))
             )

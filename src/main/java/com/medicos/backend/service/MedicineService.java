@@ -120,11 +120,18 @@ public class MedicineService {
                 .filter(n -> !n.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("Medicine name is required."));
 
+        if (medicine.getName().trim().length() < 2) {
+            throw new BadRequestException("Medicine name must be at least 2 characters.");
+        }
+
         if (medicine.getId() == null || medicine.getId().isEmpty()) {
             medicine.setId("med-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
-        if (medicine.getHospitalId() == null || medicine.getHospitalId().isEmpty()) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            medicine.setHospitalId(hospitalId);
+        } else if (medicine.getHospitalId() == null || medicine.getHospitalId().isEmpty()) {
             medicine.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 

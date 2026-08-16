@@ -4,12 +4,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Primary — MedBuilds Teal */
-  --primary:       #009688;
-  --primary-dark:  #00796b;
+  /* Primary — MedBuilds High Contrast Teal (WCAG AA Compliant >= 4.5:1) */
+  --primary:       #00796b;
+  --primary-dark:  #004d40;
   --primary-light: #e6f4f1;
   --primary-mid:   #80cbd4;
-  --primary-grad:  linear-gradient(135deg, #009688, #00796b);
+  --primary-grad:  linear-gradient(135deg, #00796b, #004d40);
 
   /* Semantic */
   --success:    #16a34a; --success-bg: #f0fdf4; --success-border: #bbf7d0;
@@ -22,7 +22,7 @@
   --text:       #0f172a;
   --text-sec:   #334155;
   --text-muted: #64748b;
-  --text-light: #94a3b8;
+  --text-light: #64748b;
 
   /* Surfaces */
   --bg:          #f6f8fb;

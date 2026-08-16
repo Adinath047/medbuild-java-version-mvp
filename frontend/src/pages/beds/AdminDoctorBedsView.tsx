@@ -82,6 +82,278 @@ function SearchIcon() {
   );
 }
 
+function ChevronLeftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+export function formatDoctorName(name?: string): string {
+  if (!name || !name.trim()) return '';
+  const cleaned = name.trim();
+  if (cleaned.toLowerCase().startsWith('dr.') || cleaned.toLowerCase().startsWith('dr ')) {
+    return cleaned;
+  }
+  return `Dr. ${cleaned}`;
+}
+
+export interface VitalStatusItem {
+  key: string;
+  label: string;
+  value: string | number;
+  unit: string;
+  status: 'normal' | 'warning' | 'critical';
+  statusText: string;
+}
+
+export function getVitalsStatusList(vitals: any): VitalStatusItem[] {
+  if (!vitals) return [];
+  const list: VitalStatusItem[] = [];
+
+  // Blood Pressure
+  const sys = vitals.bp_systolic ?? vitals.bpSystolic;
+  const dia = vitals.bp_diastolic ?? vitals.bpDiastolic;
+  if (sys != null && dia != null && (Number(sys) > 0 || Number(dia) > 0)) {
+    const s = Number(sys);
+    const d = Number(dia);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (s >= 140 || d >= 90) {
+      status = 'critical';
+      statusText = 'High';
+    } else if (s >= 120 || d >= 80) {
+      status = 'warning';
+      statusText = 'Pre-HTN';
+    } else if (s < 90 || d < 60) {
+      status = 'warning';
+      statusText = 'Low';
+    }
+    list.push({
+      key: 'bp',
+      label: 'BP',
+      value: `${s}/${d}`,
+      unit: 'mmHg',
+      status,
+      statusText
+    });
+  }
+
+  // Heart Rate
+  const hr = vitals.heart_rate ?? vitals.heartRate;
+  if (hr != null && Number(hr) > 0) {
+    const h = Number(hr);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (h > 120) {
+      status = 'critical';
+      statusText = 'High';
+    } else if (h > 100) {
+      status = 'warning';
+      statusText = 'Elevated';
+    } else if (h < 60) {
+      status = 'warning';
+      statusText = 'Low';
+    }
+    list.push({
+      key: 'hr',
+      label: 'HR',
+      value: h,
+      unit: 'bpm',
+      status,
+      statusText
+    });
+  }
+
+  // SpO2
+  const spo2 = vitals.spo2;
+  if (spo2 != null && Number(spo2) > 0) {
+    const sp = Number(spo2);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (sp < 90) {
+      status = 'critical';
+      statusText = 'Critical';
+    } else if (sp < 95) {
+      status = 'warning';
+      statusText = 'Low';
+    }
+    list.push({
+      key: 'spo2',
+      label: 'SpO2',
+      value: `${sp}%`,
+      unit: '',
+      status,
+      statusText
+    });
+  }
+
+  // Temperature
+  const temp = vitals.temperature;
+  if (temp != null && Number(temp) > 0) {
+    const t = Number(temp);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (t > 100.4) {
+      status = 'critical';
+      statusText = 'Fever';
+    } else if (t > 99.0) {
+      status = 'warning';
+      statusText = 'Elevated';
+    } else if (t < 96.0) {
+      status = 'warning';
+      statusText = 'Low';
+    }
+    list.push({
+      key: 'temp',
+      label: 'Temp',
+      value: `${t}°F`,
+      unit: '',
+      status,
+      statusText
+    });
+  }
+
+  // Respiratory Rate
+  const rr = vitals.respiratory_rate ?? vitals.respiratoryRate;
+  if (rr != null && Number(rr) > 0) {
+    const r = Number(rr);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (r > 24 || r < 10) {
+      status = 'critical';
+      statusText = 'Abnormal';
+    } else if (r > 20 || r < 12) {
+      status = 'warning';
+      statusText = 'Elevated';
+    }
+    list.push({
+      key: 'rr',
+      label: 'RR',
+      value: r,
+      unit: 'bpm',
+      status,
+      statusText
+    });
+  }
+
+  // Blood Sugar
+  const bs = vitals.blood_sugar ?? vitals.bloodSugar;
+  if (bs != null && Number(bs) > 0) {
+    const b = Number(bs);
+    let status: 'normal' | 'warning' | 'critical' = 'normal';
+    let statusText = 'Normal';
+    if (b > 200 || b < 70) {
+      status = 'critical';
+      statusText = b > 200 ? 'High' : 'Low';
+    } else if (b > 140) {
+      status = 'warning';
+      statusText = 'Elevated';
+    }
+    list.push({
+      key: 'bs',
+      label: 'Sugar',
+      value: b,
+      unit: 'mg/dL',
+      status,
+      statusText
+    });
+  }
+
+  return list;
+}
+
+export function BedVitalsBadges({ vitals }: { vitals: any }) {
+  const items = getVitalsStatusList(vitals);
+  
+  if (items.length === 0) {
+    return (
+      <div style={{
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        background: 'var(--surface, #ffffff)',
+        padding: '6px 12px',
+        borderRadius: 8,
+        border: '1px solid var(--border-light, #e2e8f0)',
+        display: 'inline-block'
+      }}>
+        No vitals recorded yet
+      </div>
+    );
+  }
+
+  const statusColorMap = {
+    normal: { bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', dot: '#10b981' },
+    warning: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', dot: '#f59e0b' },
+    critical: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', dot: '#ef4444' }
+  };
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+      gap: 6,
+      background: 'var(--surface, #ffffff)',
+      padding: '8px 10px',
+      borderRadius: 10,
+      border: '1px solid var(--border-light, #e2e8f0)',
+      textAlign: 'left'
+    }}>
+      {items.map(item => {
+        const scheme = statusColorMap[item.status];
+        return (
+          <div
+            key={item.key}
+            style={{
+              background: scheme.bg,
+              border: `1px solid ${scheme.border}`,
+              borderRadius: 6,
+              padding: '4px 6px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+            title={`${item.label}: ${item.value} ${item.unit} (${item.statusText})`}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                {item.label}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8.5, fontWeight: 700, color: scheme.text }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: scheme.dot, display: 'inline-block' }} />
+                {item.statusText}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: scheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {item.value} {item.unit && <span style={{ fontSize: 8.5, fontWeight: 500, color: 'var(--text-muted)' }}>{item.unit}</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export interface Bed {
   id: string;
   bed_number: string;
@@ -381,7 +653,7 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
                   <div style={{
                     border: '1px dashed var(--border)',
                     borderRadius: 'var(--radius-lg)',
-                    padding: '24px 16px',
+                    padding: '16px 14px',
                     textAlign: 'center',
                     background: '#f8fafc',
                     margin: '8px 0 16px'
@@ -393,19 +665,16 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>UHID: {bed.patient_uhid}</div>
                         )}
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                          {bed.doctor_name ? (bed.doctor_name.startsWith('Dr.') ? bed.doctor_name : `Dr. ${bed.doctor_name}`) : 'Attending Physician'}
+                          {formatDoctorName(bed.doctor_name) || 'Attending Physician'}
                         </div>
-                        {bed.vitals && (
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 10, fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface)', padding: '6px 10px', borderRadius: 8 }}>
-                            {bed.vitals.bp_systolic && <span>BP: {bed.vitals.bp_systolic}/{bed.vitals.bp_diastolic}</span>}
-                            {bed.vitals.heart_rate && <span>HR: {bed.vitals.heart_rate} bpm</span>}
-                            {bed.vitals.spo2 && <span>SpO2: {bed.vitals.spo2}%</span>}
-                            {bed.vitals.temperature && <span>Temp: {bed.vitals.temperature}°F</span>}
-                          </div>
-                        )}
+
+                        {/* All Vitals with Clinical Indications */}
+                        <div style={{ marginTop: 12 }}>
+                          <BedVitalsBadges vitals={bed.vitals} />
+                        </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 500 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, padding: '12px 0' }}>
                         <BedIcon /> Bed is clean & vacant
                       </div>
                     )}
@@ -965,6 +1234,9 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
   const [history, setHistory] = useState<BedAdmissionHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     (async () => {
@@ -979,23 +1251,64 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
     })();
   }, []);
 
-  const filteredHistory = history.filter(h => {
-    const q = filter.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      (h.patient_name || '').toLowerCase().includes(q) ||
-      (h.patient_uhid || '').toLowerCase().includes(q) ||
-      (h.room || '').toLowerCase().includes(q) ||
-      (h.bed_number || '').toLowerCase().includes(q) ||
-      (h.ward || '').toLowerCase().includes(q) ||
-      (h.doctor_name || '').toLowerCase().includes(q) ||
-      (h.status || '').toLowerCase().includes(q)
-    );
-  });
+  // Dynamically extract distinct months available in admission records
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    history.forEach(h => {
+      const dateStr = h.admitted_at || h.discharged_at;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          set.add(key);
+        }
+      }
+    });
+    return Array.from(set).sort().reverse();
+  }, [history]);
+
+  const filteredHistory = useMemo(() => {
+    return history.filter(h => {
+      const q = filter.toLowerCase().trim();
+      const matchesSearch = !q || (
+        (h.patient_name || '').toLowerCase().includes(q) ||
+        (h.patient_uhid || '').toLowerCase().includes(q) ||
+        (h.room || '').toLowerCase().includes(q) ||
+        (h.bed_number || '').toLowerCase().includes(q) ||
+        (h.ward || '').toLowerCase().includes(q) ||
+        (h.doctor_name || '').toLowerCase().includes(q) ||
+        (h.status || '').toLowerCase().includes(q)
+      );
+
+      let matchesMonth = true;
+      if (selectedMonth !== 'all') {
+        const dateStr = h.admitted_at || h.discharged_at;
+        if (dateStr) {
+          const d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            matchesMonth = key === selectedMonth;
+          } else {
+            matchesMonth = false;
+          }
+        } else {
+          matchesMonth = false;
+        }
+      }
+
+      return matchesSearch && matchesMonth;
+    });
+  }, [history, filter, selectedMonth]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE));
+  const paginatedHistory = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredHistory.slice(start, start + PAGE_SIZE);
+  }, [filteredHistory, currentPage]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 840, width: '90%' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 900, width: '92%' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div className="modal-title" style={{ fontSize: 18, fontWeight: 700 }}>Bed Admission & Occupancy History</div>
@@ -1004,16 +1317,45 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              className="input"
-              style={{ paddingLeft: 36 }}
-              placeholder="Search by patient name, UHID, room, ward, or doctor..."
-              value={filter}
-              onChange={e => setFilter(e.target.value)}
-            />
-            <div style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }}>
-              <SearchIcon />
+          {/* Filter Bar: Search + Months Filter */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+              <input
+                className="input"
+                style={{ paddingLeft: 36, width: '100%' }}
+                placeholder="Search by patient name, UHID, room, ward, or doctor..."
+                value={filter}
+                onChange={e => {
+                  setFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+              <div style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }}>
+                <SearchIcon />
+              </div>
+            </div>
+
+            {/* Months Filter Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>
+                <CalendarIcon /> Month:
+              </div>
+              <select
+                className="select"
+                style={{ minWidth: 155, height: 38, fontSize: 13 }}
+                value={selectedMonth}
+                onChange={e => {
+                  setSelectedMonth(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Months</option>
+                {availableMonths.map(m => {
+                  const [y, mon] = m.split('-');
+                  const label = new Date(parseInt(y), parseInt(mon) - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                  return <option key={m} value={m}>{label}</option>;
+                })}
+              </select>
             </div>
           </div>
 
@@ -1022,43 +1364,97 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
           ) : filteredHistory.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No admission history records found.</div>
           ) : (
-            <div style={{ overflowX: 'auto', maxHeight: 420 }}>
-              <table className="table" style={{ width: '100%', fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Bed / Room</th>
-                    <th>Ward</th>
-                    <th>Admitted</th>
-                    <th>Discharged</th>
-                    <th>Duration</th>
-                    <th>Doctor</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.map(h => (
-                    <tr key={h.id}>
-                      <td style={{ fontWeight: 600 }}>
-                        {h.patient_name || 'Patient'}
-                        {h.patient_uhid && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.patient_uhid}</div>}
-                      </td>
-                      <td>Room {h.room || '-'} ({h.bed_number || '-'})</td>
-                      <td><span className="badge badge-secondary" style={{ fontSize: 11 }}>{h.ward || 'General'}</span></td>
-                      <td style={{ fontSize: 11 }}>{h.admitted_at ? new Date(h.admitted_at).toLocaleString() : '-'}</td>
-                      <td style={{ fontSize: 11 }}>{h.discharged_at ? new Date(h.discharged_at).toLocaleString() : 'Currently Admitted'}</td>
-                      <td>{h.stay_days ? `${h.stay_days} d` : '-'}</td>
-                      <td style={{ fontSize: 11 }}>{h.doctor_name ? `Dr. ${h.doctor_name}` : '-'}</td>
-                      <td>
-                        <span className={`badge ${h.status === 'Admitted' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 11 }}>
-                          {h.status}
-                        </span>
-                      </td>
+            <>
+              <div style={{ overflowX: 'auto', minHeight: 280 }}>
+                <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 42, textAlign: 'center' }}>#</th>
+                      <th>Patient</th>
+                      <th>Bed / Room</th>
+                      <th>Ward</th>
+                      <th>Admitted</th>
+                      <th>Discharged</th>
+                      <th>Duration</th>
+                      <th>Doctor</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedHistory.map((h, idx) => (
+                      <tr key={h.id || idx}>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)' }}>
+                          {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          {h.patient_name || 'Patient'}
+                          {h.patient_uhid && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.patient_uhid}</div>}
+                        </td>
+                        <td>Room {h.room || '-'} ({h.bed_number || '-'})</td>
+                        <td><span className="badge badge-secondary" style={{ fontSize: 11 }}>{h.ward || 'General'}</span></td>
+                        <td style={{ fontSize: 11 }}>{h.admitted_at ? new Date(h.admitted_at).toLocaleString() : '-'}</td>
+                        <td style={{ fontSize: 11 }}>{h.discharged_at ? new Date(h.discharged_at).toLocaleString() : 'Currently Admitted'}</td>
+                        <td>{h.stay_days ? `${h.stay_days} d` : '-'}</td>
+                        <td style={{ fontSize: 11 }}>{formatDoctorName(h.doctor_name) || '-'}</td>
+                        <td>
+                          <span className={`badge ${h.status === 'Admitted' ? 'badge-success' : 'badge-neutral'}`} style={{ fontSize: 11 }}>
+                            {h.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 10 Patients per Block Pagination Controls */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingTop: 10,
+                borderTop: '1px solid var(--border-light)',
+                flexWrap: 'wrap',
+                gap: 10
+              }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Showing <strong style={{ color: 'var(--text)' }}>{(currentPage - 1) * PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--text)' }}>{Math.min(currentPage * PAGE_SIZE, filteredHistory.length)}</strong> of <strong style={{ color: 'var(--text)' }}>{filteredHistory.length}</strong> patients (10 per page)
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px' }}
+                  >
+                    <ChevronLeftIcon /> Previous
+                  </button>
+
+                  <div style={{ display: 'flex', gap: 4, margin: '0 4px' }}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                      <button
+                        key={pageNum}
+                        className={`btn btn-sm ${pageNum === currentPage ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ minWidth: 32, padding: '3px 8px', fontWeight: pageNum === currentPage ? 700 : 500 }}
+                        onClick={() => setCurrentPage(pageNum)}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px' }}
+                  >
+                    Next <ChevronRightIcon />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
         <div className="modal-footer">
@@ -1073,7 +1469,7 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
 function VitalsLogModal({ bed, list, loading, onClose }: { bed: Bed; list: any[]; loading: boolean; onClose: () => void }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 660, width: '90%' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <div className="modal-title" style={{ fontSize: 17, fontWeight: 700 }}>Vitals History: {bed.patient_name}</div>
@@ -1089,22 +1485,16 @@ function VitalsLogModal({ bed, list, loading, onClose }: { bed: Bed; list: any[]
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto' }}>
               {list.map((v, i) => (
-                <div key={v.id || i} style={{ background: 'var(--surface-2, #f8fafc)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                <div key={v.id || i} style={{ background: 'var(--surface-2, #f8fafc)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>
                       {v.recorded_at ? new Date(v.recorded_at).toLocaleString() : 'Recent observation'}
                     </span>
                     <span>By: {v.recorded_by || 'Nurse / Doctor'}</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, fontSize: 12 }}>
-                    {v.bp_systolic && <div><strong>BP:</strong> {v.bp_systolic}/{v.bp_diastolic} mmHg</div>}
-                    {v.heart_rate && <div><strong>HR:</strong> {v.heart_rate} bpm</div>}
-                    {v.spo2 && <div><strong>SpO2:</strong> {v.spo2}%</div>}
-                    {v.temperature && <div><strong>Temp:</strong> {v.temperature}°F</div>}
-                    {v.respiratory_rate && <div><strong>RR:</strong> {v.respiratory_rate} bpm</div>}
-                  </div>
+                  <BedVitalsBadges vitals={v} />
                   {v.notes && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
+                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
                       <em>"{v.notes}"</em>
                     </div>
                   )}

@@ -131,18 +131,21 @@ public class BedService {
     @Transactional
     public Bed createBed(Bed bed, User user) {
         Optional.ofNullable(bed.getBedNumber())
-                .filter(b -> !b.isEmpty())
+                .filter(b -> !b.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("bed_number is required."));
 
         Optional.ofNullable(bed.getWard())
-                .filter(w -> !w.isEmpty())
+                .filter(w -> !w.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("ward is required."));
 
         if (bed.getId() == null || bed.getId().isEmpty()) {
             bed.setId("bed-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
-        if (bed.getHospitalId() == null || bed.getHospitalId().isEmpty()) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            bed.setHospitalId(hospitalId);
+        } else if (bed.getHospitalId() == null || bed.getHospitalId().isEmpty()) {
             bed.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
@@ -155,15 +158,22 @@ public class BedService {
         Bed bed = bedRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
 
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (bed.getHospitalId() != null && !hospitalId.equals(bed.getHospitalId())) {
+                throw new ResourceNotFoundException("Bed not found with ID: " + id);
+            }
+        }
+
         String patientId = Optional.ofNullable(body.get("patient_id"))
-                .filter(p -> !p.isEmpty())
+                .filter(p -> !p.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("patient_id is required."));
 
         String doctorId = body.get("doctor_id");
 
         bed.setStatus("Occupied");
-        bed.setPatientId(patientId);
-        bed.setDoctorId(doctorId);
+        bed.setPatientId(patientId.trim());
+        bed.setDoctorId(doctorId != null ? doctorId.trim() : null);
         bed.setAdmittedAt(LocalDateTime.now());
         bedRepository.save(bed);
         populateBedDetails(bed);
@@ -173,8 +183,8 @@ public class BedService {
         admission.setId("adm-" + UUID.randomUUID().toString().substring(0, 8));
         admission.setHospitalId(bed.getHospitalId());
         admission.setBedId(bed.getId());
-        admission.setPatientId(patientId);
-        admission.setDoctorId(doctorId);
+        admission.setPatientId(patientId.trim());
+        admission.setDoctorId(doctorId != null ? doctorId.trim() : null);
         admission.setAdmittedAt(LocalDateTime.now());
         admission.setStatus("Admitted");
         admissionRepository.save(admission);
@@ -188,6 +198,13 @@ public class BedService {
     public Map<String, Object> releaseBed(String id) {
         Bed bed = bedRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
+
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (bed.getHospitalId() != null && !hospitalId.equals(bed.getHospitalId())) {
+                throw new ResourceNotFoundException("Bed not found with ID: " + id);
+            }
+        }
 
         String patientId = bed.getPatientId();
 
@@ -218,6 +235,13 @@ public class BedService {
         Bed bed = bedRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
 
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (bed.getHospitalId() != null && !hospitalId.equals(bed.getHospitalId())) {
+                throw new ResourceNotFoundException("Bed not found with ID: " + id);
+            }
+        }
+
         if (updated.getBedNumber() != null && !updated.getBedNumber().trim().isEmpty()) {
             bed.setBedNumber(updated.getBedNumber().trim());
         }
@@ -242,6 +266,14 @@ public class BedService {
     public void deleteBed(String id) {
         Bed bed = bedRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + id));
+
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (bed.getHospitalId() != null && !hospitalId.equals(bed.getHospitalId())) {
+                throw new ResourceNotFoundException("Bed not found with ID: " + id);
+            }
+        }
+
         bedRepository.delete(bed);
     }
 }

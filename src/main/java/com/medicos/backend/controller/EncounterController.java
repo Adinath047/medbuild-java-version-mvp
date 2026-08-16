@@ -34,6 +34,7 @@ public class EncounterController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('DOCTOR', 'NURSE', 'ADMIN')")
     public ResponseEntity<?> createEncounter(@RequestBody Encounter encounter, @AuthenticationPrincipal User user) {
         Encounter saved = encounterService.createEncounter(encounter, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);

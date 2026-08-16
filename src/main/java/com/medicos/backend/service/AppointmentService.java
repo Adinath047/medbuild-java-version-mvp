@@ -144,11 +144,18 @@ public class AppointmentService {
         Appointment appt = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with ID: " + id));
 
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (appt.getHospitalId() != null && !hospitalId.equals(appt.getHospitalId())) {
+                throw new ResourceNotFoundException("Appointment not found with ID: " + id);
+            }
+        }
+
         String newStatus = Optional.ofNullable(body.get("status"))
-                .filter(s -> !s.isEmpty())
+                .filter(s -> !s.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("status is required."));
 
-        appt.setStatus(newStatus);
+        appt.setStatus(newStatus.trim());
         appt.setUpdatedAt(LocalDateTime.now());
 
         return appointmentRepository.save(appt);

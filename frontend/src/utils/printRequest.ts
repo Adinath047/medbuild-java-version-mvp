@@ -19,6 +19,7 @@ export interface PrintRequestPayload {
   vitals?: any;
   diagnosis?: string;
   requested_at?: string;
+  prePrinted?: boolean;
 }
 
 const printChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('emr-print-channel') : null;

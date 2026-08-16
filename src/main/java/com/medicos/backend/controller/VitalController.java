@@ -27,6 +27,7 @@ public class VitalController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('DOCTOR', 'NURSE', 'ADMIN', 'RECEPTIONIST')")
     public ResponseEntity<?> recordVitals(@RequestBody Vital vital, @AuthenticationPrincipal User user) {
         Vital saved = vitalService.recordVitals(vital, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);

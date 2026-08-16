@@ -523,10 +523,14 @@ export default function App() {
       <>
         <LoginPage />
         {showInactivityModal && (
-          <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={() => setShowInactivityModal(false)}>
+          <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={() => setShowInactivityModal(false)} role="dialog" aria-modal="true" aria-labelledby="session-expired-title">
             <div className="modal" style={{ maxWidth: 400, textAlign: 'center', padding: 24 }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>⏱️</div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>Session Expired</h3>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <h3 id="session-expired-title" style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>Session Expired</h3>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
                 You have been logged out due to 15 minutes of inactivity.
               </p>
@@ -534,6 +538,7 @@ export default function App() {
                 className="btn btn-primary" 
                 style={{ width: '100%' }}
                 onClick={() => setShowInactivityModal(false)}
+                aria-label="Acknowledge session expiration"
               >
                 Okay
               </button>
@@ -572,8 +577,12 @@ export default function App() {
     const allowed = ACCESS[page];
     if (allowed && !allowed.includes(user!.role)) {
       return (
-        <div style={{ padding:60, textAlign:'center' }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>🔒</div>
+        <div style={{ padding:60, textAlign:'center' }} role="alert">
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
           <div style={{ fontWeight:700, fontSize:16, marginBottom:8 }}>Access Restricted</div>
           <p style={{ color:'var(--text-muted)', fontSize:13 }}>You don't have permission to view this page.</p>
         </div>
@@ -602,10 +611,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <Sidebar page={page} onNav={navigate} user={user} sidebarOpen={sidebarOpen} onClose={() => setSidebar(false)} />
-      <div className="main-area">
+      <main className="main-area" role="main" aria-label="EMR Application Workspace">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="topbar-hamburger" onClick={() => setSidebar(o => !o)}>
+            <button className="topbar-hamburger" onClick={() => setSidebar(o => !o)} aria-label="Toggle Navigation Sidebar">
               <span/><span/><span/>
             </button>
             <div className="topbar-title">{PAGE_TITLES[page] ?? 'EMR'}</div>
@@ -616,7 +625,7 @@ export default function App() {
               <div style={{ position: 'relative', width: 280, margin: '0 8px' }} className="no-print">
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-alt)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 12px' }}>
                   <span style={{ marginRight: 6, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <circle cx="11" cy="11" r="8" />
                       <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
@@ -624,12 +633,13 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Search patients..."
+                    aria-label="Search patients across hospital"
                     value={searchQuery}
                     onChange={e => handleSearchChange(e.target.value)}
                     style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 12.5, color: 'var(--text)', width: '100%' }}
                   />
                   {searchQuery && (
-                    <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>
+                    <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} aria-label="Clear patient search" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>
                       ✕
                     </button>
                   )}
@@ -695,7 +705,7 @@ export default function App() {
         <div className="page-scroll">
           {renderPage()}
         </div>
-      </div>
+      </main>
 
       {/* Large Print Request Modal Pop-Up for Receptionist */}
       <PrintRequestModal 

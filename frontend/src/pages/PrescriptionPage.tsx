@@ -1013,6 +1013,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
   const [error, setError]           = useState('');
   const [allergyOverride, setAllergyOverride] = useState(false);
   const [prePrintedLetterhead, setPrePrintedLetterhead] = useState(false);
+  const [alertSent, setAlertSent]   = useState(false);
   const [dbMeds, setDbMeds]         = useState<Medicine[]>([]);
   const printAfterSaveRef           = useRef(false);
 
@@ -1684,14 +1685,16 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
 
   async function handleSendPrintToReceptionist() {
     const patient = patients.find((p: any) => p.id === patientId) || selectedPatient;
-    if (!patient && !selectedPatient) {
+    const targetPatient = selectedPatient || patient;
+    if (!targetPatient) {
       alert('Please select a patient first.');
       return;
     }
-    const targetPatient = selectedPatient || patient;
     const hNum = parseFloat(height);
     const wNum = parseFloat(patientWeight);
     const bmiVal = (hNum > 0 && wNum > 0) ? (wNum / ((hNum / 100) ** 2)).toFixed(2) : undefined;
+
+    const docName = user?.name ? (user.name.toLowerCase().startsWith('dr.') || user.name.toLowerCase().startsWith('dr ') ? user.name : `Dr. ${user.name}`) : 'Doctor';
 
     await sendPrintRequestToReceptionist({
       patient_name: targetPatient?.name || '—',
@@ -1699,7 +1702,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       age: targetPatient?.age,
       sex: targetPatient?.sex,
       blood_group: targetPatient?.blood_group,
-      doctor_name: user?.name || 'Doctor',
+      doctor_name: docName,
       doctor_role: user?.role || 'Doctor',
       doctor_qualification: user?.qualification || undefined,
       doctor_reg: user?.registrationNumber || undefined,
@@ -1716,6 +1719,8 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       follow_up: followUp || undefined,
       weight: patientWeight || undefined,
       diagnosis: diagnosis || undefined,
+      prePrinted: prePrintedLetterhead,
+      requested_at: new Date().toISOString(),
       vitals: (systolic || diastolic || pulse || height || patientWeight) ? {
         bp: systolic && diastolic ? `${systolic}/${diastolic}` : undefined,
         pulse: pulse || undefined,
@@ -1725,26 +1730,178 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       } : undefined
     });
 
-    alert('🖨️ Print request sent to Receptionist desk successfully!');
+    setAlertSent(true);
+    setTimeout(() => setAlertSent(false), 4000);
   }
 
   // ── Success screen ──
   if (success) return (
-    <div className="card" style={{maxWidth:540, margin:'40px auto'}}>
-      <div className="card-body" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:16,padding:40,textAlign:'center'}}>
-        <div style={{width:60,height:60,borderRadius:'50%',background:'#f0fdf4',border:'2px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>✓</div>
-        <div>
-          <div style={{fontSize:17,fontWeight:700,color:'var(--text)'}}>Prescription Saved</div>
-          <div style={{color:'var(--text-muted)',fontSize:13,marginTop:4}}>Token: <strong>{success.slip_token}</strong></div>
-        </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer', margin: '8px 0 12px' }}>
-          <input type="checkbox" checked={prePrintedLetterhead} onChange={e => setPrePrintedLetterhead(e.target.checked)} />
-          Print on pre-printed letterhead paper (leaves blank spacing at top)
-        </label>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}}>
-          <button className="btn btn-primary" onClick={printSlip}>Print Slip Now</button>
-          <button className="btn btn-secondary" onClick={() => onNavigate('patient_detail', { patientId, ts: Date.now() })}>View Patient</button>
-          <button className="btn btn-ghost" onClick={() => { setSuccess(null); setMeds([{...EMPTY_MED}]); setAdvice(''); setFollowUp(''); setPatientId(patientId); }}>+ New Prescription</button>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '65vh',
+      padding: '24px 16px'
+    }}>
+      <div className="card" style={{
+        maxWidth: 560,
+        width: '100%',
+        margin: '0 auto',
+        borderRadius: 24,
+        boxShadow: '0 20px 40px -15px rgba(0,0,0,0.07), 0 0 1px 1px rgba(0,0,0,0.04)',
+        border: '1px solid var(--border)',
+        background: '#ffffff'
+      }}>
+        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '44px 36px', textAlign: 'center' }}>
+          
+          {/* Green Checkmark Circle */}
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            background: '#ecfdf5',
+            border: '2px solid #86efac',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#16a34a'
+          }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 21, fontWeight: 800, color: 'var(--text, #0f172a)', letterSpacing: '-0.2px' }}>
+              Prescription Saved
+            </div>
+            <div style={{ color: 'var(--text-muted, #64748b)', fontSize: 13.5, marginTop: 4 }}>
+              Token: <strong style={{ color: 'var(--text, #0f172a)', fontFamily: 'monospace', fontSize: 14 }}>{success.slip_token}</strong>
+            </div>
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--text, #334155)', cursor: 'pointer', margin: '8px 0 12px', maxWidth: 440, textAlign: 'left', lineHeight: 1.4 }}>
+            <input
+              type="checkbox"
+              checked={prePrintedLetterhead}
+              onChange={e => setPrePrintedLetterhead(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#0f766e', cursor: 'pointer' }}
+            />
+            <span>Print on pre-printed letterhead paper (leaves blank spacing at top)</span>
+          </label>
+
+          {/* Action Buttons Row 1 */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%', marginBottom: 4 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{
+                flex: '1 1 180px',
+                minHeight: 42,
+                fontWeight: 700,
+                fontSize: 13.5,
+                borderRadius: 10,
+                background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(15, 118, 110, 0.25)',
+                cursor: 'pointer'
+              }}
+              onClick={printSlip}
+            >
+              Print Slip Now
+            </button>
+
+            <button
+              type="button"
+              className="btn"
+              style={{
+                flex: '1 1 240px',
+                minHeight: 42,
+                fontWeight: 700,
+                fontSize: 13.5,
+                borderRadius: 10,
+                background: alertSent ? '#ecfdf5' : '#f0fdfa',
+                color: alertSent ? '#065f46' : '#0f766e',
+                border: alertSent ? '1.5px solid #86efac' : '1.5px solid #5eead4',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={handleSendPrintToReceptionist}
+            >
+              {alertSent ? (
+                <>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Alert Sent to Receptionist!
+                </>
+              ) : (
+                <>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                  Send Print Alert to Receptionist
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Action Buttons Row 2 */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                flex: '1 1 140px',
+                minHeight: 40,
+                fontWeight: 600,
+                fontSize: 13,
+                borderRadius: 10,
+                background: '#f1f5f9',
+                color: '#1e293b',
+                border: '1px solid #e2e8f0',
+                cursor: 'pointer'
+              }}
+              onClick={() => onNavigate('patient_detail', { patientId, ts: Date.now() })}
+            >
+              View Patient
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{
+                flex: '1 1 160px',
+                minHeight: 40,
+                fontWeight: 600,
+                fontSize: 13,
+                borderRadius: 10,
+                background: '#f1f5f9',
+                color: '#1e293b',
+                border: '1px solid #e2e8f0',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                setSuccess(null);
+                setMeds([{ ...EMPTY_MED }]);
+                setAdvice('');
+                setFollowUp('');
+                setPatientId(patientId);
+                setAlertSent(false);
+              }}
+            >
+              + New Prescription
+            </button>
+          </div>
+
         </div>
       </div>
     </div>

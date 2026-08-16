@@ -50,12 +50,14 @@ public class PatientController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE')")
     public ResponseEntity<?> createPatient(@RequestBody Patient patient, @AuthenticationPrincipal User user) {
         Patient saved = patientService.createPatient(patient, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE')")
     public ResponseEntity<?> updatePatient(@PathVariable("id") String id, @RequestBody Patient updated) {
         Patient saved = patientService.updatePatient(id, updated);
         return ResponseEntity.ok(saved);

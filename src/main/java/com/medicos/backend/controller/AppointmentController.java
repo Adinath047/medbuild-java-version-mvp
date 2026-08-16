@@ -42,6 +42,7 @@ public class AppointmentController {
     }
 
     @PutMapping("/{id}/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'NURSE')")
     public ResponseEntity<?> updateAppointmentStatus(@PathVariable("id") String id, @RequestBody Map<String, String> body) {
         Appointment saved = appointmentService.updateAppointmentStatus(id, body);
         return ResponseEntity.ok(saved);
