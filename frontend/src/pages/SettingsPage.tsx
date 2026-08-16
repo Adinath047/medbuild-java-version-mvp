@@ -526,7 +526,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     setProfileSuccess('');
     setProfileError('');
     try {
-      await apiClient.patch('/users/me/profile', {
+      const payload = {
         name: profileForm.name,
         phone: profileForm.phone,
         specialization: profileForm.specialization,
@@ -545,7 +545,13 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         print_margin_bottom: !isNaN(Number(profileForm.printMarginBottom)) ? Number(profileForm.printMarginBottom) : 15,
         print_margin_left_right: !isNaN(Number(profileForm.printMarginLeftRight)) ? Number(profileForm.printMarginLeftRight) : 18,
         print_font_size: !isNaN(Number(profileForm.printFontSize)) ? Number(profileForm.printFontSize) : 11,
-      });
+      };
+      const res = await apiClient.patch('/users/me/profile', payload);
+      const updatedUser = res.data?.user || res.data;
+      if (updatedUser) {
+        useAuthStore.setState({ user: { ...(user || {}), ...updatedUser } });
+        localStorage.setItem('emr_user', JSON.stringify({ ...(user || {}), ...updatedUser }));
+      }
       setProfileSuccess('Practitioner profile updated successfully.');
       // Refresh the session to update user in authStore
       await useAuthStore.getState().restoreSession();
@@ -685,7 +691,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                                   fontSize:12,fontWeight:700,flexShrink:0,
                                   opacity: s.is_active ? 1 : 0.4,
                                 }}>
-                                  {s.name?.split(' ').map((w:string)=>w[0]).join('').slice(0,2)}
+                                  {s.name ? s.name.trim().split(/\s+/).filter(Boolean).map((w: string) => (w || '').charAt(0)).join('').slice(0, 2).toUpperCase() : 'S'}
                                 </div>
                                 <div>
                                   <div style={{fontWeight:600,fontSize:13}}>{s.name}</div>
@@ -743,7 +749,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                   {user?.photoUrl ? (
                     <img src={user.photoUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    user?.name?.split(' ').map(w=>w[0]).join('').slice(0,2)
+                    user?.name ? user.name.trim().split(/\s+/).filter(Boolean).map((w: string) => (w || '').charAt(0)).join('').slice(0, 2).toUpperCase() : 'U'
                   )}
                 </div>
                 <div>

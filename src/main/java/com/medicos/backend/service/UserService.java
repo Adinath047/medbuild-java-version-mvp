@@ -101,48 +101,50 @@ public class UserService {
 
     @Transactional
     public User updateUserProfile(User user, Map<String, Object> body) {
-        if (body.containsKey("name") && body.get("name") != null) user.setName((String) body.get("name"));
-        if (body.containsKey("phone")) user.setPhone((String) body.get("phone"));
-        if (body.containsKey("specialization")) user.setSpecialization((String) body.get("specialization"));
-        if (body.containsKey("license_number")) user.setLicenseNumber((String) body.get("license_number"));
-        if (body.containsKey("qualification")) user.setQualification((String) body.get("qualification"));
-        if (body.containsKey("registration_number")) user.setRegistrationNumber((String) body.get("registration_number"));
-        if (body.containsKey("letterhead")) user.setLetterhead((String) body.get("letterhead"));
-        if (body.containsKey("photo_url")) user.setPhotoUrl((String) body.get("photo_url"));
+        User target = userRepository.findById(user.getId()).orElse(user);
+
+        if (body.containsKey("name") && body.get("name") != null) target.setName((String) body.get("name"));
+        if (body.containsKey("phone")) target.setPhone((String) body.get("phone"));
+        if (body.containsKey("specialization")) target.setSpecialization((String) body.get("specialization"));
+        if (body.containsKey("license_number")) target.setLicenseNumber((String) body.get("license_number"));
+        if (body.containsKey("qualification")) target.setQualification((String) body.get("qualification"));
+        if (body.containsKey("registration_number")) target.setRegistrationNumber((String) body.get("registration_number"));
+        if (body.containsKey("letterhead")) target.setLetterhead((String) body.get("letterhead"));
+        if (body.containsKey("photo_url")) target.setPhotoUrl((String) body.get("photo_url"));
         
         if (body.containsKey("consultation_fee") && body.get("consultation_fee") != null) {
-            try { user.setConsultationFee(Double.parseDouble(body.get("consultation_fee").toString())); } catch (Exception ignored) {}
+            try { target.setConsultationFee(Double.parseDouble(body.get("consultation_fee").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("followup_fee") && body.get("followup_fee") != null) {
-            try { user.setFollowupFee(Double.parseDouble(body.get("followup_fee").toString())); } catch (Exception ignored) {}
+            try { target.setFollowupFee(Double.parseDouble(body.get("followup_fee").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("bed_per_day_charge") && body.get("bed_per_day_charge") != null) {
-            try { user.setBedPerDayCharge(Double.parseDouble(body.get("bed_per_day_charge").toString())); } catch (Exception ignored) {}
+            try { target.setBedPerDayCharge(Double.parseDouble(body.get("bed_per_day_charge").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("show_diagnosis_on_print") && body.get("show_diagnosis_on_print") != null) {
             Object v = body.get("show_diagnosis_on_print");
-            user.setShowDiagnosisOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
+            target.setShowDiagnosisOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
         }
         if (body.containsKey("show_investigations_on_print") && body.get("show_investigations_on_print") != null) {
             Object v = body.get("show_investigations_on_print");
-            user.setShowInvestigationsOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
+            target.setShowInvestigationsOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
         }
         if (body.containsKey("show_vitals_on_print") && body.get("show_vitals_on_print") != null) {
             Object v = body.get("show_vitals_on_print");
-            user.setShowVitalsOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
+            target.setShowVitalsOnPrint("true".equalsIgnoreCase(v.toString()) || "1".equals(v.toString()) || Boolean.TRUE.equals(v) ? 1 : 0);
         }
         if (body.containsKey("print_margin_top") && body.get("print_margin_top") != null) {
-            try { user.setPrintMarginTop((int) Double.parseDouble(body.get("print_margin_top").toString())); } catch (Exception ignored) {}
+            try { target.setPrintMarginTop((int) Double.parseDouble(body.get("print_margin_top").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("print_margin_bottom") && body.get("print_margin_bottom") != null) {
-            try { user.setPrintMarginBottom((int) Double.parseDouble(body.get("print_margin_bottom").toString())); } catch (Exception ignored) {}
+            try { target.setPrintMarginBottom((int) Double.parseDouble(body.get("print_margin_bottom").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("print_margin_left_right") && body.get("print_margin_left_right") != null) {
-            try { user.setPrintMarginLeftRight((int) Double.parseDouble(body.get("print_margin_left_right").toString())); } catch (Exception ignored) {}
+            try { target.setPrintMarginLeftRight((int) Double.parseDouble(body.get("print_margin_left_right").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("print_font_size") && body.get("print_font_size") != null) {
-            try { user.setPrintFontSize(Double.parseDouble(body.get("print_font_size").toString())); } catch (Exception ignored) {}
+            try { target.setPrintFontSize(Double.parseDouble(body.get("print_font_size").toString())); } catch (Exception ignored) {}
         }
-        return userRepository.save(user);
+        return userRepository.save(target);
     }
 }

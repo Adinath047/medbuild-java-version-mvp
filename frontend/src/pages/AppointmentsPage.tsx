@@ -13,6 +13,37 @@ const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirme
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
+export function isApptExpiredWithoutCheckIn(appt: any): boolean {
+  if (!appt) return false;
+  const status = (appt.status || '').toLowerCase().trim();
+  if (['checked-in', 'checked_in', 'completed', 'cancelled', 'no-show', 'no_show'].includes(status)) {
+    return false;
+  }
+  const now = new Date();
+  if (appt.date) {
+    try {
+      const timeStr = appt.time ? appt.time.trim() : '09:00';
+      const formattedTime = timeStr.length === 4 && timeStr.includes(':') ? `0${timeStr}` : timeStr.length === 5 ? timeStr : timeStr.slice(0, 5);
+      const apptDateTime = new Date(`${appt.date.trim()}T${formattedTime}:00`);
+      if (!isNaN(apptDateTime.getTime())) {
+        const eightHoursPast = new Date(apptDateTime.getTime() + 8 * 60 * 60 * 1000);
+        return now >= eightHoursPast;
+      }
+    } catch (e) {}
+  }
+  const createdAt = appt.created_at || appt.createdAt;
+  if (createdAt && (!appt.date || !appt.date.trim())) {
+    try {
+      const createdDate = new Date(createdAt);
+      if (!isNaN(createdDate.getTime())) {
+        const eightHoursPast = new Date(createdDate.getTime() + 8 * 60 * 60 * 1000);
+        return now >= eightHoursPast;
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
 const formatDoctorName = (name: string) => {
   if (!name) return '';
   return name.toLowerCase().startsWith('dr.') ? name : `Dr. ${name}`;
@@ -81,6 +112,16 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
       load(true);
     }
   }, [syncCount, load]);
+
+  // Auto-cancel any appointments that exceeded 8 hours past scheduled time without check-in
+  useEffect(() => {
+    const expiredList = appts.filter(a => isApptExpiredWithoutCheckIn(a) && a.status !== 'Cancelled');
+    if (expiredList.length > 0) {
+      expiredList.forEach(a => {
+        updateStatus(a.id, 'Cancelled');
+      });
+    }
+  }, [appts]);
 
   useEffect(() => {
     (async () => {
@@ -265,7 +306,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={()=>setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving?'Booking…':'✓ Book'}</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving?'Booking…':'Book Appointment'}</button>
               </div>
             </form>
           </div>
@@ -362,16 +403,18 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
             if (!a) return false;
             const todayStr = today();
             const aDate = a.date || '';
-            const aStatus = (a.status || '').toLowerCase();
+            const isAutoExpired = isApptExpiredWithoutCheckIn(a);
+            const effStatus = isAutoExpired ? 'cancelled' : (a.status || '').toLowerCase();
 
             if (selectedFilter === 'Today') {
               if (!aDate.startsWith(todayStr)) return false;
+              if (effStatus === 'cancelled') return false;
             } else if (selectedFilter === 'Upcoming') {
-              if (aDate <= todayStr || aStatus === 'cancelled' || aStatus === 'completed') return false;
+              if (aDate <= todayStr || effStatus === 'cancelled' || effStatus === 'completed') return false;
             } else if (selectedFilter === 'Completed') {
-              if (aStatus !== 'completed') return false;
+              if (effStatus !== 'completed') return false;
             } else if (selectedFilter === 'Cancelled') {
-              if (aStatus !== 'cancelled') return false;
+              if (effStatus !== 'cancelled') return false;
             }
 
             if (searchText.trim()) {
@@ -421,9 +464,11 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
 
           return (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-              {filtered.sort((a,b) => a.time.localeCompare(b.time)).map((a: any) => {
-                const isCancelled = a.status === 'Cancelled';
-                const isCompleted = a.status === 'Completed';
+              {filtered.sort((a,b) => (a.time || '').localeCompare(b.time || '')).map((a: any) => {
+                const isAutoExpired = isApptExpiredWithoutCheckIn(a);
+                const effStatus = isAutoExpired ? 'Cancelled' : (a.status || 'Scheduled');
+                const isCancelled = effStatus === 'Cancelled';
+                const isCompleted = effStatus === 'Completed';
 
                 const patientObj = patients.find(p => p.id === a.patient_id);
                 const doctorObj = doctors.find(d => d.id === a.doctor_id);
@@ -443,16 +488,18 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 14,
-                      position: 'relative'
+                      position: 'relative',
+                      opacity: isCancelled ? 0.75 : 1
                     }}
                   >
                     {/* Top Row: Time & Status */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        🕒 {a.time}
+                      <div style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span>{a.time || '09:00'}</span>
                       </div>
-                      <span className={`badge ${STATUS_COLOR[a.status] || 'badge-neutral'}`} style={{ fontSize: 10, padding: '2px 8px' }}>
-                        {a.status}
+                      <span className={`badge ${STATUS_COLOR[effStatus] || 'badge-neutral'}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+                        {isAutoExpired ? 'Cancelled (Expired >8h)' : effStatus}
                       </span>
                     </div>
 
@@ -505,7 +552,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                         fontSize: 10,
                         fontWeight: 700
                       }}>
-                        🩺
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-sec)', fontWeight: 500 }}>
                         {formatDoctorName(doctorName)} · <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{a.specialization || doctorObj?.specialization || 'Cardiology'}</span>
@@ -520,13 +567,13 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                     {/* Actions Row at bottom */}
                     {!isCancelled && !isCompleted && (
                       <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 8 }}>
-                        {['Scheduled', 'Confirmed', 'Pending'].includes(a.status || 'Scheduled') ? (
+                        {['Scheduled', 'Confirmed', 'Pending'].includes(effStatus) ? (
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
                             style={{ 
                               flex: 1.5, 
-                              background: a.status === 'Pending' ? '#10b981' : 'var(--primary)', 
+                              background: effStatus === 'Pending' ? '#10b981' : 'var(--primary)', 
                               border: 'none', 
                               fontWeight: 600, 
                               fontSize: 12, 
@@ -534,9 +581,9 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                             }}
                             onClick={() => updateStatus(a.id, 'Checked-In')}
                           >
-                            {a.status === 'Pending' ? 'Accept' : 'Check-in'}
+                            {effStatus === 'Pending' ? 'Accept' : 'Check-in'}
                           </button>
-                        ) : a.status === 'Checked-In' ? (
+                        ) : effStatus === 'Checked-In' ? (
                           user?.role === 'doctor' ? (
                             <>
                               <button

@@ -283,75 +283,155 @@ export function getVitalsStatusList(vitals: any): VitalStatusItem[] {
   return list;
 }
 
-export function BedVitalsBadges({ vitals }: { vitals: any }) {
-  const items = getVitalsStatusList(vitals);
-  
-  if (items.length === 0) {
-    return (
-      <div style={{
-        fontSize: 11,
-        color: 'var(--text-muted)',
-        background: 'var(--surface, #ffffff)',
-        padding: '6px 12px',
-        borderRadius: 8,
-        border: '1px solid var(--border-light, #e2e8f0)',
-        display: 'inline-block'
-      }}>
-        No vitals recorded yet
-      </div>
-    );
+export function formatAdmissionDate(dateStr?: string): string {
+  if (!dateStr) {
+    const today = new Date();
+    return `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
   }
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  } catch {
+    return dateStr;
+  }
+}
 
-  const statusColorMap = {
-    normal: { bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', dot: '#10b981' },
-    warning: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', dot: '#f59e0b' },
-    critical: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', dot: '#ef4444' }
-  };
+export function getVitalsUpdatedText(vitals?: any): string {
+  if (!vitals) return 'Vitals updated recently (1m ago)';
+  const recAt = vitals.recorded_at || vitals.recordedAt || vitals.updated_at || vitals.created_at;
+  if (!recAt) return 'Vitals updated recently (1m ago)';
+  try {
+    const d = new Date(recAt);
+    if (isNaN(d.getTime())) return 'Vitals updated recently (1m ago)';
+    const diffMs = Date.now() - d.getTime();
+    const diffMin = Math.max(1, Math.floor(diffMs / 60000));
+    if (diffMin < 60) return `Vitals updated recently (${diffMin}m ago)`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `Vitals recorded (${diffHr}h ago)`;
+    const diffDays = Math.floor(diffHr / 24);
+    return `Vitals recorded (${diffDays}d ago)`;
+  } catch {
+    return 'Vitals updated recently (1m ago)';
+  }
+}
+
+export function BedVitalsGrid({ vitals }: { vitals: any }) {
+  const sys = vitals?.bp_systolic ?? vitals?.bpSystolic;
+  const dia = vitals?.bp_diastolic ?? vitals?.bpDiastolic;
+  const hasBp = sys != null && dia != null && (Number(sys) > 0 || Number(dia) > 0);
+  const bpVal = hasBp ? `${sys}/${dia}` : '—';
+
+  const hr = vitals?.heart_rate ?? vitals?.heartRate ?? vitals?.pulse ?? vitals?.pulse_rate;
+  const hasHr = hr != null && Number(hr) > 0;
+
+  const spo2 = vitals?.spo2 ?? vitals?.oxygen_saturation;
+  const hasSpo2 = spo2 != null && Number(spo2) > 0;
+
+  const temp = vitals?.temperature ?? vitals?.temp;
+  const hasTemp = temp != null && Number(temp) > 0;
+
+  const sugar = vitals?.blood_sugar ?? vitals?.bloodSugar;
+  const hasSugar = sugar != null && Number(sugar) > 0;
 
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+      gridTemplateColumns: 'repeat(5, 1fr)',
       gap: 6,
-      background: 'var(--surface, #ffffff)',
-      padding: '8px 10px',
-      borderRadius: 10,
-      border: '1px solid var(--border-light, #e2e8f0)',
-      textAlign: 'left'
+      marginBottom: 12
     }}>
-      {items.map(item => {
-        const scheme = statusColorMap[item.status];
-        return (
-          <div
-            key={item.key}
-            style={{
-              background: scheme.bg,
-              border: `1px solid ${scheme.border}`,
-              borderRadius: 6,
-              padding: '4px 6px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2
-            }}
-            title={`${item.label}: ${item.value} ${item.unit} (${item.statusText})`}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                {item.label}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8.5, fontWeight: 700, color: scheme.text }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: scheme.dot, display: 'inline-block' }} />
-                {item.statusText}
-              </span>
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: scheme.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {item.value} {item.unit && <span style={{ fontSize: 8.5, fontWeight: 500, color: 'var(--text-muted)' }}>{item.unit}</span>}
-            </div>
-          </div>
-        );
-      })}
+      {/* 1. BP */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #f1f5f9',
+        borderRadius: 8,
+        padding: '8px 2px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          {bpVal}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94a3b8', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          BP
+        </div>
+      </div>
+
+      {/* 2. HR */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #f1f5f9',
+        borderRadius: 8,
+        padding: '8px 2px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          {hasHr ? (
+            <>{hr}<span style={{ fontSize: 9.5, fontWeight: 500, color: '#64748b', marginLeft: 1 }}>bpm</span></>
+          ) : '—'}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94a3b8', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          HR
+        </div>
+      </div>
+
+      {/* 3. SPO2 */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #f1f5f9',
+        borderRadius: 8,
+        padding: '8px 2px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          {hasSpo2 ? (
+            <>{spo2}<span style={{ fontSize: 9.5, fontWeight: 500, color: '#64748b' }}>%</span></>
+          ) : '—'}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94a3b8', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          SPO2
+        </div>
+      </div>
+
+      {/* 4. TEMP */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #f1f5f9',
+        borderRadius: 8,
+        padding: '8px 2px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          {hasTemp ? (
+            <>{temp}<span style={{ fontSize: 9.5, fontWeight: 500, color: '#64748b', marginLeft: 1 }}>°F</span></>
+          ) : '—'}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94a3b8', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          TEMP
+        </div>
+      </div>
+
+      {/* 5. SUGAR */}
+      <div style={{
+        background: '#f8fafc',
+        border: '1px solid #f1f5f9',
+        borderRadius: 8,
+        padding: '8px 2px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          {hasSugar ? sugar : '—'}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: '#94a3b8', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          SUGAR
+        </div>
+      </div>
     </div>
   );
+}
+
+export function BedVitalsBadges({ vitals }: { vitals: any }) {
+  return <BedVitalsGrid vitals={vitals} />;
 }
 
 export interface Bed {
@@ -578,14 +658,18 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
             <button
               key={w}
               onClick={() => setSelectedWardFilter(w)}
-              className={`btn btn-sm ${selectedWardFilter === w ? 'btn-primary' : 'btn-ghost'}`}
+              className="btn btn-sm"
               style={{
                 borderRadius: 20,
-                padding: '4px 16px',
-                fontSize: 12,
-                minHeight: 'auto',
+                padding: '5px 18px',
+                fontSize: 12.5,
+                minHeight: 30,
                 fontWeight: selectedWardFilter === w ? 700 : 500,
-                border: selectedWardFilter === w ? 'none' : '1px solid var(--border)'
+                background: selectedWardFilter === w ? '#0d9488' : '#f1f5f9',
+                color: selectedWardFilter === w ? '#fff' : '#334155',
+                border: selectedWardFilter === w ? 'none' : '1px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
               {w}
@@ -599,16 +683,18 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
             <button
               key={st}
               onClick={() => setSelectedStatusFilter(st)}
-              className={`btn btn-sm ${selectedStatusFilter === st ? 'btn-secondary' : 'btn-ghost'}`}
+              className="btn btn-sm"
               style={{
                 borderRadius: 20,
-                padding: '4px 16px',
-                fontSize: 12,
-                minHeight: 'auto',
+                padding: '5px 18px',
+                fontSize: 12.5,
+                minHeight: 30,
                 fontWeight: selectedStatusFilter === st ? 700 : 500,
-                background: selectedStatusFilter === st ? '#1e293b' : 'transparent',
-                color: selectedStatusFilter === st ? '#fff' : 'var(--text)',
-                border: selectedStatusFilter === st ? 'none' : '1px solid var(--border)'
+                background: selectedStatusFilter === st ? '#1e293b' : '#f8fafc',
+                color: selectedStatusFilter === st ? '#fff' : '#475569',
+                border: selectedStatusFilter === st ? 'none' : '1px solid #e2e8f0',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
               {st}
@@ -629,78 +715,188 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
           {filteredBeds.map(bed => {
             const isOccupied = bed.status === 'Occupied';
             return (
-              <div key={bed.id} className="card" style={{ padding: 20, margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: 'var(--radius-xl)' }}>
+              <div 
+                key={bed.id} 
+                className="card" 
+                style={{ 
+                  padding: '20px 22px', 
+                  margin: 0, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'space-between', 
+                  borderRadius: 'var(--radius-xl)',
+                  background: '#fff',
+                  border: isOccupied ? '1px solid #fee2e2' : '1px solid var(--border)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
+                }}
+              >
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 800, fontSize: 15.5 }}>Room {bed.room}</div>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>({bed.bed_number} · {bed.ward})</span>
+                  {/* Header Row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isOccupied ? 12 : 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15.5, color: '#0f172a' }}>Room {bed.room}</div>
+                      <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>({bed.bed_number} · {bed.ward})</span>
                       <button
                         className="btn btn-ghost btn-sm"
-                        style={{ padding: '2px 4px', fontSize: 11, minHeight: 'auto', color: 'var(--text-muted)' }}
+                        style={{ padding: '2px 4px', fontSize: 11, minHeight: 'auto', color: '#94a3b8', background: 'none', border: 'none' }}
                         title="Edit Bed Details"
                         onClick={() => setEditBed(bed)}
                       >
                         <EditPencilIcon />
                       </button>
                     </div>
-                    <span className={`badge ${isOccupied ? 'badge-info' : 'badge-success'}`} style={{ borderRadius: 12, padding: '2px 10px' }}>
-                      {bed.status}
+                    <span style={{ 
+                      background: isOccupied ? '#e0f2fe' : '#ecfdf5', 
+                      color: isOccupied ? '#0284c7' : '#059669', 
+                      fontSize: 11, 
+                      fontWeight: 700, 
+                      padding: '3px 12px', 
+                      borderRadius: 14 
+                    }}>
+                      {isOccupied ? 'Occupied' : 'Available'}
                     </span>
                   </div>
 
-                  {/* Inner Dotted Box Container */}
-                  <div style={{
-                    border: '1px dashed var(--border)',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '16px 14px',
-                    textAlign: 'center',
-                    background: '#f8fafc',
-                    margin: '8px 0 16px'
-                  }}>
-                    {isOccupied ? (
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{bed.patient_name || 'Occupied Patient'}</div>
-                        {bed.patient_uhid && (
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>UHID: {bed.patient_uhid}</div>
-                        )}
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                          {formatDoctorName(bed.doctor_name) || 'Attending Physician'}
+                  {/* Occupied State vs Available State */}
+                  {isOccupied ? (
+                    <div>
+                      {/* Patient Info with Avatar */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, marginBottom: 14 }}>
+                        <div style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: '#dcfce7',
+                          color: '#15803d',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: 14,
+                          flexShrink: 0
+                        }}>
+                          {bed.patient_name ? bed.patient_name.trim().charAt(0).toUpperCase() : 'A'}
                         </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14.5, color: '#0f172a', lineHeight: 1.2 }}>
+                            {bed.patient_name || 'Occupied Patient'}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 3 }}>
+                            {formatDoctorName(bed.doctor_name) || 'Attending Physician'} • admitted {formatAdmissionDate(bed.admitted_at || (bed as any).created_at)}
+                          </div>
+                        </div>
+                      </div>
 
-                        {/* All Vitals with Clinical Indications */}
-                        <div style={{ marginTop: 12 }}>
-                          <BedVitalsBadges vitals={bed.vitals} />
-                        </div>
+                      {/* 5-Metric Vitals Mini-Grid */}
+                      <BedVitalsGrid vitals={bed.vitals} />
+
+                      {/* Vitals Updated Status Banner */}
+                      <div style={{
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: '#15803d',
+                        marginBottom: 16,
+                        textAlign: 'left'
+                      }}>
+                        {getVitalsUpdatedText(bed.vitals)}
                       </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, padding: '12px 0' }}>
-                        <BedIcon /> Bed is clean & vacant
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    /* Available / Vacant Box */
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid #f1f5f9',
+                      borderRadius: 12,
+                      padding: '40px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      color: '#94a3b8',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      margin: '10px 0 16px'
+                    }}>
+                      <BedIcon />
+                      <span>Bed is clean & vacant</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions Row */}
-                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ marginTop: 4, display: 'flex', gap: 8, alignItems: 'center' }}>
                   {isOccupied ? (
                     <>
-                      <button className="btn btn-primary btn-sm" style={{ flex: 1, minHeight: 38 }} onClick={() => setRecordVitalsBed(bed)}>
-                        + Record Vitals
+                      <button 
+                        className="btn btn-primary btn-sm" 
+                        style={{ 
+                          flex: 1.3, 
+                          minHeight: 36, 
+                          background: '#0d9488', 
+                          border: 'none', 
+                          borderRadius: 8, 
+                          color: '#fff', 
+                          fontWeight: 600, 
+                          fontSize: 12.5 
+                        }} 
+                        onClick={() => setRecordVitalsBed(bed)}
+                      >
+                        Record Vitals
                       </button>
-                      <button className="btn btn-secondary btn-sm" style={{ minHeight: 38 }} onClick={() => handleOpenVitalsLog(bed)}>
+                      <button 
+                        className="btn btn-secondary btn-sm" 
+                        style={{ 
+                          flex: 1, 
+                          minHeight: 36, 
+                          background: '#f8fafc', 
+                          border: '1px solid #e2e8f0', 
+                          borderRadius: 8, 
+                          color: '#334155', 
+                          fontWeight: 600, 
+                          fontSize: 12.5 
+                        }} 
+                        onClick={() => handleOpenVitalsLog(bed)}
+                      >
                         Vitals Log
                       </button>
-                      <button className="btn btn-ghost btn-sm" style={{ minHeight: 38, color: 'var(--danger)' }} onClick={() => handleRelease(bed)}>
+                      <button 
+                        className="btn btn-ghost btn-sm" 
+                        style={{ 
+                          minHeight: 36, 
+                          background: '#f8fafc', 
+                          border: '1px solid #e2e8f0', 
+                          borderRadius: 8, 
+                          color: '#334155', 
+                          fontWeight: 600, 
+                          fontSize: 12.5, 
+                          padding: '0 14px' 
+                        }} 
+                        onClick={() => handleRelease(bed)}
+                      >
                         Vacate
                       </button>
                     </>
                   ) : (
-                    <>
-                      <button className="btn btn-primary btn-sm" style={{ width: '100%', minHeight: 38, fontWeight: 700 }} onClick={() => setAllocateBed(bed)}>
-                        Allocate Bed
-                      </button>
-                    </>
+                    <button 
+                      className="btn btn-primary btn-sm" 
+                      style={{ 
+                        width: '100%', 
+                        minHeight: 38, 
+                        background: '#0d9488', 
+                        border: 'none', 
+                        borderRadius: 8, 
+                        color: '#fff', 
+                        fontWeight: 700, 
+                        fontSize: 13 
+                      }} 
+                      onClick={() => setAllocateBed(bed)}
+                    >
+                      Allocate Bed
+                    </button>
                   )}
                 </div>
               </div>

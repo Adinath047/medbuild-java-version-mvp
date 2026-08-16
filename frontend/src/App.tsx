@@ -106,7 +106,7 @@ function getNav(user: any) {
 // ── Sidebar ───────────────────────────────────────────────────────────
 function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
   const nav = getNav(user);
-  const initials = user?.name?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() ?? '??';
+  const initials = user?.name ? user.name.trim().split(/\s+/).filter(Boolean).map((w: string) => (w || '').charAt(0)).join('').slice(0, 2).toUpperCase() || '??' : '??';
   const { logout } = useAuthStore();
 
   const roleInfo: Record<string, { label: string; sub: string }> = {
@@ -218,7 +218,7 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
               </div>
               <div style={{ textAlign: 'left' }}>
                 <div className="sidebar-user-name" style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.2 }}>
-                  {user?.name?.split(' ').slice(0, 2).join(' ')}
+                  {user?.name ? user.name.trim().split(/\s+/).slice(0, 2).join(' ') : 'Staff Member'}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
                   {roleLabel}

@@ -11,6 +11,21 @@ import { printInvoice } from '../../utils/printTemplates';
 const PAY_MODES = ['Cash', 'Card', 'UPI', 'Insurance', 'Online'];
 const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, amount: 0 };
 
+const PRESET_SERVICES = [
+  { name: 'OPD Consultation', defaultPrice: 500, category: 'Consultation' },
+  { name: 'Follow-up Consultation', defaultPrice: 300, category: 'Consultation' },
+  { name: 'General Bed Stay (Per Day)', defaultPrice: 1500, category: 'Bed Stay' },
+  { name: 'ICU Bed Stay (Per Day)', defaultPrice: 4500, category: 'Bed Stay' },
+  { name: 'Nursing & Inpatient Care', defaultPrice: 350, category: 'Nursing' },
+  { name: '12-Lead ECG Test', defaultPrice: 450, category: 'Diagnostics' },
+  { name: 'Pathology / Lab Panel', defaultPrice: 600, category: 'Lab' },
+  { name: 'Wound Dressing & Procedure', defaultPrice: 250, category: 'Procedure' },
+  { name: 'Emergency Triage & Assessment', defaultPrice: 750, category: 'Emergency' },
+  { name: 'Digital X-Ray (Single View)', defaultPrice: 550, category: 'Radiology' },
+  { name: 'Ultrasound (USG) Scan', defaultPrice: 1200, category: 'Radiology' },
+  { name: 'Nebulization Session', defaultPrice: 200, category: 'Therapy' },
+];
+
 export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (p: string, d?: any) => void; data?: any }) {
   const { user } = useAuthStore();
   const { syncCount } = useSync();
@@ -19,10 +34,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [patientId, setPatientId] = useState('');
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [items, setItems] = useState([{ ...EMPTY_ITEM }]);
   const [discount, setDiscount] = useState('0');
   const [payMode, setPayMode] = useState('Cash');
   const [paidAmount, setPaid] = useState('');
+  const [isManualPaid, setIsManualPaid] = useState(false);
   const [notes, setNotes] = useState('');
   const [patientFilterId, setPatientFilterId] = useState(data?.patientId || '');
   const [saving, setSaving] = useState(false);
@@ -98,14 +116,18 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     if (data?.patientId) {
       setPatientFilterId(data.patientId);
       setPatientId(data.patientId);
+      const found = patients.find(p => p.id === data.patientId);
+      if (found) setPatientSearchTerm(`${found.name} (${found.uhid || 'No UHID'})`);
     }
     if (data?.showAdd) {
       setShowAdd(true);
     }
-  }, [data?.patientId, data?.showAdd]);
+  }, [data?.patientId, data?.showAdd, patients]);
 
   function handleBillStay(stay: any) {
     setPatientId(stay.patient_id);
+    const pat = patients.find(p => p.id === stay.patient_id);
+    if (pat) setPatientSearchTerm(`${pat.name} (${pat.uhid || 'No UHID'})`);
     setItems([{
       description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.stay_days || 1} days`,
       quantity: stay.stay_days || 1,
@@ -114,6 +136,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }]);
     setDiscount('0');
     setPaid('');
+    setIsManualPaid(false);
     setNotes(`Bed stay charges for admission on ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : 'admission'}`);
     setShowAdd(true);
   }
@@ -124,7 +147,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     
     const net = Number(recordPaymentBill.net_amount) || 0;
     const currentPaid = Number(recordPaymentBill.paid_amount) || 0;
-    const dueAmount = Math.max(0, net - currentPaid);
+    const dueAmount = Number(recordPaymentBill.balance_due) !== undefined ? Number(recordPaymentBill.balance_due) : Math.max(0, net - currentPaid);
     
     if (dueAmount <= 0) {
       alert('This invoice is already fully paid.');
@@ -191,7 +214,31 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const net = Math.max(0, total - parseFloat(discount || '0'));
   const paid = parseFloat(paidAmount || '0');
 
-  const setItem = (i: number, k: string, v: any) => setItems(ms => ms.map((m, j) => j === i ? { ...m, [k]: v, amount: k === 'quantity' || k === 'unit_price' ? (k === 'quantity' ? v : m.quantity) * (k === 'unit_price' ? v : m.unit_price) : m.amount } : m));
+  // Auto-sync paid amount to net total unless user has manually customized it
+  useEffect(() => {
+    if (!isManualPaid) {
+      setPaid(net > 0 ? String(net) : '');
+    }
+  }, [net, isManualPaid]);
+
+  const setItem = (i: number, k: string, v: any) => {
+    setItems(ms => ms.map((m, j) => {
+      if (j !== i) return m;
+      const updated = { ...m, [k]: v };
+      if (k === 'description') {
+        const foundPreset = PRESET_SERVICES.find(ps => ps.name.toLowerCase() === String(v).trim().toLowerCase());
+        if (foundPreset && (m.unit_price === 0 || !m.unit_price)) {
+          updated.unit_price = foundPreset.defaultPrice;
+        }
+      }
+      if (k === 'quantity' || k === 'unit_price' || k === 'description') {
+        const q = k === 'quantity' ? Number(v) || 1 : Number(updated.quantity) || 1;
+        const u = k === 'unit_price' ? Number(v) || 0 : Number(updated.unit_price) || 0;
+        updated.amount = q * u;
+      }
+      return updated;
+    }));
+  };
 
   useEffect(() => {
     if (!patientId) { setDoctorInfo(null); return; }
@@ -229,11 +276,25 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     })();
   }, [patientId]);
 
+  const filteredPatients = useMemo(() => {
+    if (!patientSearchTerm.trim()) return patients;
+    const q = patientSearchTerm.toLowerCase().trim();
+    return patients.filter(p => 
+      p.name?.toLowerCase().includes(q) ||
+      p.uhid?.toLowerCase().includes(q) ||
+      p.phone?.toLowerCase().includes(q)
+    );
+  }, [patients, patientSearchTerm]);
+
+  const selectedPatientObj = useMemo(() => {
+    return patients.find(p => p.id === patientId) || null;
+  }, [patients, patientId]);
+
   async function handleCreateBill(e: React.FormEvent) {
     e.preventDefault();
-    if (!patientId) return alert('Select a patient');
+    if (!patientId) return alert('Please search and select a patient first.');
     const validItems = items.filter(i => i.description.trim() && i.amount > 0);
-    if (validItems.length === 0) return alert('Add at least one valid item');
+    if (validItems.length === 0) return alert('Please add at least one valid billing item with a description and amount.');
     setSaving(true);
     const pat = patients.find(p => p.id === patientId);
 
@@ -274,9 +335,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     } finally {
       setSaving(false);
       setShowAdd(false);
+      setPatientId('');
+      setPatientSearchTerm('');
+      setShowPatientDropdown(false);
       setItems([{ ...EMPTY_ITEM }]);
       setDiscount('0');
       setPaid('');
+      setIsManualPaid(false);
       setNotes('');
       triggerSyncBroadcast();
       fetchBills();
@@ -499,67 +564,315 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       {/* Create New Invoice Modal */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">Create Hospital Invoice</div>
               <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
             </div>
             <form onSubmit={handleCreateBill}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div className="form-group">
-                  <label className="form-label">Select Patient *</label>
-                  <select className="input" value={patientId} onChange={e => setPatientId(e.target.value)} required>
-                    <option value="">-- Choose Patient --</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.uhid || p.phone || 'No UHID'})</option>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '76vh', overflowY: 'auto' }}>
+                
+                {/* Datalist for preset service descriptions */}
+                <datalist id="common-billing-services">
+                  {PRESET_SERVICES.map(ps => (
+                    <option key={ps.name} value={ps.name}>₹{ps.defaultPrice} ({ps.category})</option>
+                  ))}
+                  {doctorInfo && (doctorInfo.consultation_fee || doctorInfo.consultationFee) > 0 && (
+                    <option value={`Consultation Fee — ${doctorInfo.name || 'Doctor'}`}>
+                      ₹{doctorInfo.consultation_fee || doctorInfo.consultationFee} (Doctor Fee)
+                    </option>
+                  )}
+                </datalist>
+
+                {/* Patient Search & Autocomplete Dropdown */}
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--text)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Search & Select Patient *</span>
+                    {selectedPatientObj && (
+                      <span style={{ fontSize: 11.5, color: 'var(--primary)', fontWeight: 600 }}>Selected: {selectedPatientObj.name}</span>
+                    )}
+                  </label>
+
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="input"
+                      placeholder="Type letters to search patient by name, UHID, or phone..."
+                      value={patientSearchTerm}
+                      onChange={e => {
+                        setPatientSearchTerm(e.target.value);
+                        setShowPatientDropdown(true);
+                      }}
+                      onFocus={() => setShowPatientDropdown(true)}
+                      style={{ paddingLeft: 34, paddingRight: patientId ? 70 : 12, borderRadius: 8, height: 40, fontSize: 13.5 }}
+                    />
+                    <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </div>
+                    {patientId && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setPatientId('');
+                          setPatientSearchTerm('');
+                          setShowPatientDropdown(true);
+                        }}
+                        style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', color: 'var(--danger)', padding: '2px 8px', fontSize: 11, fontWeight: 600 }}
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Autocomplete Dropdown List */}
+                  {showPatientDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      marginTop: 4,
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+                      maxHeight: 220,
+                      overflowY: 'auto',
+                      zIndex: 1050,
+                    }}>
+                      {filteredPatients.length === 0 ? (
+                        <div style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                          No patients found matching "{patientSearchTerm}".
+                        </div>
+                      ) : (
+                        filteredPatients.slice(0, 15).map(p => (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              setPatientId(p.id);
+                              setPatientSearchTerm(`${p.name} (${p.uhid || 'No UHID'})`);
+                              setShowPatientDropdown(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 14px',
+                              borderBottom: '1px solid var(--border-light)',
+                              cursor: 'pointer',
+                              background: p.id === patientId ? '#f0fdfa' : '#ffffff',
+                              transition: 'background 0.12s'
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                            onMouseLeave={e => (e.currentTarget.style.background = p.id === patientId ? '#f0fdfa' : '#ffffff')}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{
+                                width: 32, height: 32, borderRadius: '50%',
+                                background: '#ccfbf1', color: '#0f766e',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 13, fontWeight: 700, flexShrink: 0
+                              }}>
+                                {p.name ? p.name.trim().charAt(0).toUpperCase() : 'P'}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{p.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                  {p.phone ? `Phone: ${p.phone} • ` : ''}{p.age ? `${p.age}y / ${p.sex || 'M'}` : (p.sex || '')}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="badge badge-info" style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                              {p.uhid || 'NO-UHID'}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Patient Information Card */}
+                  {selectedPatientObj && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: 12.5
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontWeight: 700, color: 'var(--text)' }}>{selectedPatientObj.name}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>UHID: <strong style={{ fontFamily: 'monospace' }}>{selectedPatientObj.uhid || '—'}</strong></span>
+                        {selectedPatientObj.phone && <span style={{ color: 'var(--text-muted)' }}>Phone: {selectedPatientObj.phone}</span>}
+                      </div>
+                      {doctorInfo && (
+                        <span className="badge badge-neutral" style={{ fontSize: 10.5 }}>
+                          Attending: {doctorInfo.name}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Add Preset Services & Saved Pricing Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: '#f8fafc', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-light)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Quick Preloaded Services & Saved Prices (Click to Add):
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {doctorInfo && (doctorInfo.consultation_fee || doctorInfo.consultationFee) > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => addReadyItem(`Consultation Fee — ${doctorInfo.name || 'Doctor'}`, doctorInfo.consultation_fee || doctorInfo.consultationFee)}
+                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 10px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', cursor: 'pointer' }}
+                      >
+                        + Dr. Consultation (₹{doctorInfo.consultation_fee || doctorInfo.consultationFee})
+                      </button>
+                    )}
+                    {PRESET_SERVICES.map(ps => (
+                      <button
+                        key={ps.name}
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => addReadyItem(ps.name, ps.defaultPrice)}
+                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 10px', background: '#ffffff', color: '#334155', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                      >
+                        + {ps.name} (₹{ps.defaultPrice})
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 {/* Items list */}
                 <div className="form-group">
-                  <label className="form-label">Invoice Items & Charges</label>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--text)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Invoice Items & Charges</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Gross Total: ₹{total}</span>
+                  </label>
                   {items.map((item, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                      <input className="input" placeholder="Service description" value={item.description} onChange={e => setItem(i, 'description', e.target.value)} required />
-                      <input className="input" type="number" min="1" placeholder="Qty" value={item.quantity} onChange={e => setItem(i, 'quantity', parseInt(e.target.value) || 1)} required />
-                      <input className="input" type="number" min="0" placeholder="Unit Price" value={item.unit_price} onChange={e => setItem(i, 'unit_price', parseFloat(e.target.value) || 0)} required />
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2.5fr 0.8fr 1.2fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                      <input
+                        className="input"
+                        placeholder="Service description (type or pick from list)"
+                        list="common-billing-services"
+                        value={item.description}
+                        onChange={e => setItem(i, 'description', e.target.value)}
+                        required
+                        style={{ fontSize: 13 }}
+                      />
+                      <input
+                        className="input"
+                        type="number"
+                        min="1"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={e => setItem(i, 'quantity', parseInt(e.target.value) || 1)}
+                        required
+                        style={{ fontSize: 13, textAlign: 'center' }}
+                      />
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        placeholder="Unit Price (₹)"
+                        value={item.unit_price}
+                        onChange={e => setItem(i, 'unit_price', parseFloat(e.target.value) || 0)}
+                        required
+                        style={{ fontSize: 13 }}
+                      />
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', textAlign: 'right', paddingRight: 6 }}>
+                        ₹{(Number(item.quantity) || 1) * (Number(item.unit_price) || 0)}
+                      </div>
                       {items.length > 1 && (
-                        <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setItems(items.filter((_, idx) => idx !== i))}>✕</button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                          onClick={() => setItems(items.filter((_, idx) => idx !== i))}
+                        >
+                          ✕
+                        </button>
                       )}
                     </div>
                   ))}
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setItems([...items, { ...EMPTY_ITEM }])}>+ Add Item</button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setItems([...items, { ...EMPTY_ITEM }])} style={{ marginTop: 4 }}>
+                    + Add Another Item
+                  </button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group">
-                    <label className="form-label">Discount (₹)</label>
-                    <input className="input" type="number" value={discount} onChange={e => setDiscount(e.target.value)} />
+                    <label className="form-label" style={{ fontWeight: 600 }}>Discount (₹)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      value={discount}
+                      onChange={e => setDiscount(e.target.value)}
+                      placeholder="0"
+                    />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Paid Amount (₹)</label>
-                    <input className="input" type="number" value={paidAmount} onChange={e => setPaid(e.target.value)} placeholder={`Total: ₹${net}`} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <label className="form-label" style={{ margin: 0, fontWeight: 600 }}>Paid Amount (₹)</label>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          setIsManualPaid(false);
+                          setPaid(net > 0 ? String(net) : '');
+                        }}
+                        style={{ padding: '0 6px', fontSize: 11, color: 'var(--primary)', fontWeight: 600, minHeight: 'auto' }}
+                      >
+                        Auto-Fill Total (₹{net})
+                      </button>
+                    </div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      value={paidAmount}
+                      onChange={e => {
+                        setIsManualPaid(true);
+                        setPaid(e.target.value);
+                      }}
+                      placeholder={`Total: ₹${net}`}
+                    />
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Payment Mode</label>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Payment Mode</label>
                   <select className="input" value={payMode} onChange={e => setPayMode(e.target.value)}>
                     {PAY_MODES.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Notes & Observations</label>
-                  <textarea className="input" placeholder="Additional billing notes..." value={notes} onChange={e => setNotes(e.target.value)} />
+                  <label className="form-label" style={{ fontWeight: 600 }}>Notes & Observations</label>
+                  <textarea className="input" rows={2} placeholder="Additional billing notes..." value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Generating Invoice...' : `Create Invoice (Net: ₹${net})`}
-                </button>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 14 }}>
+                  Net Total: <strong style={{ color: 'var(--primary)', fontSize: 16 }}>₹{net}</strong>
+                  {paid > 0 && paid < net && (
+                    <span style={{ fontSize: 12, color: 'var(--danger)', marginLeft: 8 }}>
+                      (Due: ₹{Math.max(0, net - paid)})
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Generating Invoice...' : `Create Invoice (Net: ₹${net})`}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

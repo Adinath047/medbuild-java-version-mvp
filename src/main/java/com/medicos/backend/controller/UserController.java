@@ -119,7 +119,8 @@ public class UserController {
             @AuthenticationPrincipal User user) {
         if (user == null) throw new UnauthorizedException("Authentication required.");
         User updated = userService.updateUserProfile(user, body);
-        return ResponseEntity.ok(updated);
+        AuthDTO.UserDTO userDTO = authService.mapToDTO(updated);
+        return ResponseEntity.ok(Map.of("user", userDTO, "status", "success"));
     }
 
     @PutMapping("/me/profile")

@@ -32,40 +32,109 @@ public class AppointmentService {
         this.patientRepository = patientRepository;
     }
 
-    @Cacheable(value = "appointments", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_p_' + (#patientId != null ? #patientId : 'null') + '_d_' + (#doctorId != null ? #doctorId : 'null') + '_dt_' + (#date != null ? #date : 'null')")
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Appointment> getAppointments(String patientId, String doctorId, String date) {
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
         boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
 
+        List<Appointment> list;
         if (patientId != null && !patientId.isEmpty()) {
-            return isTenantScoped
+            list = isTenantScoped
                     ? appointmentRepository.findByHospitalIdAndPatientIdOrderByDateDesc(hospitalId, patientId)
                     : appointmentRepository.findByPatientIdOrderByDateDesc(patientId);
         } else if (doctorId != null && !doctorId.isEmpty()) {
-            return isTenantScoped
+            list = isTenantScoped
                     ? appointmentRepository.findByHospitalIdAndDoctorIdOrderByDateDesc(hospitalId, doctorId)
                     : appointmentRepository.findByDoctorIdOrderByDateDesc(doctorId);
         } else if (date != null && !date.isEmpty()) {
-            return isTenantScoped
+            list = isTenantScoped
                     ? appointmentRepository.findByHospitalIdAndDate(hospitalId, date)
                     : appointmentRepository.findByDate(date);
         } else {
-            return isTenantScoped
+            list = isTenantScoped
                     ? appointmentRepository.findByHospitalIdOrderByDateDesc(hospitalId)
                     : appointmentRepository.findAll();
         }
+        return processExpiredAppointments(list);
     }
 
-    @Cacheable(value = "today_appointments", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + T(java.time.LocalDate).now().toString()")
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Appointment> getTodayAppointments() {
         String todayStr = LocalDate.now().toString();
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        List<Appointment> list;
         if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
-            return appointmentRepository.findByHospitalIdAndDate(hospitalId, todayStr);
+            list = appointmentRepository.findByHospitalIdAndDate(hospitalId, todayStr);
+        } else {
+            list = appointmentRepository.findByDate(todayStr);
         }
-        return appointmentRepository.findByDate(todayStr);
+        return processExpiredAppointments(list);
+    }
+
+    /**
+     * Automatically transitions any appointment to 'Cancelled' if 8 or more hours have elapsed
+     * past its scheduled time (or creation time) without patient check-in.
+     */
+    @Transactional
+    public List<Appointment> processExpiredAppointments(List<Appointment> list) {
+        if (list == null || list.isEmpty()) return list;
+        List<Appointment> toSave = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Appointment a : list) {
+            if (isExpiredWithoutCheckIn(a, now)) {
+                a.setStatus("Cancelled");
+                String noteSuffix = "Auto-cancelled: 8+ hours past appointment time without check-in";
+                if (a.getNotes() == null || a.getNotes().isEmpty()) {
+                    a.setNotes(noteSuffix);
+                } else if (!a.getNotes().contains("Auto-cancelled")) {
+                    a.setNotes(a.getNotes() + " | " + noteSuffix);
+                }
+                a.setUpdatedAt(now);
+                toSave.add(a);
+            }
+        }
+
+        if (!toSave.isEmpty()) {
+            appointmentRepository.saveAll(toSave);
+        }
+        return list;
+    }
+
+    private boolean isExpiredWithoutCheckIn(Appointment appt, LocalDateTime now) {
+        if (appt == null || appt.getStatus() == null) return false;
+        String s = appt.getStatus().trim().toLowerCase();
+        if (s.equals("checked-in") || s.equals("checked_in") || s.equals("completed") || s.equals("cancelled") || s.equals("no-show") || s.equals("no_show")) {
+            return false;
+        }
+
+        // 1. Check 8 hours past scheduled slot (date + time)
+        if (appt.getDate() != null && !appt.getDate().trim().isEmpty()) {
+            try {
+                LocalDate d = LocalDate.parse(appt.getDate().trim());
+                java.time.LocalTime t = java.time.LocalTime.of(9, 0);
+                if (appt.getTime() != null && !appt.getTime().trim().isEmpty()) {
+                    String timeStr = appt.getTime().trim();
+                    if (timeStr.length() == 5) {
+                        t = java.time.LocalTime.parse(timeStr);
+                    } else if (timeStr.length() == 8) {
+                        t = java.time.LocalTime.parse(timeStr.substring(0, 5));
+                    } else if (timeStr.length() == 4 && timeStr.charAt(1) == ':') {
+                        t = java.time.LocalTime.parse("0" + timeStr);
+                    }
+                }
+                LocalDateTime slotDateTime = LocalDateTime.of(d, t);
+                // An appointment is only auto-cancelled if current time is >= 8 hours AFTER scheduled slot
+                return slotDateTime.plusHours(8).isBefore(now);
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Only fallback to 8 hours past creation time if no scheduled date exists
+        if (appt.getCreatedAt() != null && (appt.getDate() == null || appt.getDate().trim().isEmpty())) {
+            return appt.getCreatedAt().plusHours(8).isBefore(now);
+        }
+
+        return false;
     }
 
     @CacheEvict(value = {"appointments", "today_appointments"}, allEntries = true)

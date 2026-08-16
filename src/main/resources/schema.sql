@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS users (
   phone            VARCHAR(50),
   specialization   VARCHAR(100),
   license_number   VARCHAR(100),
+  qualification    VARCHAR(255),
+  registration_number VARCHAR(100),
+  letterhead       TEXT,
+  consultation_fee REAL NOT NULL DEFAULT 0.0,
+  followup_fee     REAL NOT NULL DEFAULT 0.0,
+  bed_per_day_charge REAL NOT NULL DEFAULT 0.0,
+  district         VARCHAR(100),
+  rating           REAL NOT NULL DEFAULT 0.0,
+  experience_years INTEGER NOT NULL DEFAULT 0,
+  consulted_count  INTEGER NOT NULL DEFAULT 0,
   photo_url        TEXT,
   is_active        INTEGER NOT NULL DEFAULT 1,
   show_diagnosis_on_print INTEGER NOT NULL DEFAULT 1,
@@ -40,10 +50,28 @@ CREATE TABLE IF NOT EXISTS users (
   print_margin_bottom INTEGER NOT NULL DEFAULT 15,
   print_margin_left_right INTEGER NOT NULL DEFAULT 18,
   print_font_size REAL NOT NULL DEFAULT 11.0,
-  bed_per_day_charge REAL NOT NULL DEFAULT 0.0,
   created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS qualification VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_number VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consultation_fee REAL DEFAULT 0.0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS followup_fee REAL DEFAULT 0.0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bed_per_day_charge REAL DEFAULT 0.0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS letterhead TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS district VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rating REAL DEFAULT 0.0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS experience_years INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consulted_count INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_diagnosis_on_print INTEGER DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_investigations_on_print INTEGER DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_vitals_on_print INTEGER DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS print_margin_top INTEGER DEFAULT 35;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS print_margin_bottom INTEGER DEFAULT 15;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS print_margin_left_right INTEGER DEFAULT 18;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS print_font_size REAL DEFAULT 11.0;
 
 -- ── 3. PATIENTS ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
@@ -273,11 +301,11 @@ VALUES ('usr-admin-001', 'Adinath Admin', 'adinathmade@medicos.com',
         'admin', 'hsp-001')
 ON CONFLICT (id) DO NOTHING;
 
--- Seed default Doctor (Password: doc12345)
-INSERT INTO users (id, name, email, password, role, hospital_id, specialization)
-VALUES ('usr-doc-001', 'Dr. Rajesh Sharma', 'doctor@medicos.com',
+-- Seed default Doctor (Password: doctor123)
+INSERT INTO users (id, name, email, password, role, hospital_id, staff_id, specialization, qualification)
+VALUES ('usr-doc-001', 'Dr. Ananya Rao', 'doctor@medicos.com',
         '$2a$10$1LADfgd8HQ0allD5lnGLb.dVxH.sVVCt07WYykl48x0vryQ1fCgLO',
-        'doctor', 'hsp-001', 'General Medicine')
+        'doctor', 'hsp-001', 'STF-101', 'Cardiology', 'MBBS, MD (Cardiology)')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed sample patient
@@ -302,82 +330,95 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON users;
 CREATE POLICY tenant_isolation_policy ON users
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Patients Table
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patients FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON patients;
 CREATE POLICY tenant_isolation_policy ON patients
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Encounters Table
 ALTER TABLE encounters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE encounters FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON encounters;
 CREATE POLICY tenant_isolation_policy ON encounters
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Vitals Table
 ALTER TABLE vitals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vitals FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON vitals;
 CREATE POLICY tenant_isolation_policy ON vitals
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Prescriptions Table
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prescriptions FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON prescriptions;
 CREATE POLICY tenant_isolation_policy ON prescriptions
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Appointments Table
 ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE appointments FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON appointments;
 CREATE POLICY tenant_isolation_policy ON appointments
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Beds Table
 ALTER TABLE beds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE beds FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON beds;
 CREATE POLICY tenant_isolation_policy ON beds
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Bed Admissions Table
 ALTER TABLE bed_admissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bed_admissions FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON bed_admissions;
 CREATE POLICY tenant_isolation_policy ON bed_admissions
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Billing Table
 ALTER TABLE billing ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON billing;
 CREATE POLICY tenant_isolation_policy ON billing
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Medicines Table
 ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medicines FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON medicines;
 CREATE POLICY tenant_isolation_policy ON medicines
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Notifications Table
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON notifications;
 CREATE POLICY tenant_isolation_policy ON notifications
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 
 -- Patient Uploads Table
 ALTER TABLE patient_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_uploads FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON patient_uploads;
 CREATE POLICY tenant_isolation_policy ON patient_uploads
-  USING (hospital_id = current_setting('app.current_hospital_id'));
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
+
 

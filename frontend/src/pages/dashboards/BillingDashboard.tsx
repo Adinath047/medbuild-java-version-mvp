@@ -25,7 +25,12 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
       if (billsRes.status === 'fulfilled' && Array.isArray(billsRes.value.data)) {
         const bills = billsRes.value.data;
         setAllBills(bills);
-        setPendingBills(bills.filter((b: any) => b.payment_status === 'Pending' || b.payment_status === 'Partial'));
+        setPendingBills(bills.filter((b: any) => {
+          const net = Number(b.net_amount ?? b.netAmount ?? b.total_amount ?? b.totalAmount ?? 0);
+          const paid = Number(b.paid_amount ?? b.paidAmount ?? 0);
+          const status = (b.payment_status || '').toLowerCase().trim();
+          return status !== 'paid' && status !== 'cancelled' && (net - paid) > 0;
+        }));
       }
     } catch (err) {
       console.error('Error loading billing dashboard data:', err);
@@ -40,8 +45,12 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /> Loading Finance & Billing Dashboard...</div>;
 
-  const totalCollected = allBills.reduce((acc, b) => acc + (Number(b.paid_amount) || 0), 0);
-  const totalOutstanding = pendingBills.reduce((acc, b) => acc + ((Number(b.net_amount) || 0) - (Number(b.paid_amount) || 0)), 0);
+  const totalCollected = allBills.reduce((acc, b) => acc + (Number(b.paid_amount ?? b.paidAmount ?? 0)), 0);
+  const totalOutstanding = pendingBills.reduce((acc, b) => {
+    const net = Number(b.net_amount ?? b.netAmount ?? b.total_amount ?? b.totalAmount ?? 0);
+    const paid = Number(b.paid_amount ?? b.paidAmount ?? 0);
+    return acc + Math.max(0, net - paid);
+  }, 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
@@ -75,7 +84,7 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
             # Finance & Billing Dashboard
           </span>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: '-0.4px', color: 'var(--text)' }}>
-            Good day, {user?.name?.split(' ')[0] || 'Finance Officer'}
+            Good day, {user?.name ? user.name.trim().split(/\s+/)[0] : 'Finance Officer'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, fontWeight: 400, maxWidth: 640 }}>
             Track hospital revenue, outstanding invoices, patient billings, and payment settlements – everything finance needs, one screen.

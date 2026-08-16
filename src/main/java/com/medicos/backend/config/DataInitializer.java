@@ -1,8 +1,7 @@
 package com.medicos.backend.config;
 
-import com.medicos.backend.entity.Hospital;
-import com.medicos.backend.entity.HealthTip;
-import com.medicos.backend.entity.User;
+import com.medicos.backend.entity.*;
+import com.medicos.backend.repository.*;
 import com.medicos.backend.repository.HealthTipRepository;
 import com.medicos.backend.repository.HospitalRepository;
 import com.medicos.backend.repository.UserRepository;
@@ -180,168 +179,102 @@ public class DataInitializer implements CommandLineRunner {
     private void seedClinicalDataIfMissing() {
         try {
             jdbcTemplate.execute("SELECT set_config('app.current_hospital_id', 'hsp-001', true);");
-            // Seed Patients
-            if (patientRepository.count() == 0) {
-                com.medicos.backend.entity.Patient p1 = new com.medicos.backend.entity.Patient();
-                p1.setId("pat-c7757203");
-                p1.setUhid("UHID-001-000001");
-                p1.setHospitalId("hsp-001");
-                p1.setName("Rakesh Kuber");
-                p1.setAge(56);
-                p1.setSex("Male");
-                p1.setPhone("4354353484");
-                p1.setBloodGroup("O+");
-                patientRepository.save(p1);
+            
+            // Seed Patients idempotently
+            createPatientIfMissing("pat-c7757203", "UHID-001-000004", "hsp-001", "Rakesh Kuber", 56, "Male", "4354353484", "O+");
+            createPatientIfMissing("pat-002", "UHID-001-000002", "hsp-001", "Sunita Sharma", 42, "Female", "9876543210", "A+");
+            createPatientIfMissing("pat-003", "UHID-001-000003", "hsp-001", "Amit Verma", 65, "Male", "9123456789", "B+");
 
-                com.medicos.backend.entity.Patient p2 = new com.medicos.backend.entity.Patient();
-                p2.setId("pat-002");
-                p2.setUhid("UHID-001-000002");
-                p2.setHospitalId("hsp-001");
-                p2.setName("Sunita Sharma");
-                p2.setAge(42);
-                p2.setSex("Female");
-                p2.setPhone("9876543210");
-                p2.setBloodGroup("A+");
-                patientRepository.save(p2);
+            // Seed Appointments idempotently
+            String todayStr = java.time.LocalDate.now().toString();
+            String tomorrowStr = java.time.LocalDate.now().plusDays(1).toString();
 
-                com.medicos.backend.entity.Patient p3 = new com.medicos.backend.entity.Patient();
-                p3.setId("pat-003");
-                p3.setUhid("UHID-001-000003");
-                p3.setHospitalId("hsp-001");
-                p3.setName("Amit Verma");
-                p3.setAge(65);
-                p3.setSex("Male");
-                p3.setPhone("9123456789");
-                p3.setBloodGroup("B+");
-                patientRepository.save(p3);
-            }
+            createAppointmentIfMissing("appt-001", "hsp-001", "pat-c7757203", "usr-doc-001", todayStr, "10:30", 1, "Chest tightness & Cardiac Follow-up", "Checked-In");
+            createAppointmentIfMissing("appt-002", "hsp-001", "pat-002", "usr-doc-001", todayStr, "11:45", 2, "Hypertension Checkup", "Scheduled");
+            createAppointmentIfMissing("appt-003", "hsp-001", "pat-002", "usr-doc-003", todayStr, "11:15", 1, "Post-operative Surgery Follow-up", "Checked-In");
+            createAppointmentIfMissing("appt-004", "hsp-001", "pat-003", "usr-doc-003", todayStr, "12:30", 2, "Abdominal Pain & Surgical Assessment", "Confirmed");
+            createAppointmentIfMissing("appt-005", "hsp-001", "pat-c7757203", "usr-doc-003", tomorrowStr, "10:00", 1, "Post-op Suture Inspection", "Scheduled");
 
-            // Seed Appointments
-            if (appointmentRepository.count() == 0) {
-                String todayStr = java.time.LocalDate.now().toString();
-                String tomorrowStr = java.time.LocalDate.now().plusDays(1).toString();
+            // Seed Beds & Vitals idempotently
+            createBedIfMissing("bed-icu-01", "hsp-001", "ICU-01", "ICU", "101", "ICU Bed", "Occupied", "pat-c7757203", "usr-doc-001");
+            createBedIfMissing("bed-surg-01", "hsp-001", "SURG-102", "Surgery", "201", "General", "Occupied", "pat-002", "usr-doc-003");
 
-                // Appointments for Dr. Ananya Rao (usr-doc-001)
-                com.medicos.backend.entity.Appointment a1 = new com.medicos.backend.entity.Appointment();
-                a1.setId("appt-001");
-                a1.setHospitalId("hsp-001");
-                a1.setPatientId("pat-c7757203");
-                a1.setDoctorId("usr-doc-001");
-                a1.setDate(todayStr);
-                a1.setTime("10:30");
-                a1.setTokenNumber(1);
-                a1.setReason("Chest tightness & Cardiac Follow-up");
-                a1.setStatus("Checked-In");
-                appointmentRepository.save(a1);
-
-                com.medicos.backend.entity.Appointment a2 = new com.medicos.backend.entity.Appointment();
-                a2.setId("appt-002");
-                a2.setHospitalId("hsp-001");
-                a2.setPatientId("pat-002");
-                a2.setDoctorId("usr-doc-001");
-                a2.setDate(todayStr);
-                a2.setTime("11:45");
-                a2.setTokenNumber(2);
-                a2.setReason("Hypertension Checkup");
-                a2.setStatus("Scheduled");
-                appointmentRepository.save(a2);
-
-                // Appointments for Dr. Rajesh Sharma (usr-doc-003)
-                com.medicos.backend.entity.Appointment a3 = new com.medicos.backend.entity.Appointment();
-                a3.setId("appt-003");
-                a3.setHospitalId("hsp-001");
-                a3.setPatientId("pat-002");
-                a3.setDoctorId("usr-doc-003");
-                a3.setDate(todayStr);
-                a3.setTime("11:15");
-                a3.setTokenNumber(1);
-                a3.setReason("Post-operative Surgery Follow-up");
-                a3.setStatus("Checked-In");
-                appointmentRepository.save(a3);
-
-                com.medicos.backend.entity.Appointment a4 = new com.medicos.backend.entity.Appointment();
-                a4.setId("appt-004");
-                a4.setHospitalId("hsp-001");
-                a4.setPatientId("pat-003");
-                a4.setDoctorId("usr-doc-003");
-                a4.setDate(todayStr);
-                a4.setTime("12:30");
-                a4.setTokenNumber(2);
-                a4.setReason("Abdominal Pain & Surgical Assessment");
-                a4.setStatus("Confirmed");
-                appointmentRepository.save(a4);
-
-                com.medicos.backend.entity.Appointment a5 = new com.medicos.backend.entity.Appointment();
-                a5.setId("appt-005");
-                a5.setHospitalId("hsp-001");
-                a5.setPatientId("pat-c7757203");
-                a5.setDoctorId("usr-doc-003");
-                a5.setDate(tomorrowStr);
-                a5.setTime("10:00");
-                a5.setTokenNumber(1);
-                a5.setReason("Post-op Suture Inspection");
-                a5.setStatus("Scheduled");
-                appointmentRepository.save(a5);
-            }
-
-            // Seed Critical Bed & Vitals
-            if (bedRepository.count() == 0) {
-                com.medicos.backend.entity.Bed b1 = new com.medicos.backend.entity.Bed();
-                b1.setId("bed-icu-01");
-                b1.setHospitalId("hsp-001");
-                b1.setBedNumber("ICU-01");
-                b1.setWard("ICU");
-                b1.setRoom("101");
-                b1.setType("ICU Bed");
-                b1.setStatus("Occupied");
-                b1.setPatientId("pat-c7757203");
-                b1.setDoctorId("usr-doc-001");
-                b1.setAdmittedAt(LocalDateTime.now().minusHours(4));
-                bedRepository.save(b1);
-
-                com.medicos.backend.entity.Bed b2 = new com.medicos.backend.entity.Bed();
-                b2.setId("bed-surg-01");
-                b2.setHospitalId("hsp-001");
-                b2.setBedNumber("SURG-102");
-                b2.setWard("Surgery");
-                b2.setRoom("201");
-                b2.setType("General");
-                b2.setStatus("Occupied");
-                b2.setPatientId("pat-002");
-                b2.setDoctorId("usr-doc-003");
-                b2.setAdmittedAt(LocalDateTime.now().minusHours(6));
-                bedRepository.save(b2);
-
-                com.medicos.backend.entity.Vital v1 = new com.medicos.backend.entity.Vital();
-                v1.setId("vit-c7757203");
-                v1.setHospitalId("hsp-001");
-                v1.setPatientId("pat-c7757203");
-                v1.setBpSystolic(155);
-                v1.setBpDiastolic(95);
-                v1.setHeartRate(104);
-                v1.setSpo2(91); // Critical low O2 saturation (<94%)
-                v1.setTemperature(99.8);
-                v1.setRespiratoryRate(22);
-                v1.setBloodSugar(145.0);
-                v1.setRecordedAt(LocalDateTime.now());
-                vitalRepository.save(v1);
-
-                com.medicos.backend.entity.Vital v2 = new com.medicos.backend.entity.Vital();
-                v2.setId("vit-002");
-                v2.setHospitalId("hsp-001");
-                v2.setPatientId("pat-002");
-                v2.setBpSystolic(148);
-                v2.setBpDiastolic(92);
-                v2.setHeartRate(102); // Critical elevated HR
-                v2.setSpo2(93); // Critical low O2 saturation (<94%)
-                v2.setTemperature(100.2);
-                v2.setRespiratoryRate(20);
-                v2.setBloodSugar(110.0);
-                v2.setRecordedAt(LocalDateTime.now());
-                vitalRepository.save(v2);
-            }
+            createVitalIfMissing("vit-c7757203", "hsp-001", "pat-c7757203", 155, 95, 104, 91, 99.8, 22, 145.0);
+            createVitalIfMissing("vit-002", "hsp-001", "pat-002", 148, 92, 102, 93, 100.2, 20, 110.0);
         } catch (Exception e) {
             log.warn("Could not seed clinical data: {}", e.getMessage());
+        }
+    }
+
+    private void createPatientIfMissing(String id, String uhid, String hospitalId, String name, int age, String sex, String phone, String bloodGroup) {
+        if (patientRepository.findById(id).isEmpty() && patientRepository.findByUhid(uhid).isEmpty()) {
+            Patient p = new Patient();
+            p.setId(id);
+            p.setUhid(uhid);
+            p.setHospitalId(hospitalId);
+            p.setName(name);
+            p.setAge(age);
+            p.setSex(sex);
+            p.setPhone(phone);
+            p.setBloodGroup(bloodGroup);
+            p.setIsActive(1);
+            p.setCreatedAt(LocalDateTime.now());
+            p.setUpdatedAt(LocalDateTime.now());
+            patientRepository.save(p);
+        }
+    }
+
+    private void createAppointmentIfMissing(String id, String hospitalId, String patientId, String doctorId, String date, String time, int tokenNumber, String reason, String status) {
+        if (appointmentRepository.findById(id).isEmpty()) {
+            Appointment a = new Appointment();
+            a.setId(id);
+            a.setHospitalId(hospitalId);
+            a.setPatientId(patientId);
+            a.setDoctorId(doctorId);
+            a.setDate(date);
+            a.setTime(time);
+            a.setTokenNumber(tokenNumber);
+            a.setReason(reason);
+            a.setStatus(status);
+            a.setCreatedAt(LocalDateTime.now());
+            a.setUpdatedAt(LocalDateTime.now());
+            appointmentRepository.save(a);
+        }
+    }
+
+    private void createBedIfMissing(String id, String hospitalId, String bedNumber, String ward, String room, String type, String status, String patientId, String doctorId) {
+        if (bedRepository.findById(id).isEmpty()) {
+            Bed b = new Bed();
+            b.setId(id);
+            b.setHospitalId(hospitalId);
+            b.setBedNumber(bedNumber);
+            b.setWard(ward);
+            b.setRoom(room);
+            b.setType(type);
+            b.setStatus(status);
+            b.setPatientId(patientId);
+            b.setDoctorId(doctorId);
+            b.setAdmittedAt(LocalDateTime.now().minusHours(4));
+            bedRepository.save(b);
+        }
+    }
+
+    private void createVitalIfMissing(String id, String hospitalId, String patientId, int sys, int dia, int hr, int spo2, double temp, int rr, double sugar) {
+        if (vitalRepository.findById(id).isEmpty()) {
+            Vital v = new Vital();
+            v.setId(id);
+            v.setHospitalId(hospitalId);
+            v.setPatientId(patientId);
+            v.setBpSystolic(sys);
+            v.setBpDiastolic(dia);
+            v.setHeartRate(hr);
+            v.setSpo2(spo2);
+            v.setTemperature(temp);
+            v.setRespiratoryRate(rr);
+            v.setBloodSugar(sugar);
+            v.setRecordedBy("usr-doc-001");
+            v.setRecordedAt(LocalDateTime.now());
+            vitalRepository.save(v);
         }
     }
 

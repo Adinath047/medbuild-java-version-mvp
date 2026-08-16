@@ -100,7 +100,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
       }
 
       if (billsRes.status === 'fulfilled' && Array.isArray(billsRes.value.data)) {
-        setPendingBills(billsRes.value.data.filter((b: any) => b.payment_status === 'Pending' || b.payment_status === 'Partial'));
+        setPendingBills(billsRes.value.data);
       }
     } catch (err) {
       console.error('Error loading reception data:', err);
@@ -115,7 +115,47 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /> Loading Reception Dashboard...</div>;
 
-  const totalOutstanding = pendingBills.reduce((acc, b) => acc + ((Number(b.net_amount) || 0) - (Number(b.paid_amount) || 0)), 0);
+  const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getTodayDateString();
+
+  // 1. Appointments scheduled for today
+  const todayAppointments = appointments.filter((a: any) => {
+    if (!a || !a.date) return false;
+    return String(a.date).trim().startsWith(todayStr);
+  });
+
+  // 2. Active today appointments (excluding cancelled)
+  const activeTodayAppointments = todayAppointments.filter((a: any) => {
+    const s = (a.status || '').toLowerCase();
+    return s !== 'cancelled';
+  });
+
+  // 3. Patients checked in today (waiting in queue)
+  const checkedInTodayAppointments = todayAppointments.filter((a: any) => {
+    const s = (a.status || '').toLowerCase();
+    return s === 'checked-in' || s === 'checked_in';
+  });
+
+  // 4. Truly unpaid bills (where net > paid and status is not Paid or Cancelled)
+  const trulyUnpaidBills = pendingBills.filter((b: any) => {
+    const net = Number(b.net_amount ?? b.netAmount ?? b.total_amount ?? b.totalAmount ?? 0);
+    const paid = Number(b.paid_amount ?? b.paidAmount ?? 0);
+    const status = (b.payment_status || '').toLowerCase().trim();
+    return status !== 'paid' && status !== 'cancelled' && (net - paid) > 0;
+  });
+
+  const totalOutstanding = trulyUnpaidBills.reduce((acc, b) => {
+    const net = Number(b.net_amount ?? b.netAmount ?? b.total_amount ?? b.totalAmount ?? 0);
+    const paid = Number(b.paid_amount ?? b.paidAmount ?? 0);
+    return acc + Math.max(0, net - paid);
+  }, 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '4px 0' }}>
@@ -217,7 +257,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Today's Appointments</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{appointments.length}</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{activeTodayAppointments.length}</div>
             <div style={{ fontSize: 11, color: '#d97706', marginTop: 6, fontWeight: 600 }}>Scheduled today ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -253,7 +293,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Patients in Queue</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{appointments.filter(a => a.status === 'Checked-In').length}</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{checkedInTodayAppointments.length}</div>
             <div style={{ fontSize: 11, color: 'var(--info)', marginTop: 6, fontWeight: 600 }}>Scroll to queue ↓</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--info-bg)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -327,7 +367,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
         >
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Unpaid Bills</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{pendingBills.length}</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', marginTop: 8, lineHeight: 1 }}>{trulyUnpaidBills.length}</div>
             <div style={{ fontSize: 11, color: '#db2777', marginTop: 6, fontWeight: 600 }}>₹{Math.round(totalOutstanding).toLocaleString('en-IN')} due ➔</div>
           </div>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fdf2f8', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -469,7 +509,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
           <div>
             <h3 className="card-title" style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Today's Patient Appointments</h3>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              {appointments.length} scheduled · {appointments.filter(a => a.status === 'Checked-In').length} checked in
+              {activeTodayAppointments.length} scheduled · {checkedInTodayAppointments.length} checked in
             </div>
           </div>
           <button 
@@ -482,7 +522,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
           </button>
         </div>
         <div className="card-body" style={{ padding: 0 }}>
-          {appointments.length === 0 ? (
+          {activeTodayAppointments.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 24px' }}>
               <div className="empty-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -503,7 +543,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
                   </tr>
                 </thead>
                 <tbody>
-                  {appointments.map(a => {
+                  {activeTodayAppointments.map(a => {
                     const p = patientsMap[a.patient_id];
                     return (
                       <tr 

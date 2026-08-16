@@ -21,22 +21,43 @@ public class BillingService {
         this.billingRepository = billingRepository;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Billing> getBills(String patientId) {
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
         boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
 
+        List<Billing> list;
         if (patientId != null && !patientId.isEmpty()) {
-            List<Billing> list = billingRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
-            if (isTenantScoped) {
-                return list.stream().filter(b -> hospitalId.equals(b.getHospitalId())).toList();
-            }
-            return list;
+            List<Billing> raw = billingRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+            list = isTenantScoped ? raw.stream().filter(b -> hospitalId.equals(b.getHospitalId())).toList() : raw;
         } else if (isTenantScoped) {
-            return billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
+            list = billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId);
         } else {
-            return billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+            list = billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
         }
+        return sanitizeBills(list);
+    }
+
+    private List<Billing> sanitizeBills(List<Billing> list) {
+        if (list == null || list.isEmpty()) return list;
+        List<Billing> toSave = new ArrayList<>();
+        for (Billing b : list) {
+            double net = b.getNetAmount() != null ? b.getNetAmount() : (b.getTotalAmount() != null ? b.getTotalAmount() : 0.0);
+            double paid = b.getPaidAmount() != null ? b.getPaidAmount() : 0.0;
+            String currentStatus = b.getPaymentStatus() != null ? b.getPaymentStatus().trim() : "";
+
+            if (paid >= net && !"Paid".equalsIgnoreCase(currentStatus)) {
+                b.setPaymentStatus("Paid");
+                toSave.add(b);
+            } else if (paid > 0 && paid < net && !"Partial".equalsIgnoreCase(currentStatus)) {
+                b.setPaymentStatus("Partial");
+                toSave.add(b);
+            }
+        }
+        if (!toSave.isEmpty()) {
+            billingRepository.saveAll(toSave);
+        }
+        return list;
     }
 
     @Transactional
@@ -73,14 +94,12 @@ public class BillingService {
         bill.setNetAmount(net);
         bill.setPaidAmount(paid);
 
-        if (bill.getPaymentStatus() == null || bill.getPaymentStatus().isEmpty()) {
-            if (paid >= net && net > 0) {
-                bill.setPaymentStatus("Paid");
-            } else if (paid > 0) {
-                bill.setPaymentStatus("Partial");
-            } else {
-                bill.setPaymentStatus("Pending");
-            }
+        if (paid >= net) {
+            bill.setPaymentStatus("Paid");
+        } else if (paid > 0) {
+            bill.setPaymentStatus("Partial");
+        } else {
+            bill.setPaymentStatus("Pending");
         }
 
         return billingRepository.save(bill);
@@ -105,9 +124,9 @@ public class BillingService {
                     throw new BadRequestException("Paid amount cannot be negative.");
                 }
                 bill.setPaidAmount(paid);
-                double net = bill.getNetAmount() != null ? bill.getNetAmount() : 0.0;
+                double net = bill.getNetAmount() != null ? bill.getNetAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0);
 
-                if (paid >= net && net > 0) {
+                if (paid >= net) {
                     bill.setPaymentStatus("Paid");
                 } else if (paid > 0) {
                     bill.setPaymentStatus("Partial");

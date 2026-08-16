@@ -35,6 +35,17 @@ export default defineConfig({
   build: {
     outDir: '../src/main/resources/static',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-db': ['dexie'],
+          'vendor-pdf': ['jspdf', 'html2canvas', 'dompurify'],
+          'vendor-utils': ['axios', 'zustand'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

@@ -121,7 +121,10 @@ public class AuthService {
         User authenticatedUser = Optional.ofNullable(user)
                 .orElseThrow(() -> new UnauthorizedException("Not authenticated."));
 
-        return mapToDTO(authenticatedUser);
+        User freshUser = userRepository.findById(authenticatedUser.getId())
+                .orElse(authenticatedUser);
+
+        return mapToDTO(freshUser);
     }
 
     @Transactional
