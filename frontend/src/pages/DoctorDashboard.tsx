@@ -4,6 +4,8 @@ import { db } from '../db/localDB';
 import { useAuthStore } from '../store/authStore';
 import { useSync } from '../sync/useSync';
 
+import { getLocalDateStr } from '../utils/dateUtils';
+
 interface DoctorDashboardProps {
   onNavigate: (page: string, data?: any) => void;
 }
@@ -58,10 +60,24 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
 
   const loadData = useCallback(async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateStr();
       const nowHourMin = new Date().toLocaleTimeString('en-IN', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
-      // 1. Load Beds to calculate myBeds and critical patients list
+      // 1. Load Total Registered Patients
+      let patientList: any[] = [];
+      try {
+        const r = await apiClient.get('/patients', { params: { limit: 1000 } });
+        patientList = Array.isArray(r.data) ? r.data : (r.data?.patients || []);
+      } catch {
+        patientList = await db.patients.toArray();
+      }
+      const totalRegisteredPatients = patientList.length;
+      const patientMap: Record<string, any> = {};
+      patientList.forEach((p: any) => {
+        if (p?.id) patientMap[p.id] = p;
+      });
+
+      // 2. Load Beds to calculate ward occupancy and critical/ICU patients
       let bedsList: any[] = [];
       try {
         const r = await apiClient.get('/beds');
@@ -70,11 +86,14 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         bedsList = [];
       }
 
-      // Filter beds belonging to this doctor (only occupied beds assigned to this doctor or department)
-      const myDocBeds = bedsList.filter((b: any) => {
+      // Filter all occupied beds in the hospital
+      const occupiedBeds = bedsList.filter((b: any) => {
         if (!b) return false;
-        const st = (b.status || '').toLowerCase();
-        if (st !== 'occupied') return false;
+        return (b.status || '').toLowerCase() === 'occupied';
+      });
+
+      // Filter beds explicitly assigned to this doctor
+      const myDocBeds = occupiedBeds.filter((b: any) => {
         const docId = b.doctorId || b.doctor_id;
         const docName = b.doctorName || b.doctor_name;
         if (docId && user?.id && docId === user.id) return true;
@@ -83,30 +102,52 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         return false;
       });
 
-      // Identify critical patients under this doctor
-      const criticals = myDocBeds.filter((b: any) => {
-        if (!b.vitals) return false;
-        const v = b.vitals;
-        const sys = v.bp_systolic || v.bpSystolic;
-        const hr = v.heart_rate || v.heartRate;
-        const o2 = v.spo2 || v.spO2;
-        const temp = v.temperature;
-        return (
-          (o2 && o2 < 94) || 
-          (hr && (hr > 100 || hr < 60)) || 
-          (sys && (sys > 140 || sys < 90)) ||
-          (temp && (temp > 99.5 || temp < 96.0))
-        );
+      // Identify critical / ICU patients:
+      // Any occupied ICU bed OR any occupied bed with critical vitals
+      const criticals = occupiedBeds.filter((b: any) => {
+        const ward = (b.ward || '').toLowerCase();
+        const type = (b.type || '').toLowerCase();
+        const isIcu = ward.includes('icu') || type.includes('icu');
+        if (isIcu) return true; // All occupied ICU beds require intensive care monitoring
+
+        if (b.vitals) {
+          const v = b.vitals;
+          const sys = v.bp_systolic || v.bpSystolic;
+          const hr = v.heart_rate || v.heartRate;
+          const o2 = v.spo2 || v.spO2;
+          const temp = v.temperature;
+          if (
+            (o2 && o2 < 94) || 
+            (hr && (hr > 100 || hr < 60)) || 
+            (sys && (sys > 140 || sys < 90)) ||
+            (temp && (temp > 99.5 || temp < 96.0))
+          ) {
+            return true;
+          }
+        }
+        return false;
       });
 
-      // 2. Load Appointments to calculate today's appointments for this doctor
-      let apptsList: any[] = [];
+      // 3. Load Appointments for Today's Appointments for this doctor
+      let rawApptsList: any[] = [];
       try {
         const r = await apiClient.get('/appointments');
-        apptsList = Array.isArray(r.data) ? r.data : (r.data?.appointments || []);
+        rawApptsList = Array.isArray(r.data) ? r.data : (r.data?.appointments || []);
       } catch {
-        apptsList = await db.appointments.toArray();
+        rawApptsList = await db.appointments.toArray();
       }
+
+      // Enrich appointments with resolved patient names from the patient map
+      const apptsList = rawApptsList.map((a: any) => {
+        const pId = a.patientId || a.patient_id;
+        const pat = patientMap[pId];
+        return {
+          ...a,
+          patient_name: a.patient_name || a.patientName || pat?.name || 'Registered Patient',
+          patient_uhid: a.patient_uhid || a.patientUhid || pat?.uhid || '—',
+          patient_photo: a.patient_photo || a.patientPhoto || pat?.photo_url || pat?.photoUrl,
+        };
+      });
 
       const isMyDoctorAppt = (a: any) => {
         if (!a) return false;
@@ -136,17 +177,11 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         return false;
       }).sort((a: any, b: any) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
 
-      // Compute stats
-      const uniquePatients = new Set([
-        ...myDocBeds.map((b: any) => b.patientId || b.patient_id).filter(Boolean),
-        ...myAppts.map((a: any) => a.patientId || a.patient_id).filter(Boolean)
-      ]);
-
       setStats({
-        myPatients: uniquePatients.size,
+        myPatients: totalRegisteredPatients,
         critical: criticals.length,
         todayAppts: myAppts.length,
-        myBeds: myDocBeds.length
+        myBeds: occupiedBeds.length
       });
 
       setTodaysAppts(myAppts);
@@ -191,12 +226,22 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
     );
   }
 
-  const displayedCritical = criticalList.map(c => ({
-    name: c.patientName || c.patient_name || 'Admitted Patient',
-    uhid: c.patientUhid || c.uhid || c.patient_uhid || '—',
-    ageSex: `${c.patientAge || c.patient_age || '—'}/${c.patientSex || c.patient_sex || '—'}`,
-    id: c.patientId || c.patient_id || c.id
-  }));
+  const displayedCritical = criticalList.map(c => {
+    const loc = [
+      c.ward ? c.ward : '',
+      c.room ? `Room ${c.room}` : '',
+      (c.bedNumber || c.bed_number) ? `Bed ${c.bedNumber || c.bed_number}` : ''
+    ].filter(Boolean).join(' · ');
+
+    return {
+      name: c.patientName || c.patient_name || 'Admitted Patient',
+      uhid: c.patientUhid || c.uhid || c.patient_uhid || '—',
+      ageSex: `${c.patientAge || c.patient_age || '—'}/${c.patientSex || c.patient_sex || '—'}`,
+      id: c.patientId || c.patient_id || c.id,
+      location: loc || 'ICU Ward',
+      vitals: c.vitals
+    };
+  });
 
   const displayedQueue = todaysAppts;
   const displayedUpcoming = upcomingList.slice(0, 3);
@@ -525,7 +570,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)' }}>{p.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{p.uhid} · {p.ageSex}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{p.uhid} · {p.location || p.ageSex}</div>
                     </div>
                   </div>
                   <div style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 16 }}>➔</div>

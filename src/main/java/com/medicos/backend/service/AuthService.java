@@ -36,6 +36,9 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final TenantSessionBinder tenantSessionBinder;
 
+    @org.springframework.beans.factory.annotation.Value("${jwt.cookie-secure:false}")
+    private boolean cookieSecure;
+
     public AuthService(UserRepository userRepository, HospitalRepository hospitalRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider, TenantSessionBinder tenantSessionBinder) {
         this.userRepository = userRepository;
         this.hospitalRepository = hospitalRepository;
@@ -100,7 +103,7 @@ public class AuthService {
         // Set Access Token Cookie (15 mins = 900 seconds)
         ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", accessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(900)
                 .sameSite("Lax")
@@ -110,7 +113,7 @@ public class AuthService {
         // Set Refresh Token Cookie (7 days = 604,800 seconds, HttpOnly, scoped to /api/auth)
         ResponseCookie refreshTokenCookie = ResponseCookie.from("emr_refresh_token", refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/api/auth")
                 .maxAge(604800)
                 .sameSite("Lax")
@@ -119,7 +122,7 @@ public class AuthService {
 
         ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", UUID.randomUUID().toString())
                 .httpOnly(false) // must be false so the React client can read it
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(604800)
                 .sameSite("Lax")
@@ -186,7 +189,7 @@ public class AuthService {
 
         ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", newAccessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(900)
                 .sameSite("Lax")
@@ -195,7 +198,7 @@ public class AuthService {
 
         ResponseCookie newRefreshCookie = ResponseCookie.from("emr_refresh_token", newRefreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/api/auth")
                 .maxAge(604800)
                 .sameSite("Lax")
@@ -289,7 +292,7 @@ public class AuthService {
 
         ResponseCookie cookie = ResponseCookie.from("emr_token", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
                 .sameSite("Lax")
@@ -298,7 +301,7 @@ public class AuthService {
 
         ResponseCookie refreshCookie = ResponseCookie.from("emr_refresh_token", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/api/auth")
                 .maxAge(0)
                 .sameSite("Lax")
@@ -307,7 +310,7 @@ public class AuthService {
 
         ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", "")
                 .httpOnly(false)
-                .secure(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
                 .sameSite("Lax")

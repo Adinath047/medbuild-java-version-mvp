@@ -8,10 +8,12 @@ import { validatePhone, validateRequired, isValidPhone, extractServerError } fro
 import { useSync } from '../sync/useSync';
 import { triggerSyncBroadcast } from '../sync/syncManager';
 
+import { getLocalDateStr } from '../utils/dateUtils';
+
 const STATUS_FLOW: Record<string,string> = { 'Scheduled':'Confirmed','Confirmed':'Checked-In','Checked-In':'Completed' };
 const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirmed':'badge-success','Checked-In':'badge-purple','Completed':'badge-neutral','Cancelled':'badge-danger','No-Show':'badge-warning','Pending':'badge-warning' };
 
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() { return getLocalDateStr(); }
 
 export function isApptExpiredWithoutCheckIn(appt: any): boolean {
   if (!appt) return false;
@@ -64,6 +66,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [newPatient, setNewPatient] = useState<{name:string; phone:string; sex:'Male'|'Female'|'Other'}>({ name: '', phone: '', sex: 'Male' });
   const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bookError, setBookError] = useState('');
   const set = (k:string, v:string) => setForm(f=>({...f,[k]:v}));
@@ -160,6 +163,10 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
     }
     if (!form.doctor_id) { setBookError('Please select a doctor.'); return; }
     if (!form.date)      { setBookError('Date is required.'); return; }
+    if (form.date < today()) {
+      setBookError('Cannot book an appointment for a past date. Please select today or a future date.');
+      return;
+    }
     if (!form.time)      { setBookError('Time is required.'); return; }
     // Prevent booking more than 1 year ahead
     const apptDate = new Date(form.date);
@@ -273,13 +280,112 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                 </div>
                 
                 {!isNewPatient ? (
-                  <div className="form-group">
-                    <label className="form-label">Search Patient (Name, Phone, UHID) *</label>
-                    <input className="input" placeholder="Search..." value={patientSearch} onChange={e=>setPatientSearch(e.target.value)} style={{marginBottom:8}} />
-                    <select className="input" value={form.patient_id} onChange={e=>set('patient_id',e.target.value)} required>
-                      <option value="">— Select Patient —</option>
-                      {filteredPatients.map(p=><option key={p.id} value={p.id}>{p.name} - {p.phone||'No Phone'} ({p.uhid})</option>)}
-                    </select>
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <label className="form-label" style={{ fontWeight: 700, color: 'var(--text)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Search & Select Patient *</span>
+                      {patients.find(p => p.id === form.patient_id) && (
+                        <span style={{ fontSize: 11.5, color: 'var(--primary)', fontWeight: 600 }}>
+                          Selected: {patients.find(p => p.id === form.patient_id)?.name}
+                        </span>
+                      )}
+                    </label>
+
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="input"
+                        placeholder="Type letters to search patient by name, UHID, or phone..."
+                        value={patientSearch}
+                        onChange={e => {
+                          setPatientSearch(e.target.value);
+                          setShowPatientDropdown(true);
+                        }}
+                        onFocus={() => setShowPatientDropdown(true)}
+                        style={{ paddingLeft: 34, paddingRight: form.patient_id ? 70 : 12, borderRadius: 8, height: 40, fontSize: 13.5 }}
+                        required={!form.patient_id}
+                      />
+                      <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      </div>
+                      {form.patient_id && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            set('patient_id', '');
+                            setPatientSearch('');
+                            setShowPatientDropdown(true);
+                          }}
+                          style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', color: 'var(--danger)', padding: '2px 8px', fontSize: 11, fontWeight: 600 }}
+                        >
+                          Change
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Autocomplete Dropdown List */}
+                    {showPatientDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: 4,
+                        background: '#ffffff',
+                        border: '1px solid var(--border)',
+                        borderRadius: 10,
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                        zIndex: 1050,
+                      }}>
+                        {filteredPatients.length === 0 ? (
+                          <div style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+                            No patients found matching "{patientSearch}".
+                          </div>
+                        ) : (
+                          filteredPatients.slice(0, 15).map(p => (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                set('patient_id', p.id);
+                                setPatientSearch(`${p.name} (${p.uhid || 'No UHID'})`);
+                                setShowPatientDropdown(false);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '10px 14px',
+                                borderBottom: '1px solid var(--border-light)',
+                                cursor: 'pointer',
+                                background: p.id === form.patient_id ? '#f0fdfa' : '#ffffff',
+                                transition: 'background 0.12s'
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                              onMouseLeave={e => (e.currentTarget.style.background = p.id === form.patient_id ? '#f0fdfa' : '#ffffff')}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{
+                                  width: 32, height: 32, borderRadius: '50%',
+                                  background: '#ccfbf1', color: '#0f766e',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: 13, fontWeight: 700, flexShrink: 0
+                                }}>
+                                  {p.name ? p.name.trim().charAt(0).toUpperCase() : 'P'}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{p.name}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                    {p.phone ? `Phone: ${p.phone} • ` : ''}{p.age ? `${p.age}y / ${p.sex || 'M'}` : (p.sex || '')} • UHID: {p.uhid || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>Select</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12, marginBottom:12}}>
@@ -299,7 +405,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                   </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                  <div className="form-group"><label className="form-label">Date</label><input className="input" type="date" value={form.date} onChange={e=>set('date',e.target.value)} required /></div>
+                  <div className="form-group"><label className="form-label">Date</label><input className="input" type="date" min={today()} value={form.date} onChange={e=>set('date',e.target.value)} required /></div>
                   <div className="form-group"><label className="form-label">Time</label><input className="input" type="time" value={form.time} onChange={e=>set('time',e.target.value)} required /></div>
                 </div>
                 <div className="form-group"><label className="form-label">Reason</label><input className="input" placeholder="Reason for visit" value={form.reason} onChange={e=>set('reason',e.target.value)} /></div>

@@ -32,6 +32,23 @@ public class AppointmentService {
         this.patientRepository = patientRepository;
     }
 
+    private void populateAppointmentDetails(Appointment a) {
+        if (a == null) return;
+        if (a.getPatientId() != null && !a.getPatientId().isEmpty()) {
+            patientRepository.findById(a.getPatientId()).ifPresent(p -> {
+                a.setPatientName(p.getName());
+                a.setPatientUhid(p.getUhid());
+                a.setPatientPhoto(p.getPhotoUrl());
+            });
+        }
+        if (a.getDoctorId() != null && !a.getDoctorId().isEmpty()) {
+            userRepository.findById(a.getDoctorId()).ifPresent(d -> {
+                a.setDoctorName(d.getName());
+                a.setSpecialization(d.getSpecialization());
+            });
+        }
+    }
+
     @Transactional
     public List<Appointment> getAppointments(String patientId, String doctorId, String date) {
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
@@ -55,7 +72,9 @@ public class AppointmentService {
                     ? appointmentRepository.findByHospitalIdOrderByDateDesc(hospitalId)
                     : appointmentRepository.findAll();
         }
-        return processExpiredAppointments(list);
+        List<Appointment> processed = processExpiredAppointments(list);
+        processed.forEach(this::populateAppointmentDetails);
+        return processed;
     }
 
     @Transactional
@@ -68,7 +87,9 @@ public class AppointmentService {
         } else {
             list = appointmentRepository.findByDate(todayStr);
         }
-        return processExpiredAppointments(list);
+        List<Appointment> processed = processExpiredAppointments(list);
+        processed.forEach(this::populateAppointmentDetails);
+        return processed;
     }
 
     /**
@@ -148,6 +169,20 @@ public class AppointmentService {
                 .filter(d -> !d.isEmpty())
                 .orElseThrow(() -> new BadRequestException("date is required."));
 
+        // Reject booking for past dates
+        try {
+            String dateStr = appt.getDate().trim();
+            if (dateStr.length() >= 10) {
+                LocalDate apptDate = LocalDate.parse(dateStr.substring(0, 10));
+                LocalDate today = LocalDate.now();
+                if (apptDate.isBefore(today)) {
+                    throw new BadRequestException("Cannot book an appointment for a past date (" + dateStr + "). Please select today or a future date.");
+                }
+            }
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new BadRequestException("Invalid date format: " + appt.getDate() + ". Expected YYYY-MM-DD.");
+        }
+
         Optional.ofNullable(appt.getTime())
                 .filter(t -> !t.isEmpty())
                 .orElseThrow(() -> new BadRequestException("time is required."));
@@ -204,7 +239,9 @@ public class AppointmentService {
         if (appt.getCreatedAt() == null) appt.setCreatedAt(LocalDateTime.now());
         if (appt.getUpdatedAt() == null) appt.setUpdatedAt(LocalDateTime.now());
 
-        return appointmentRepository.save(appt);
+        Appointment saved = appointmentRepository.save(appt);
+        populateAppointmentDetails(saved);
+        return saved;
     }
 
     @CacheEvict(value = {"appointments", "today_appointments"}, allEntries = true)

@@ -63,9 +63,7 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 .ignoringRequestMatchers(
-                    "/api/auth/login",
-                    "/api/auth/logout",
-                    "/api/auth/register",
+                    "/api/auth/**",
                     "/api/trial/signup",
                     "/api/super-admin/unlock",
                     "/api/mobile/**"

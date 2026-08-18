@@ -1,6 +1,7 @@
 // client/src/utils/printTemplates.ts
 // Shared print helpers — open a styled popup window and trigger browser print
 import { useAuthStore } from '../store/authStore';
+import { jsPDF } from 'jspdf';
 
 const BRAND = {
   name:    'Medicos Hospital',
@@ -881,3 +882,393 @@ export function printPharmacyBill(opts: {
 </div>
 </body></html>`);
 }
+
+// ───────────────────────────────────────────────────────────────
+// VECTOR PDF INVOICE DOWNLOAD (A4)
+// ───────────────────────────────────────────────────────────────
+export function downloadInvoicePDF(opts: {
+  invoice: {
+    id: string;
+    invoice_number?: string;
+    created_at: string;
+    bill_type?: string;
+    payment_mode: string;
+    payment_status: string;
+    gross_amount?: number;
+    total_amount?: number;
+    discount?: number;
+    tax?: number;
+    net_amount: number;
+    paid_amount: number;
+    balance_due?: number;
+    notes?: string;
+    doctor_name?: string;
+    payment_history?: Array<{
+      id?: string;
+      date?: string;
+      amount?: number;
+      payment_mode?: string;
+      received_by?: string;
+      notes?: string;
+    }>;
+  };
+  patient: {
+    name: string;
+    uhid?: string;
+    phone?: string;
+  };
+  items: Array<{
+    category?: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    amount?: number;
+  }>;
+  billedBy?: string;
+  notes?: string;
+}) {
+  const { invoice, patient, items, billedBy, notes } = opts;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const invoiceNo = invoice.invoice_number || `INV-${invoice.id.slice(0, 8).toUpperCase()}`;
+  const dateStr = new Date(invoice.created_at || Date.now()).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const grossTotal = invoice.gross_amount ?? invoice.total_amount ?? items.reduce((s, i) => s + (i.quantity * i.unit_price), 0);
+  const discount = invoice.discount || 0;
+  const tax = invoice.tax || 0;
+  const netAmount = invoice.net_amount ?? (grossTotal - discount + tax);
+  const paidAmount = invoice.paid_amount || 0;
+  const balanceDue = invoice.balance_due ?? Math.max(0, netAmount - paidAmount);
+
+  // Header Banner
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 26, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(BRAND.name.toUpperCase(), 14, 12);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(203, 213, 225);
+  doc.text(`${BRAND.address}  |  ${BRAND.phone}`, 14, 18);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text('TAX INVOICE', 196, 12, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`# ${invoiceNo}`, 196, 18, { align: 'right' });
+
+  // Invoice & Patient Metadata Box
+  let y = 33;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(14, y, 182, 28, 2, 2, 'FD');
+
+  // Left column: Patient
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('BILLED TO (PATIENT)', 18, y + 6);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text(patient.name || 'Patient', 18, y + 13);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`UHID: ${patient.uhid || '—'}   |   Phone: ${patient.phone || '—'}`, 18, y + 19);
+  if (invoice.doctor_name) {
+    doc.text(`Doctor: Dr. ${invoice.doctor_name.replace(/^Dr\.\s*/i, '')}`, 18, y + 24);
+  }
+
+  // Right column: Invoice meta
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('INVOICE DETAILS', 120, y + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Date: ${dateStr}`, 120, y + 12);
+  doc.text(`Type: ${invoice.bill_type === 'bed_stay' ? 'IPD Bed Stay' : (invoice.bill_type === 'pharmacy' ? 'Pharmacy' : 'OPD Services')}`, 120, y + 17);
+  doc.text(`Payment Mode: ${invoice.payment_mode || 'Cash'}`, 120, y + 22);
+
+  const statusColor = invoice.payment_status === 'Paid' ? [16, 185, 129] : (invoice.payment_status === 'Partial' ? [245, 158, 11] : [239, 68, 68]);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+  doc.text(`Status: ${invoice.payment_status.toUpperCase()}`, 120, y + 27);
+
+  // Items Table Header
+  y += 34;
+  doc.setFillColor(30, 41, 59);
+  doc.rect(14, y, 182, 8, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text('#', 18, y + 5.5);
+  doc.text('CATEGORY / SERVICE DESCRIPTION', 30, y + 5.5);
+  doc.text('QTY', 128, y + 5.5, { align: 'center' });
+  doc.text('RATE (INR)', 155, y + 5.5, { align: 'right' });
+  doc.text('AMOUNT (INR)', 192, y + 5.5, { align: 'right' });
+
+  // Table Rows
+  y += 8;
+  const safeItems = items && items.length > 0 ? items : [
+    { category: 'Services', description: invoice.notes || 'Hospital Consultation & Medical Care', quantity: 1, unit_price: netAmount, amount: netAmount }
+  ];
+
+  safeItems.forEach((item, idx) => {
+    const isEven = idx % 2 === 0;
+    if (isEven) {
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y, 182, 8, 'F');
+    }
+    doc.setDrawColor(241, 245, 249);
+    doc.line(14, y + 8, 196, y + 8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(String(idx + 1), 18, y + 5.5);
+
+    doc.setTextColor(15, 23, 42);
+    const desc = item.description || 'Hospital Service';
+    const truncatedDesc = desc.length > 46 ? desc.slice(0, 46) + '...' : desc;
+    doc.text(truncatedDesc, 30, y + 5.5);
+
+    doc.setTextColor(71, 85, 105);
+    doc.text(String(item.quantity || 1), 128, y + 5.5, { align: 'center' });
+    doc.text(Number(item.unit_price || 0).toFixed(2), 155, y + 5.5, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    const lineAmt = (item.amount ?? ((Number(item.quantity) || 1) * (Number(item.unit_price) || 0)));
+    doc.text(Number(lineAmt).toFixed(2), 192, y + 5.5, { align: 'right' });
+
+    y += 8;
+  });
+
+  // Financial Summary Box
+  y += 4;
+  const sumBoxX = 114;
+  const sumBoxW = 82;
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(sumBoxX, y, sumBoxW, 36, 1.5, 1.5, 'FD');
+
+  let sy = y + 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Gross Subtotal:', sumBoxX + 4, sy);
+  doc.text(`INR ${Number(grossTotal).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
+
+  if (discount > 0) {
+    sy += 5.5;
+    doc.setTextColor(16, 185, 129);
+    doc.text('Discount:', sumBoxX + 4, sy);
+    doc.text(`- INR ${Number(discount).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
+  }
+
+  if (tax > 0) {
+    sy += 5.5;
+    doc.setTextColor(71, 85, 105);
+    doc.text('Tax / GST:', sumBoxX + 4, sy);
+    doc.text(`+ INR ${Number(tax).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
+  }
+
+  sy += 6;
+  doc.setFillColor(15, 23, 42);
+  doc.rect(sumBoxX, sy - 4, sumBoxW, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Net Total Payable:', sumBoxX + 4, sy + 1);
+  doc.text(`INR ${Number(netAmount).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy + 1, { align: 'right' });
+
+  sy += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(16, 185, 129);
+  doc.text('Amount Paid:', sumBoxX + 4, sy);
+  doc.text(`INR ${Number(paidAmount).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
+
+  if (balanceDue > 0) {
+    sy += 5.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(239, 68, 68);
+    doc.text('Outstanding Balance:', sumBoxX + 4, sy);
+    doc.text(`INR ${Number(balanceDue).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
+  }
+
+  // Notes & Remarks
+  const notesText = notes || invoice.notes;
+  if (notesText) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('NOTES & REMARKS:', 14, y + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    const splitNotes = doc.splitTextToSize(notesText, 92);
+    doc.text(splitNotes, 14, y + 11);
+  }
+
+  // Payment History / Installments Table if present
+  if (Array.isArray(invoice.payment_history) && invoice.payment_history.length > 1) {
+    y = Math.max(y + 44, sy + 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('PAYMENT SETTLEMENT AUDIT TRAIL', 14, y);
+
+    y += 4;
+    doc.setFillColor(241, 245, 249);
+    doc.rect(14, y, 182, 6, 'F');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Date & Time', 18, y + 4.2);
+    doc.text('Amount', 75, y + 4.2);
+    doc.text('Mode', 110, y + 4.2);
+    doc.text('Received By', 145, y + 4.2);
+
+    y += 6;
+    invoice.payment_history.forEach(txn => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      const tDate = txn.date ? new Date(txn.date).toLocaleString('en-IN') : '—';
+      doc.text(tDate, 18, y + 4);
+      doc.text(`INR ${txn.amount}`, 75, y + 4);
+      doc.text(txn.payment_mode || 'Cash', 110, y + 4);
+      doc.text(txn.received_by || 'Cashier', 145, y + 4);
+      y += 5;
+    });
+  }
+
+  // Footer & Signature
+  const footerY = 270;
+  doc.setDrawColor(203, 213, 225);
+  doc.line(14, footerY, 196, footerY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`This is a computer-generated official tax invoice from ${BRAND.name}. Powered by Rotstruck Pvt Ltd.`, 14, footerY + 6);
+  if (billedBy) {
+    doc.text(`Prepared By: ${billedBy}`, 14, footerY + 11);
+  }
+
+  doc.line(150, footerY + 14, 196, footerY + 14);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Authorised Signatory', 173, footerY + 18, { align: 'center' });
+
+  // Save the document to client filesystem
+  const filename = `Invoice_${invoiceNo}.pdf`;
+  doc.save(filename);
+}
+
+// ───────────────────────────────────────────────────────────────
+// CSV BILLING REPORT EXPORT
+// ───────────────────────────────────────────────────────────────
+export function exportBillingToCSV(bills: any[], patients: any[] = []) {
+  if (!bills || bills.length === 0) {
+    alert('No billing records available to export.');
+    return;
+  }
+
+  const pMap = new Map<string, any>();
+  patients.forEach(p => pMap.set(p.id, p));
+
+  const headers = [
+    'Invoice Number',
+    'Date',
+    'Patient Name',
+    'UHID',
+    'Phone',
+    'Doctor Name',
+    'Bill Type',
+    'Gross Subtotal (INR)',
+    'Discount (INR)',
+    'Tax (INR)',
+    'Net Amount (INR)',
+    'Paid Amount (INR)',
+    'Balance Due (INR)',
+    'Payment Mode',
+    'Payment Status',
+    'Particulars / Notes',
+    'Billed By'
+  ];
+
+  const escapeCSV = (str: any) => {
+    if (str == null) return '""';
+    const s = String(str).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = bills.map(b => {
+    const pat = pMap.get(b.patient_id);
+    const pName = b.patient_name || pat?.name || 'Patient';
+    const uhid = b.uhid || pat?.uhid || '—';
+    const phone = b.patient_phone || pat?.phone || '—';
+    const docName = b.doctor_name || '—';
+    const date = b.created_at ? new Date(b.created_at).toISOString().split('T')[0] : '';
+    const gross = b.gross_amount ?? b.total_amount ?? b.net_amount ?? 0;
+    const disc = b.discount ?? 0;
+    const tax = b.tax ?? 0;
+    const net = b.net_amount ?? 0;
+    const paid = b.paid_amount ?? 0;
+    const due = b.balance_due ?? Math.max(0, net - paid);
+
+    return [
+      escapeCSV(b.invoice_number || b.id),
+      escapeCSV(date),
+      escapeCSV(pName),
+      escapeCSV(uhid),
+      escapeCSV(phone),
+      escapeCSV(docName),
+      escapeCSV(b.bill_type || 'OPD'),
+      gross,
+      disc,
+      tax,
+      net,
+      paid,
+      due,
+      escapeCSV(b.payment_mode || 'Cash'),
+      escapeCSV(b.payment_status || 'Pending'),
+      escapeCSV(b.notes || ''),
+      escapeCSV(b.billed_by || '')
+    ].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  const dateStr = new Date().toISOString().split('T')[0];
+  link.setAttribute('download', `Medicos_Hospital_Billing_Report_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+

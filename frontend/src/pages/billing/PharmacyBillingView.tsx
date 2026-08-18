@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
-import { printInvoice } from '../../utils/printTemplates';
+import { printInvoice, downloadInvoicePDF, exportBillingToCSV } from '../../utils/printTemplates';
 
 export default function PharmacyBillingView({ onNavigate }: { onNavigate?: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
@@ -40,9 +40,20 @@ export default function PharmacyBillingView({ onNavigate }: { onNavigate?: (p: s
             <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>Pharmacy Sales & Prescription Billing</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Dispense medication, track OTC sales, and issue receipt slips for patient prescriptions.</p>
           </div>
-          <button className="btn btn-primary" onClick={() => onNavigate?.('prescriptions')} style={{ fontWeight: 600, padding: '10px 18px', borderRadius: 8 }}>
-            View Prescription Queue
-          </button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportBillingToCSV(visibleBills)}
+              style={{ fontWeight: 600, padding: '10px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              title="Download pharmacy sales CSV"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+            <button className="btn btn-primary" onClick={() => onNavigate?.('prescriptions')} style={{ fontWeight: 600, padding: '10px 18px', borderRadius: 8 }}>
+              View Prescription Queue
+            </button>
+          </div>
         </div>
       </div>
 
@@ -87,14 +98,31 @@ export default function PharmacyBillingView({ onNavigate }: { onNavigate?: (p: s
                   <td>{b.payment_mode || 'Cash'}</td>
                   <td><span className="badge badge-success">{b.payment_status || 'Paid'}</span></td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => printInvoice({
-                      invoice: b,
-                      patient: { name: b.patient_name || 'Patient', uhid: b.uhid || '—' },
-                      items: b.items && b.items.length > 0 ? b.items : [{ description: b.notes || 'Medication Dispensed', quantity: 1, unit_price: b.net_amount || 0, amount: b.net_amount || 0 }],
-                      totals: { total: b.gross_amount || b.net_amount || 0, discount: b.discount || 0, net: b.net_amount || 0, paid: b.paid_amount || 0 },
-                      billedBy: user?.name,
-                      notes: b.notes
-                    })}>Print Receipt</button>
+                    <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => downloadInvoicePDF({
+                          invoice: b,
+                          patient: { name: b.patient_name || 'Patient', uhid: b.uhid || '—' },
+                          items: b.items && b.items.length > 0 ? b.items : [{ description: b.notes || 'Medication Dispensed', quantity: 1, unit_price: b.net_amount || 0, amount: b.net_amount || 0 }],
+                          billedBy: user?.name,
+                          notes: b.notes
+                        })}
+                        title="Download Vector PDF"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        PDF
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => printInvoice({
+                        invoice: b,
+                        patient: { name: b.patient_name || 'Patient', uhid: b.uhid || '—' },
+                        items: b.items && b.items.length > 0 ? b.items : [{ description: b.notes || 'Medication Dispensed', quantity: 1, unit_price: b.net_amount || 0, amount: b.net_amount || 0 }],
+                        totals: { total: b.gross_amount || b.net_amount || 0, discount: b.discount || 0, net: b.net_amount || 0, paid: b.paid_amount || 0 },
+                        billedBy: user?.name,
+                        notes: b.notes
+                      })}>Print Receipt</button>
+                    </div>
                   </td>
                 </tr>
               ))}

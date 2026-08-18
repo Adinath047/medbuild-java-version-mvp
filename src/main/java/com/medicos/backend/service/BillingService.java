@@ -1,10 +1,14 @@
 package com.medicos.backend.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medicos.backend.entity.Billing;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.BillingRepository;
+import com.medicos.backend.repository.PatientRepository;
+import com.medicos.backend.repository.UserRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,9 +20,32 @@ import java.util.*;
 public class BillingService {
 
     private final BillingRepository billingRepository;
+    private final PatientRepository patientRepository;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public BillingService(BillingRepository billingRepository) {
+    public BillingService(BillingRepository billingRepository,
+                          PatientRepository patientRepository,
+                          UserRepository userRepository) {
         this.billingRepository = billingRepository;
+        this.patientRepository = patientRepository;
+        this.userRepository = userRepository;
+    }
+
+    private void populateBillingDetails(Billing b) {
+        if (b == null) return;
+        if (b.getPatientId() != null && !b.getPatientId().isEmpty()) {
+            patientRepository.findById(b.getPatientId()).ifPresent(p -> {
+                b.setPatientName(p.getName());
+                b.setPatientUhid(p.getUhid());
+                b.setPatientPhone(p.getPhone());
+            });
+        }
+        if (b.getDoctorId() != null && !b.getDoctorId().isEmpty()) {
+            userRepository.findById(b.getDoctorId()).ifPresent(d -> {
+                b.setDoctorName(d.getName());
+            });
+        }
     }
 
     @Transactional
@@ -35,7 +62,9 @@ public class BillingService {
         } else {
             list = billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
         }
-        return sanitizeBills(list);
+        List<Billing> sanitized = sanitizeBills(list);
+        sanitized.forEach(this::populateBillingDetails);
+        return sanitized;
     }
 
     private List<Billing> sanitizeBills(List<Billing> list) {
@@ -46,11 +75,14 @@ public class BillingService {
             double paid = b.getPaidAmount() != null ? b.getPaidAmount() : 0.0;
             String currentStatus = b.getPaymentStatus() != null ? b.getPaymentStatus().trim() : "";
 
-            if (paid >= net && !"Paid".equalsIgnoreCase(currentStatus)) {
+            if (paid >= net && net > 0 && !"Paid".equalsIgnoreCase(currentStatus)) {
                 b.setPaymentStatus("Paid");
                 toSave.add(b);
             } else if (paid > 0 && paid < net && !"Partial".equalsIgnoreCase(currentStatus)) {
                 b.setPaymentStatus("Partial");
+                toSave.add(b);
+            } else if (paid <= 0 && !"Pending".equalsIgnoreCase(currentStatus) && !"Cancelled".equalsIgnoreCase(currentStatus)) {
+                b.setPaymentStatus("Pending");
                 toSave.add(b);
             }
         }
@@ -88,13 +120,47 @@ public class BillingService {
         if (bill.getCreatedAt() == null) {
             bill.setCreatedAt(LocalDateTime.now());
         }
+        bill.setUpdatedAt(LocalDateTime.now());
 
-        double net = bill.getNetAmount() != null ? Math.max(0.0, bill.getNetAmount()) : (bill.getTotalAmount() != null ? Math.max(0.0, bill.getTotalAmount()) : 0.0);
+        // 1. Calculate Line Items Total if available
+        double itemsSum = 0.0;
+        try {
+            Object rawItems = bill.getItems();
+            if (rawItems instanceof List<?> itemList) {
+                for (Object itemObj : itemList) {
+                    if (itemObj instanceof Map<?, ?> itemMap) {
+                        double qty = 1.0;
+                        double price = 0.0;
+                        if (itemMap.containsKey("quantity") && itemMap.get("quantity") != null) {
+                            qty = Double.parseDouble(itemMap.get("quantity").toString());
+                        }
+                        if (itemMap.containsKey("unit_price") && itemMap.get("unit_price") != null) {
+                            price = Double.parseDouble(itemMap.get("unit_price").toString());
+                        } else if (itemMap.containsKey("price") && itemMap.get("price") != null) {
+                            price = Double.parseDouble(itemMap.get("price").toString());
+                        } else if (itemMap.containsKey("amount") && itemMap.get("amount") != null) {
+                            price = Double.parseDouble(itemMap.get("amount").toString()) / (qty > 0 ? qty : 1.0);
+                        }
+                        itemsSum += (qty * price);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        double gross = itemsSum > 0 ? itemsSum : (bill.getGrossAmount() != null && bill.getGrossAmount() > 0 ? bill.getGrossAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0));
+        double discount = Math.max(0.0, bill.getDiscount() != null ? bill.getDiscount() : 0.0);
+        double tax = Math.max(0.0, bill.getTax() != null ? bill.getTax() : 0.0);
+        double net = Math.max(0.0, gross - discount + tax);
         double paid = bill.getPaidAmount() != null ? Math.max(0.0, bill.getPaidAmount()) : 0.0;
+
+        bill.setGrossAmount(gross);
+        bill.setTotalAmount(gross);
+        bill.setDiscount(discount);
+        bill.setTax(tax);
         bill.setNetAmount(net);
         bill.setPaidAmount(paid);
 
-        if (paid >= net) {
+        if (paid >= net && net > 0) {
             bill.setPaymentStatus("Paid");
         } else if (paid > 0) {
             bill.setPaymentStatus("Partial");
@@ -102,7 +168,23 @@ public class BillingService {
             bill.setPaymentStatus("Pending");
         }
 
-        return billingRepository.save(bill);
+        // Initialize payment history audit entry
+        if (paid > 0) {
+            List<Map<String, Object>> history = new ArrayList<>();
+            Map<String, Object> initialTxn = new HashMap<>();
+            initialTxn.put("id", "txn-" + UUID.randomUUID().toString().substring(0, 8));
+            initialTxn.put("amount", paid);
+            initialTxn.put("payment_mode", bill.getPaymentMode() != null ? bill.getPaymentMode() : "Cash");
+            initialTxn.put("date", LocalDateTime.now().toString());
+            initialTxn.put("received_by", Optional.ofNullable(user).map(User::getName).orElse("Cashier"));
+            initialTxn.put("notes", "Initial receipt on bill generation");
+            history.add(initialTxn);
+            bill.setPaymentHistory(history);
+        }
+
+        Billing saved = billingRepository.save(bill);
+        populateBillingDetails(saved);
+        return saved;
     }
 
     @Transactional
@@ -117,21 +199,46 @@ public class BillingService {
             }
         }
 
+        double oldPaid = bill.getPaidAmount() != null ? bill.getPaidAmount() : 0.0;
+        double net = bill.getNetAmount() != null ? bill.getNetAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0);
+
         if (body.containsKey("paid_amount") && body.get("paid_amount") != null) {
             try {
-                double paid = Double.parseDouble(body.get("paid_amount").toString().trim());
-                if (paid < 0) {
+                double newPaid = Double.parseDouble(body.get("paid_amount").toString().trim());
+                if (newPaid < 0) {
                     throw new BadRequestException("Paid amount cannot be negative.");
                 }
-                bill.setPaidAmount(paid);
-                double net = bill.getNetAmount() != null ? bill.getNetAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0);
+                double paymentIncrement = Math.max(0.0, newPaid - oldPaid);
+                bill.setPaidAmount(newPaid);
 
-                if (paid >= net) {
+                if (newPaid >= net && net > 0) {
                     bill.setPaymentStatus("Paid");
-                } else if (paid > 0) {
+                } else if (newPaid > 0) {
                     bill.setPaymentStatus("Partial");
                 } else {
                     bill.setPaymentStatus("Pending");
+                }
+
+                // Add installment to payment_history
+                if (paymentIncrement > 0) {
+                    List<Map<String, Object>> history = new ArrayList<>();
+                    Object rawHist = bill.getPaymentHistory();
+                    if (rawHist instanceof List<?> histList) {
+                        for (Object o : histList) {
+                            if (o instanceof Map<?, ?> m) {
+                                history.add(new HashMap<>((Map<String, Object>) m));
+                            }
+                        }
+                    }
+                    Map<String, Object> txn = new HashMap<>();
+                    txn.put("id", "txn-" + UUID.randomUUID().toString().substring(0, 8));
+                    txn.put("amount", paymentIncrement);
+                    txn.put("payment_mode", body.getOrDefault("payment_mode", bill.getPaymentMode() != null ? bill.getPaymentMode() : "Cash").toString());
+                    txn.put("date", LocalDateTime.now().toString());
+                    txn.put("received_by", body.getOrDefault("received_by", "Cashier").toString());
+                    txn.put("notes", body.getOrDefault("notes", "Installment payment recorded").toString());
+                    history.add(txn);
+                    bill.setPaymentHistory(history);
                 }
             } catch (NumberFormatException e) {
                 throw new BadRequestException("Invalid numeric value for paid_amount.");
@@ -146,6 +253,9 @@ public class BillingService {
             bill.setPaymentStatus(body.get("payment_status").toString().trim());
         }
 
-        return billingRepository.save(bill);
+        bill.setUpdatedAt(LocalDateTime.now());
+        Billing saved = billingRepository.save(bill);
+        populateBillingDetails(saved);
+        return saved;
     }
 }

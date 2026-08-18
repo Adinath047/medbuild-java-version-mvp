@@ -1,6 +1,6 @@
 // client/src/pages/SettingsPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, normalizeAuthUser } from '../store/authStore';
 import { db, markPending } from '../db/localDB';
 import { apiClient } from '../api/client';
 import { printPrescriptionSlip } from '../utils/printTemplates';
@@ -456,30 +456,33 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
   const totalPages = Math.ceil(filteredMeds.length / medsPerPage);
   const paginatedMeds = filteredMeds.slice(medPage * medsPerPage, (medPage + 1) * medsPerPage);
 
-  // Practitioner profile state
-  const [profileForm, setProfileForm] = useState({
-    name: user?.name || '',
-    phone: (user as any)?.phone || '',
-    specialization: user?.specialization || '',
-    licenseNumber: user?.licenseNumber || '',
-    qualification: user?.qualification || '',
-    registrationNumber: user?.registrationNumber || '',
-    consultationFee: String(user?.consultationFee ?? ''),
-    followupFee: String(user?.followupFee ?? ''),
-    bedPerDayCharge: String(user?.bedPerDayCharge ?? ''),
-    letterhead: user?.letterhead || '',
-    photoUrl: user?.photoUrl || '',
-    showDiagnosisOnPrint: user?.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
-    showInvestigationsOnPrint: user?.showInvestigationsOnPrint !== undefined ? !!user.showInvestigationsOnPrint : true,
-    showVitalsOnPrint: user?.showVitalsOnPrint !== undefined ? !!user.showVitalsOnPrint : true,
-    printMarginTop: user?.printMarginTop !== undefined ? user.printMarginTop : 35,
-    printMarginBottom: user?.printMarginBottom !== undefined ? user.printMarginBottom : 15,
-    printMarginLeftRight: user?.printMarginLeftRight !== undefined ? user.printMarginLeftRight : 18,
-    printFontSize: user?.printFontSize !== undefined ? user.printFontSize : 11,
+  const getInitialProfile = (u: any) => ({
+    name: u?.name || '',
+    phone: u?.phone || (u as any)?.phone || '',
+    specialization: u?.specialization || '',
+    licenseNumber: u?.licenseNumber || (u as any)?.license_number || '',
+    qualification: u?.qualification || '',
+    registrationNumber: u?.registrationNumber || (u as any)?.registration_number || '',
+    consultationFee: u?.consultationFee !== undefined && u?.consultationFee !== null ? String(u.consultationFee) : ((u as any)?.consultation_fee !== undefined && (u as any)?.consultation_fee !== null ? String((u as any).consultation_fee) : '500'),
+    followupFee: u?.followupFee !== undefined && u?.followupFee !== null ? String(u.followupFee) : ((u as any)?.followup_fee !== undefined && (u as any)?.followup_fee !== null ? String((u as any).followup_fee) : '300'),
+    bedPerDayCharge: u?.bedPerDayCharge !== undefined && u?.bedPerDayCharge !== null ? String(u.bedPerDayCharge) : ((u as any)?.bed_per_day_charge !== undefined && (u as any)?.bed_per_day_charge !== null ? String((u as any).bed_per_day_charge) : '1500'),
+    letterhead: u?.letterhead || '',
+    photoUrl: u?.photoUrl || (u as any)?.photo_url || '',
+    showDiagnosisOnPrint: u?.showDiagnosisOnPrint !== undefined ? !!u.showDiagnosisOnPrint : ((u as any)?.show_diagnosis_on_print !== undefined ? ((u as any).show_diagnosis_on_print === 1 || (u as any).show_diagnosis_on_print === true) : true),
+    showInvestigationsOnPrint: u?.showInvestigationsOnPrint !== undefined ? !!u.showInvestigationsOnPrint : ((u as any)?.show_investigations_on_print !== undefined ? ((u as any).show_investigations_on_print === 1 || (u as any).show_investigations_on_print === true) : true),
+    showVitalsOnPrint: u?.showVitalsOnPrint !== undefined ? !!u.showVitalsOnPrint : ((u as any)?.show_vitals_on_print !== undefined ? ((u as any).show_vitals_on_print === 1 || (u as any).show_vitals_on_print === true) : true),
+    printMarginTop: u?.printMarginTop !== undefined ? u.printMarginTop : ((u as any)?.print_margin_top !== undefined ? (u as any).print_margin_top : 35),
+    printMarginBottom: u?.printMarginBottom !== undefined ? u.printMarginBottom : ((u as any)?.print_margin_bottom !== undefined ? (u as any).print_margin_bottom : 15),
+    printMarginLeftRight: u?.printMarginLeftRight !== undefined ? u.printMarginLeftRight : ((u as any)?.print_margin_left_right !== undefined ? (u as any).print_margin_left_right : 18),
+    printFontSize: u?.printFontSize !== undefined ? u.printFontSize : ((u as any)?.print_font_size !== undefined ? (u as any).print_font_size : 11),
   });
+
+  // Practitioner profile state
+  const [profileForm, setProfileForm] = useState(() => getInitialProfile(user));
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState('');
   const [profileError, setProfileError] = useState('');
+
   const handleDoctorPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -497,26 +500,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
   // Sync profileForm state if user loads/updates
   useEffect(() => {
     if (user) {
-      setProfileForm({
-        name: user.name || '',
-        phone: (user as any).phone || '',
-        specialization: user.specialization || '',
-        licenseNumber: user.licenseNumber || '',
-        qualification: user.qualification || '',
-        registrationNumber: user.registrationNumber || '',
-        consultationFee: String(user.consultationFee ?? ''),
-        followupFee: String(user.followupFee ?? ''),
-        bedPerDayCharge: String(user.bedPerDayCharge ?? ''),
-        letterhead: user.letterhead || '',
-        photoUrl: user.photoUrl || '',
-        showDiagnosisOnPrint: user.showDiagnosisOnPrint !== undefined ? !!user.showDiagnosisOnPrint : true,
-        showInvestigationsOnPrint: user.showInvestigationsOnPrint !== undefined ? !!user.showInvestigationsOnPrint : true,
-        showVitalsOnPrint: user.showVitalsOnPrint !== undefined ? !!user.showVitalsOnPrint : true,
-        printMarginTop: user.printMarginTop !== undefined ? user.printMarginTop : 35,
-        printMarginBottom: user.printMarginBottom !== undefined ? user.printMarginBottom : 15,
-        printMarginLeftRight: user.printMarginLeftRight !== undefined ? user.printMarginLeftRight : 18,
-        printFontSize: user.printFontSize !== undefined ? user.printFontSize : 11,
-      });
+      setProfileForm(getInitialProfile(user));
     }
   }, [user]);
 
@@ -547,14 +531,13 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         print_font_size: !isNaN(Number(profileForm.printFontSize)) ? Number(profileForm.printFontSize) : 11,
       };
       const res = await apiClient.patch('/users/me/profile', payload);
-      const updatedUser = res.data?.user || res.data;
-      if (updatedUser) {
-        useAuthStore.setState({ user: { ...(user || {}), ...updatedUser } });
-        localStorage.setItem('emr_user', JSON.stringify({ ...(user || {}), ...updatedUser }));
-      }
-      setProfileSuccess('Practitioner profile updated successfully.');
-      // Refresh the session to update user in authStore
-      await useAuthStore.getState().restoreSession();
+      const rawUpdated = res.data?.user || res.data;
+      const normalized = normalizeAuthUser({ ...(user || {}), ...rawUpdated, ...payload });
+      
+      useAuthStore.setState({ user: normalized });
+      localStorage.setItem('emr_user', JSON.stringify(normalized));
+      
+      setProfileSuccess('Profile saved successfully.');
     } catch (err: any) {
       setProfileError(err?.response?.data?.error || err?.message || 'Failed to update profile.');
     } finally {

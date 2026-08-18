@@ -5,7 +5,7 @@ import { db, markPending } from '../db/localDB';
 import { useAuthStore } from '../store/authStore';
 import { useSync } from '../sync/useSync';
 import { triggerSyncBroadcast } from '../sync/syncManager';
-import { printPrescriptionSlip, printInvoice } from '../utils/printTemplates';
+import { printPrescriptionSlip, printInvoice, downloadInvoicePDF } from '../utils/printTemplates';
 import { getSpecialtyCode, SPECIALTY_THEMES } from '../utils/specialtyUtils';
 import {
   validateRequired, validateEmail, validatePhone, validateNotFutureDate,
@@ -1303,6 +1303,34 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                         notes: b.notes,
                       });
                     };
+
+                    const handleDownloadInvoice = () => {
+                      const items = Array.isArray(b.items) ? b.items : [];
+                      downloadInvoicePDF({
+                        invoice: {
+                          id: b.id,
+                          invoice_number: b.invoice_number,
+                          created_at: b.created_at,
+                          bill_type: b.bill_type,
+                          payment_mode: b.payment_mode,
+                          payment_status: b.payment_status,
+                          gross_amount: b.gross_amount,
+                          discount: b.discount,
+                          tax: b.tax,
+                          net_amount: b.net_amount,
+                          paid_amount: b.paid_amount,
+                          balance_due: b.balance_due,
+                          notes: b.notes,
+                          doctor_name: b.doctor_name,
+                          payment_history: b.payment_history
+                        },
+                        patient: { name: p.name, uhid: p.uhid, phone: p.phone },
+                        items,
+                        billedBy: user?.name,
+                        notes: b.notes,
+                      });
+                    };
+
                     return (
                       <tr key={b.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                         <td style={{ padding: '14px 20px', fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace' }}>
@@ -1328,18 +1356,30 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                           </span>
                         </td>
                         <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: 6, minHeight: 'auto', color: 'var(--text-muted)' }}
-                            onClick={handlePrintInvoice}
-                            title="Print Invoice"
-                          >
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                              Print
-                            </span>
-                          </button>
+                          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '4px 8px', minHeight: 'auto', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={handleDownloadInvoice}
+                              title="Download Vector PDF Invoice"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                              PDF
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: 6, minHeight: 'auto', color: 'var(--text-muted)' }}
+                              onClick={handlePrintInvoice}
+                              title="Print Invoice"
+                            >
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Print
+                              </span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

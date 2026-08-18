@@ -7,12 +7,6 @@ const _env = (import.meta as any).env ?? {};
 
 const getBaseURL = (): string => {
   if (_env.VITE_API_URL) return _env.VITE_API_URL;
-  if (typeof window !== 'undefined') {
-    const { hostname, port, protocol } = window.location;
-    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '5173') {
-      return `${protocol}//localhost:8080/api`;
-    }
-  }
   return '/api';
 };
 
@@ -23,15 +17,30 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-// ── In-Memory Access Token Storage (Never in localStorage or sessionStorage) ──
+// ── In-Memory Access Token Storage with LocalStorage Continuity ──
 let inMemoryAccessToken: string | null = null;
 
 export const setAccessToken = (token: string | null) => {
   inMemoryAccessToken = token;
+  if (typeof localStorage !== 'undefined') {
+    if (token) {
+      localStorage.setItem('emr_token', token);
+    } else {
+      localStorage.removeItem('emr_token');
+    }
+  }
 };
 
 export const getAccessToken = (): string | null => {
-  return inMemoryAccessToken;
+  if (inMemoryAccessToken) return inMemoryAccessToken;
+  if (typeof localStorage !== 'undefined') {
+    const cached = localStorage.getItem('emr_token');
+    if (cached) {
+      inMemoryAccessToken = cached;
+      return cached;
+    }
+  }
+  return null;
 };
 
 // ── Cookie helper ─────────────────────────────────────────────────────────
@@ -44,8 +53,9 @@ function getCookie(name: string): string | undefined {
 
 // ── Request interceptor ───────────────────────────────────────────────────
 apiClient.interceptors.request.use(config => {
-  if (inMemoryAccessToken) {
-    config.headers['Authorization'] = `Bearer ${inMemoryAccessToken}`;
+  const token = getAccessToken();
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
   }
   const csrf = getCookie('csrf_token');
   if (csrf) {

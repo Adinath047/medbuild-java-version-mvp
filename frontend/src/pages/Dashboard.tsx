@@ -63,23 +63,31 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: string, d?: 
         }));
         setWardStats(computedWards);
 
-        // Count Critical Vitals on Beds
+        // Count Critical Vitals and ICU occupancy on Beds
         let criticalCount = 0;
         const criticalBedsList: any[] = [];
         bedsData.forEach((b: any) => {
-          if ((b.status === 'Occupied' || b.is_occupied) && b.vitals) {
-            const sys = b.vitals.bp_systolic || b.vitals.bpSystolic;
-            const hr = b.vitals.heart_rate || b.vitals.heartRate;
-            const o2 = b.vitals.spo2 || b.vitals.spO2;
-            const temp = b.vitals.temperature;
-            if (
-              (o2 && o2 < 94) || 
-              (hr && (hr > 100 || hr < 60)) || 
-              (sys && (sys > 140 || sys < 90)) ||
-              (temp && (temp > 99.5 || temp < 96.0))
-            ) {
+          if (b.status === 'Occupied' || b.is_occupied) {
+            const ward = (b.ward_type || b.wardType || b.ward || '').toLowerCase();
+            const type = (b.type || '').toLowerCase();
+            const isIcu = ward.includes('icu') || type.includes('icu');
+            if (isIcu) {
               criticalCount++;
               criticalBedsList.push(b);
+            } else if (b.vitals) {
+              const sys = b.vitals.bp_systolic || b.vitals.bpSystolic;
+              const hr = b.vitals.heart_rate || b.vitals.heartRate;
+              const o2 = b.vitals.spo2 || b.vitals.spO2;
+              const temp = b.vitals.temperature;
+              if (
+                (o2 && o2 < 94) || 
+                (hr && (hr > 100 || hr < 60)) || 
+                (sys && (sys > 140 || sys < 90)) ||
+                (temp && (temp > 99.5 || temp < 96.0))
+              ) {
+                criticalCount++;
+                criticalBedsList.push(b);
+              }
             }
           }
         });

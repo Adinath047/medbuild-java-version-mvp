@@ -47,6 +47,26 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("patient_name")
+    private String patientName;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("patient_uhid")
+    private String patientUhid;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("patient_photo")
+    private String patientPhoto;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("doctor_name")
+    private String doctorName;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("specialization")
+    private String specialization;
+
     public Appointment() {}
 
     @PrePersist
@@ -99,4 +119,19 @@ public class Appointment {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getPatientName() { return patientName; }
+    public void setPatientName(String patientName) { this.patientName = patientName; }
+
+    public String getPatientUhid() { return patientUhid; }
+    public void setPatientUhid(String patientUhid) { this.patientUhid = patientUhid; }
+
+    public String getPatientPhoto() { return patientPhoto; }
+    public void setPatientPhoto(String patientPhoto) { this.patientPhoto = patientPhoto; }
+
+    public String getDoctorName() { return doctorName; }
+    public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
+
+    public String getSpecialization() { return specialization; }
+    public void setSpecialization(String specialization) { this.specialization = specialization; }
 }

@@ -28,14 +28,14 @@ public class BillingController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'BILLING', 'RECEPTIONIST')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'BILLING', 'RECEPTIONIST', 'DOCTOR')")
     public ResponseEntity<?> createBill(@RequestBody Billing bill, @AuthenticationPrincipal User user) {
         Billing saved = billingService.createBill(bill, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}/payment")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'BILLING', 'RECEPTIONIST')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'BILLING', 'RECEPTIONIST', 'DOCTOR')")
     public ResponseEntity<?> recordPayment(@PathVariable("id") String id, @RequestBody Map<String, Object> body) {
         Billing saved = billingService.recordPayment(id, body);
         return ResponseEntity.ok(saved);

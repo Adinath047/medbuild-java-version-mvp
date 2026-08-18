@@ -231,22 +231,35 @@ CREATE TABLE IF NOT EXISTS bed_admissions (
 
 -- ── 9. BILLING ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS billing (
-  id             VARCHAR(64) PRIMARY KEY,
-  hospital_id    VARCHAR(64) NOT NULL,
-  patient_id     VARCHAR(64) NOT NULL,
-  encounter_id   VARCHAR(64),
-  items          TEXT NOT NULL DEFAULT '[]',
-  total_amount   DOUBLE PRECISION NOT NULL DEFAULT 0,
-  discount       DOUBLE PRECISION DEFAULT 0,
-  net_amount     DOUBLE PRECISION NOT NULL DEFAULT 0,
-  paid_amount    DOUBLE PRECISION DEFAULT 0,
-  payment_mode   VARCHAR(50) DEFAULT 'Cash',
-  payment_status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-  invoice_number VARCHAR(100) UNIQUE,
-  notes          TEXT,
-  billed_by      VARCHAR(64),
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id              VARCHAR(64) PRIMARY KEY,
+  hospital_id     VARCHAR(64) NOT NULL,
+  patient_id      VARCHAR(64) NOT NULL,
+  encounter_id    VARCHAR(64),
+  doctor_id       VARCHAR(64),
+  bill_type       VARCHAR(50) DEFAULT 'OPD',
+  items           TEXT NOT NULL DEFAULT '[]',
+  gross_amount    DOUBLE PRECISION DEFAULT 0.0,
+  total_amount    DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+  discount        DOUBLE PRECISION DEFAULT 0.0,
+  tax             DOUBLE PRECISION DEFAULT 0.0,
+  net_amount      DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+  paid_amount     DOUBLE PRECISION DEFAULT 0.0,
+  payment_mode    VARCHAR(50) DEFAULT 'Cash',
+  payment_status  VARCHAR(50) NOT NULL DEFAULT 'Pending',
+  payment_history TEXT DEFAULT '[]',
+  invoice_number  VARCHAR(100) UNIQUE,
+  notes           TEXT,
+  billed_by       VARCHAR(64),
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS gross_amount DOUBLE PRECISION DEFAULT 0.0;
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS tax DOUBLE PRECISION DEFAULT 0.0;
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS bill_type VARCHAR(50) DEFAULT 'OPD';
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS doctor_id VARCHAR(64);
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS payment_history TEXT DEFAULT '[]';
+ALTER TABLE billing ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 -- ── 10. MEDICINES ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS medicines (
