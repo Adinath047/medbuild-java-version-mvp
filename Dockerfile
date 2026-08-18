@@ -4,10 +4,6 @@
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
-# Copy pom.xml and dependencies metadata to cache Maven layers
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
 # Copy the entire project source and build static frontend & java package
 COPY . .
 RUN mvn clean package -DskipTests -B
