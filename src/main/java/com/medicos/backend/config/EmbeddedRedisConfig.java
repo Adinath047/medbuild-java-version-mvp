@@ -25,6 +25,12 @@ public class EmbeddedRedisConfig {
 
     @PostConstruct
     public void startRedis() {
+        // Skip in Cloud Run container environments where external services or in-memory caches are used
+        if (System.getenv("K_SERVICE") != null || "false".equalsIgnoreCase(System.getenv("SPRING_EMBEDDED_REDIS_ENABLED"))) {
+            log.info("ℹ️ Cloud Run / Production container detected. Skipping embedded Redis startup.");
+            return;
+        }
+
         if (isPortInUse(redisPort)) {
             log.info("ℹ️ Redis server is already active on port {}. Skipping embedded Redis startup.", redisPort);
             return;
@@ -36,8 +42,8 @@ public class EmbeddedRedisConfig {
             log.info("======================================================================");
             log.info("🚀 EMBEDDED REDIS SERVER STARTED AUTOMATICALLY ON PORT {}!", redisPort);
             log.info("======================================================================");
-        } catch (Exception e) {
-            log.warn("Could not start Embedded Redis Server automatically on port {}: {}", redisPort, e.getMessage());
+        } catch (Throwable e) {
+            log.warn("Could not start Embedded Redis Server on port {} (continuing without embedded Redis): {}", redisPort, e.getMessage());
         }
     }
 

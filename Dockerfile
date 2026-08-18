@@ -23,8 +23,9 @@ USER spring:spring
 # Copy the built JAR from the builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Expose HTTP port
+# Expose HTTP port (Cloud Run defaults to 8080)
+ENV PORT=8080
 EXPOSE 8080
 
-# Configure JVM production memory limits and start application
-ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+# Configure JVM production memory limits and guarantee Cloud Run PORT binding
+ENTRYPOINT ["sh", "-c", "java -XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -Dserver.port=${PORT:-8080} -Djava.security.egd=file:/dev/./urandom -jar app.jar"]
