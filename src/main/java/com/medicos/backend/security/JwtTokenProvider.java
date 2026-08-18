@@ -41,8 +41,11 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration-ms:86400000}")
+    @Value("${jwt.expiration-ms:900000}")
     private long jwtExpirationMs;
+
+    @Value("${jwt.refresh-expiration-ms:604800000}")
+    private long jwtRefreshExpirationMs;
 
     private final StringRedisTemplate redisTemplate;
 
@@ -79,23 +82,28 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /** Generate a token for EMR staff (doctor, nurse, admin, etc.) */
+    /** Generate an access token for EMR staff (15 minutes default) */
     public String generateToken(String userId, String email, String role, String hospitalId) {
-        return buildToken(userId, email, role, hospitalId, true, jwtExpirationMs);
+        return buildToken(userId, email, role, hospitalId, true, "access", jwtExpirationMs);
     }
 
-    /** Generate a token with explicit MFA status */
+    /** Generate an access token with explicit MFA status */
     public String generateToken(String userId, String email, String role, String hospitalId, boolean mfaVerified) {
-        return buildToken(userId, email, role, hospitalId, mfaVerified, jwtExpirationMs);
+        return buildToken(userId, email, role, hospitalId, mfaVerified, "access", jwtExpirationMs);
     }
 
-    /** Generate a patient app token (same expiry, different role) */
+    /** Generate a long-lived secure refresh token (7 days default) */
+    public String generateRefreshToken(String userId, String email, String role, String hospitalId) {
+        return buildToken(userId, email, role, hospitalId, true, "refresh", jwtRefreshExpirationMs);
+    }
+
+    /** Generate a patient app token */
     public String generatePatientToken(String patientId, String phone) {
-        return buildToken(patientId, phone, "patient", null, true, jwtExpirationMs);
+        return buildToken(patientId, phone, "patient", null, true, "access", jwtExpirationMs);
     }
 
     private String buildToken(String userId, String email, String role, String hospitalId,
-                               boolean mfaVerified, long expiryMs) {
+                               boolean mfaVerified, String tokenType, long expiryMs) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiryMs);
         String jti = UUID.randomUUID().toString();  // unique ID per token for blacklisting
@@ -107,6 +115,7 @@ public class JwtTokenProvider {
                 .claim("role", role)
                 .claim("hospitalId", hospitalId)
                 .claim("mfaVerified", mfaVerified)
+                .claim("typ", tokenType)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())

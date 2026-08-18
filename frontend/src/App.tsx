@@ -705,6 +705,16 @@ export default function App() {
         <div className="page-scroll">
           {renderPage()}
         </div>
+
+        {/* Mobile & Tablet Bottom Navigation Bar */}
+        {user && (
+          <MobileBottomNav 
+            page={page} 
+            onNav={navigate} 
+            onOpenMenu={() => setSidebar(true)} 
+            user={user} 
+          />
+        )}
       </main>
 
       {/* Large Print Request Modal Pop-Up for Receptionist */}
@@ -713,5 +723,79 @@ export default function App() {
         onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
       />
     </div>
+  );
+}
+
+// ── Mobile Bottom Navigation Bar (Thumb Reachable) ────────────────────
+function MobileBottomNav({ page, onNav, onOpenMenu, user }: { page: string; onNav: (p: string) => void; onOpenMenu: () => void; user: any }) {
+  const role = user?.role?.toLowerCase() || '';
+
+  const getPrimaryTabs = () => {
+    if (role === 'doctor') {
+      return [
+        { id: 'dashboard', label: 'Home', icon: Icons.home },
+        { id: 'patients', label: 'Patients', icon: Icons.patients },
+        { id: 'prescriptions', label: 'Rx Queue', icon: Icons.prescription },
+        { id: 'beds', label: 'Beds', icon: Icons.beds },
+      ];
+    }
+    if (role.includes('reception') || role === 'admin') {
+      return [
+        { id: 'dashboard', label: 'Home', icon: Icons.home },
+        { id: 'patients', label: 'Patients', icon: Icons.patients },
+        { id: 'appointments', label: 'Appts', icon: Icons.appointments },
+        { id: 'billing', label: 'Billing', icon: Icons.billing },
+      ];
+    }
+    if (role.includes('nurse')) {
+      return [
+        { id: 'dashboard', label: 'Home', icon: Icons.home },
+        { id: 'patients', label: 'Patients', icon: Icons.patients },
+        { id: 'beds', label: 'Beds', icon: Icons.beds },
+        { id: 'vitals', label: 'Vitals', icon: Icons.dashboard },
+      ];
+    }
+    if (role.includes('pharm')) {
+      return [
+        { id: 'dashboard', label: 'Home', icon: Icons.home },
+        { id: 'prescriptions', label: 'Rx List', icon: Icons.prescription },
+        { id: 'billing', label: 'Sales', icon: Icons.billing },
+      ];
+    }
+    return [
+      { id: 'dashboard', label: 'Home', icon: Icons.home },
+      { id: 'patients', label: 'Patients', icon: Icons.patients },
+      { id: 'billing', label: 'Billing', icon: Icons.billing },
+    ];
+  };
+
+  const tabs = getPrimaryTabs();
+
+  return (
+    <nav className="mobile-bottom-nav no-print" aria-label="Mobile Navigation Bar">
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          className={`mobile-nav-btn ${page === tab.id ? 'active' : ''}`}
+          onClick={() => onNav(tab.id)}
+          aria-label={tab.label}
+        >
+          {tab.icon}
+          <span>{tab.label}</span>
+        </button>
+      ))}
+      <button
+        className="mobile-nav-btn"
+        onClick={onOpenMenu}
+        aria-label="Open Full Navigation Menu"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+        <span>Menu</span>
+      </button>
+    </nav>
   );
 }

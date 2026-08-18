@@ -11,6 +11,8 @@ import com.medicos.backend.repository.UserRepository;
 import com.medicos.backend.security.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final HospitalRepository hospitalRepository;
@@ -89,31 +93,120 @@ public class AuthService {
             throw new UnauthorizedException("Account deactivated.");
         }
 
-        String token = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+        // Short-lived Access Token (15 minutes) + Long-lived Refresh Token (7 days)
+        String accessToken = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+        String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
 
-        // Set ResponseCookies for browser auth with modern SameSite=Lax attributes
-        ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", token)
+        // Set Access Token Cookie (15 mins = 900 seconds)
+        ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", accessToken)
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
-                .maxAge(86400)
+                .maxAge(900)
                 .sameSite("Lax")
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, emrTokenCookie.toString());
+
+        // Set Refresh Token Cookie (7 days = 604,800 seconds, HttpOnly, scoped to /api/auth)
+        ResponseCookie refreshTokenCookie = ResponseCookie.from("emr_refresh_token", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
 
         ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", UUID.randomUUID().toString())
                 .httpOnly(false) // must be false so the React client can read it
                 .secure(true)
                 .path("/")
-                .maxAge(86400)
+                .maxAge(604800)
                 .sameSite("Lax")
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, csrfCookie.toString());
 
         AuthDTO.UserDTO userDTO = mapToDTO(user);
         return Map.of(
-                "token", token,
+                "token", accessToken,
+                "accessToken", accessToken,
+                "refreshToken", refreshToken,
                 "user", userDTO
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> refreshToken(jakarta.servlet.http.HttpServletRequest request, HttpServletResponse response) {
+        String refreshToken = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("emr_refresh_token".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (refreshToken == null || refreshToken.isBlank()) {
+            String bearerToken = request.getHeader("Authorization");
+            if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+                refreshToken = bearerToken.substring(7);
+            }
+        }
+
+        if (refreshToken == null || !tokenProvider.validateToken(refreshToken)) {
+            throw new UnauthorizedException("Invalid or expired refresh token. Please log in again.");
+        }
+
+        // ── Refresh Token Rotation (RTR) & Reuse Detection (Family Revocation) ──
+        // If an already-rotated / blacklisted refresh token is presented again,
+        // a reuse attack is detected. Invalidate the ENTIRE session family for this user.
+        if (tokenProvider.isTokenBlacklisted(refreshToken)) {
+            String userId = tokenProvider.getUserIdFromToken(refreshToken);
+            if (userId != null) {
+                log.warn("🚨 [SECURITY ALERT] Refresh token reuse detected for user {}! Revoking entire token family and terminating all active sessions.", userId);
+                tokenProvider.revokeAllUserTokens(userId);
+            }
+            throw new UnauthorizedException("Security Alert: Token reuse detected. All active sessions for this account have been terminated. Please log in again.");
+        }
+
+        String userId = tokenProvider.getUserIdFromToken(refreshToken);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("User account not found."));
+
+        if (user.getIsActive() != null && user.getIsActive() == 0) {
+            throw new UnauthorizedException("Account deactivated.");
+        }
+
+        // Invalidate old refresh token (Strict Token Rotation)
+        tokenProvider.invalidateToken(refreshToken);
+
+        // Generate new Access Token + new Refresh Token
+        String newAccessToken = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+        String newRefreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+
+        ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", newAccessToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(900)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, emrTokenCookie.toString());
+
+        ResponseCookie newRefreshCookie = ResponseCookie.from("emr_refresh_token", newRefreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, newRefreshCookie.toString());
+
+        return Map.of(
+                "token", newAccessToken,
+                "accessToken", newAccessToken,
+                "refreshToken", newRefreshToken,
+                "user", mapToDTO(user)
         );
     }
 
@@ -186,6 +279,14 @@ public class AuthService {
             tokenProvider.invalidateToken(token);
         }
 
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("emr_refresh_token".equals(cookie.getName()) && tokenProvider.validateToken(cookie.getValue())) {
+                    tokenProvider.invalidateToken(cookie.getValue());
+                }
+            }
+        }
+
         ResponseCookie cookie = ResponseCookie.from("emr_token", "")
                 .httpOnly(true)
                 .secure(true)
@@ -194,6 +295,15 @@ public class AuthService {
                 .sameSite("Lax")
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        ResponseCookie refreshCookie = ResponseCookie.from("emr_refresh_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
         ResponseCookie csrfCookie = ResponseCookie.from("csrf_token", "")
                 .httpOnly(false)

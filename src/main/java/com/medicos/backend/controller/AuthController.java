@@ -33,6 +33,12 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(jakarta.servlet.http.HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> result = authService.refreshToken(request, response);
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getMe(@AuthenticationPrincipal User user) {
         AuthDTO.UserDTO userDTO = authService.getMe(user);

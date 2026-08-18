@@ -51,8 +51,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const [activeTab, setActiveTab] = useState<'opd' | 'bed'>('opd');
   const [bedStays, setBedStays] = useState<any[]>([]);
   const [loadingStays, setLoadingStays] = useState(false);
+  const initialLoadedRef = React.useRef(false);
+  const dataInitializedRef = React.useRef<string | null>(null);
 
-  const fetchBills = async () => {
+  const fetchBills = async (silent = false) => {
+    if (!silent && !initialLoadedRef.current) {
+      setLoading(true);
+    }
     try {
       const r = await apiClient.get('/billing');
       if (Array.isArray(r.data)) {
@@ -63,6 +68,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       setBills(local);
     } finally {
       setLoading(false);
+      initialLoadedRef.current = true;
     }
   };
 
@@ -86,8 +92,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     return 1500;
   }
 
-  async function fetchBedStays() {
-    setLoadingStays(true);
+  async function fetchBedStays(silent = false) {
+    if (!silent && bedStays.length === 0) {
+      setLoadingStays(true);
+    }
     try {
       const res = await apiClient.get('/beds/history');
       setBedStays(res.data || []);
@@ -99,27 +107,28 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   }
 
   useEffect(() => {
-    fetchBills();
+    fetchBills(false);
     fetchPatients();
-    fetchBedStays();
+    fetchBedStays(false);
   }, []);
 
   useEffect(() => {
     if (syncCount > 0) {
-      fetchBills();
+      fetchBills(true);
       fetchPatients();
-      fetchBedStays();
+      fetchBedStays(true);
     }
   }, [syncCount]);
 
   useEffect(() => {
     if (activeTab === 'bed') {
-      fetchBedStays();
+      fetchBedStays(true);
     }
   }, [activeTab]);
 
   useEffect(() => {
-    if (data?.patientId) {
+    if (data?.patientId && dataInitializedRef.current !== data.patientId) {
+      dataInitializedRef.current = data.patientId;
       setPatientFilterId(data.patientId);
       setPatientId(data.patientId);
       const found = patients.find(p => p.id === data.patientId);
@@ -455,7 +464,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
         </button>
         <button
           type="button"
-          onClick={() => { setActiveTab('bed'); fetchBedStays(); }}
+          onClick={() => setActiveTab('bed')}
           className={`btn btn-sm ${activeTab === 'bed' ? 'btn-primary' : 'btn-ghost'}`}
           style={{ fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
@@ -558,7 +567,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Bed Stay Admissions & Billing Records</h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail of inpatient stays, stay durations, daily rates, and billing settlements</div>
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={fetchBedStays}>
+              <button className="btn btn-secondary btn-sm" onClick={() => fetchBedStays(false)}>
                 Refresh Stays
               </button>
             </div>

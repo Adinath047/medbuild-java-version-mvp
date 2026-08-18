@@ -1,6 +1,6 @@
-// client/src/store/authStore.ts
 import { create } from 'zustand';
-import { apiClient } from '../api/client';
+import { apiClient, setAccessToken } from '../api/client';
+import { initializeSessionCrypto, purgeCryptoVault } from '../utils/cryptoVault';
 
 export interface AuthUser {
   id:               string;
@@ -38,6 +38,8 @@ interface AuthState {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function clearLocalAuth() {
+  setAccessToken(null);
+  purgeCryptoVault();
   localStorage.removeItem('emr_user');
   localStorage.removeItem('emr_token');
   localStorage.removeItem('medicos_last_activity');
@@ -45,8 +47,9 @@ function clearLocalAuth() {
 
 function persistLocalAuth(user: AuthUser, token?: string) {
   localStorage.setItem('emr_user', JSON.stringify(user));
+  localStorage.removeItem('emr_token'); // Ensure no token is on disk
   if (token) {
-    localStorage.setItem('emr_token', token);
+    setAccessToken(token);
   }
 }
 
@@ -57,6 +60,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loginError: null,
 
   restoreSession: async () => {
+    // Optimistic UI load from local cached user profile
     const cachedUser = localStorage.getItem('emr_user');
     if (cachedUser) {
       try {
@@ -68,8 +72,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
+      // First attempt to initialize in-memory access token via HttpOnly refresh cookie
+      try {
+        const refreshRes = await apiClient.post('/auth/refresh');
+        const token = refreshRes.data?.token || refreshRes.data?.accessToken;
+        if (token) {
+          setAccessToken(token);
+        }
+      } catch (refreshErr) {
+        // Refresh token might not exist yet if unauthenticated
+      }
+
       const res = await apiClient.get('/auth/me');
       const { user } = res.data as { user: AuthUser };
+
+      // Initialize volatile Web Crypto session key in memory
+      await initializeSessionCrypto(user.id + ":" + (user.hospitalId || 'medicos'));
 
       persistLocalAuth(user);
       set({ user, isLoading: false });
@@ -102,6 +120,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const res = await apiClient.post('/auth/login', { staffId, password, hospitalId });
       const { user, token } = res.data as { user: AuthUser; token?: string };
+
+      // Initialize volatile Web Crypto session key in memory
+      await initializeSessionCrypto(user.id + ":" + (user.hospitalId || hospitalId || 'medicos'));
 
       persistLocalAuth(user, token);
 
