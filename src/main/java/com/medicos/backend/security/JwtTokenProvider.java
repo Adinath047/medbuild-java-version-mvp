@@ -178,25 +178,26 @@ public class JwtTokenProvider {
         }
     }
 
-    // ─── Token Blacklist (Redis-backed) ───────────────────────────────────────
+    private final java.util.Set<String> inMemoryBlacklist = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private final java.util.Map<String, Long> inMemoryUserRevocations = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Invalidates a token by storing its JTI in Redis with a TTL equal to
-     * the token's remaining validity period. After that window the token
-     * expires naturally, so we don't need to keep the JTI forever.
+     * Invalidates a token by storing its JTI in-memory and in Redis (if available).
      */
     public void invalidateToken(String token) {
+        String jti = getJtiFromToken(token);
+        if (jti != null) {
+            inMemoryBlacklist.add(jti);
+        }
         try {
-            String jti = getJtiFromToken(token);
             long remainingMs = getRemainingValidityMs(token);
-            if (remainingMs > 0 && jti != null) {
+            if (remainingMs > 0 && jti != null && redisTemplate != null) {
                 String key = BLACKLIST_PREFIX + jti;
                 redisTemplate.opsForValue().set(key, "1", Duration.ofMillis(remainingMs));
                 log.debug("Token JTI {} blacklisted for {}ms", jti, remainingMs);
             }
         } catch (Exception e) {
-            // Log but don't fail logout if Redis is temporarily unreachable
-            log.warn("Could not blacklist token in Redis: {}", e.getMessage());
+            log.warn("Redis unavailable during logout (used in-memory blacklist fallback): {}", e.getMessage());
         }
     }
 
@@ -205,40 +206,63 @@ public class JwtTokenProvider {
      */
     public boolean isTokenBlacklisted(String token) {
         String jti = getJtiFromToken(token);
-        if (jti != null) {
-            if (Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + jti))) {
-                return true;
-            }
+        if (jti != null && inMemoryBlacklist.contains(jti)) {
+            return true;
         }
 
-        // Check global user revocation
-        String userId = getUserIdFromToken(token);
-        if (userId != null) {
-            String key = "user:revoked:" + userId;
-            String revocationTimeStr = redisTemplate.opsForValue().get(key);
-            if (revocationTimeStr != null) {
-                try {
-                    long revocationTime = Long.parseLong(revocationTimeStr);
-                    Date issuedAt = getClaims(token).getIssuedAt();
-                    if (issuedAt != null && issuedAt.getTime() < revocationTime) {
-                        log.info("Token for user {} rejected: issued at {} is before revocation time {}",
-                                userId, issuedAt.getTime(), revocationTime);
-                        return true;
-                    }
-                } catch (NumberFormatException ignored) {}
+        try {
+            if (jti != null && redisTemplate != null) {
+                if (Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + jti))) {
+                    return true;
+                }
             }
+
+            // Check global user revocation
+            String userId = getUserIdFromToken(token);
+            if (userId != null) {
+                Long inMemRev = inMemoryUserRevocations.get(userId);
+                Date issuedAt = getClaims(token).getIssuedAt();
+                if (inMemRev != null && issuedAt != null && issuedAt.getTime() < inMemRev) {
+                    return true;
+                }
+
+                if (redisTemplate != null) {
+                    String key = "user:revoked:" + userId;
+                    String revocationTimeStr = redisTemplate.opsForValue().get(key);
+                    if (revocationTimeStr != null) {
+                        try {
+                            long revocationTime = Long.parseLong(revocationTimeStr);
+                            if (issuedAt != null && issuedAt.getTime() < revocationTime) {
+                                log.info("Token for user {} rejected: issued at {} is before revocation time {}",
+                                        userId, issuedAt.getTime(), revocationTime);
+                                return true;
+                            }
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Redis lookup skipped (used in-memory): {}", e.getMessage());
         }
         return false;
     }
 
     /**
-     * Set a revocation timestamp for the user in Redis. Any token issued
-     * prior to this timestamp will be rejected.
+     * Set a revocation timestamp for the user in-memory and in Redis.
      */
     public void revokeAllUserTokens(String userId) {
-        String key = "user:revoked:" + userId;
-        redisTemplate.opsForValue().set(key, String.valueOf(System.currentTimeMillis()), Duration.ofDays(7));
-        log.info("All active tokens for user {} have been globally revoked.", userId);
+        if (userId != null) {
+            inMemoryUserRevocations.put(userId, System.currentTimeMillis());
+            try {
+                if (redisTemplate != null) {
+                    String key = "user:revoked:" + userId;
+                    redisTemplate.opsForValue().set(key, String.valueOf(System.currentTimeMillis()), Duration.ofDays(7));
+                }
+            } catch (Exception e) {
+                log.warn("Redis unavailable during user revocation (used in-memory fallback): {}", e.getMessage());
+            }
+            log.info("All active tokens for user {} have been revoked.", userId);
+        }
     }
 }
 

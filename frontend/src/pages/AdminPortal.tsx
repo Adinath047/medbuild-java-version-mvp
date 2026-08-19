@@ -168,20 +168,10 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (u: any) =
                   </div>
                   <div style={{ gridColumn:'1/-1' }} className="form-group">
                     <label className="form-label">NMC / State License No.</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input className="input" placeholder="e.g. MH-12345" 
-                        value={form.license_number} 
-                        onChange={e => { set('license_number', e.target.value.toUpperCase()); setVerified(null); }} 
-                        style={{ borderColor: verified === true ? '#16a34a' : verified === false ? '#dc2626' : undefined }}
-                      />
-                      <button type="button" className="btn btn-secondary" 
-                        onClick={verifyLicense} 
-                        disabled={verifying || !form.license_number}
-                        style={{ flexShrink: 0 }}>
-                        {verifying ? <div className="spinner spinner-sm"/> : verified ? '✓ Verified' : 'Verify NMC'}
-                      </button>
-                    </div>
-                    {verified === true && <div style={{ fontSize: 10, color: '#16a34a', marginTop: 4 }}>Verified in NMC National Medical Register</div>}
+                    <input className="input" placeholder="e.g. MH-12345 (Optional)" 
+                      value={form.license_number} 
+                      onChange={e => set('license_number', e.target.value.toUpperCase())} 
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">OPD Consultation Fee ₹</label>

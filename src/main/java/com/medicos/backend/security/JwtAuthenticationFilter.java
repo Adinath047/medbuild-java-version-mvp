@@ -49,13 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             "{\"error\":\"Unauthorized\",\"message\":\"Token has been revoked. Please log in again.\"}");
                         return;
                     }
-                } catch (org.springframework.dao.DataAccessException e) {
-                    logger.error("Redis connection failed during token validation. Failing closed.", e);
-                    response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                    response.setContentType("application/json");
-                    response.getWriter().write(
-                        "{\"error\":\"Service Unavailable\",\"message\":\"Authentication service is temporarily unavailable. Please try again later.\"}");
-                    return;
+                } catch (Exception e) {
+                    logger.warn("Token blacklist check warning: " + e.getMessage());
                 }
 
                 String userId = tokenProvider.getUserIdFromToken(jwt);
