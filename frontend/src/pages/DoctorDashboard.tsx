@@ -42,7 +42,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       setShowQuickIntakeModal(false);
       setIntakeForm({ name: '', phone: '', age: '', gender: 'Male', chief_complaint: '' });
       if (res.data?.id) {
-        onNavigate('encounter-new', { patientId: res.data.id });
+        onNavigate('new_encounter', { patientId: res.data.id });
       } else {
         loadData();
       }

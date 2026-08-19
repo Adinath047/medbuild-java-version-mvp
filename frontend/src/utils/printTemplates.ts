@@ -939,8 +939,7 @@ export function downloadInvoicePDF(opts: {
 
   const grossTotal = invoice.gross_amount ?? invoice.total_amount ?? items.reduce((s, i) => s + (i.quantity * i.unit_price), 0);
   const discount = invoice.discount || 0;
-  const tax = invoice.tax || 0;
-  const netAmount = invoice.net_amount ?? (grossTotal - discount + tax);
+  const netAmount = invoice.net_amount ?? Math.max(0, grossTotal - discount);
   const paidAmount = invoice.paid_amount || 0;
   const balanceDue = invoice.balance_due ?? Math.max(0, netAmount - paidAmount);
 
@@ -1084,13 +1083,6 @@ export function downloadInvoicePDF(opts: {
     doc.text(`- INR ${Number(discount).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
   }
 
-  if (tax > 0) {
-    sy += 5.5;
-    doc.setTextColor(71, 85, 105);
-    doc.text('Tax / GST:', sumBoxX + 4, sy);
-    doc.text(`+ INR ${Number(tax).toFixed(2)}`, sumBoxX + sumBoxW - 4, sy, { align: 'right' });
-  }
-
   sy += 6;
   doc.setFillColor(15, 23, 42);
   doc.rect(sumBoxX, sy - 4, sumBoxW, 7, 'F');
@@ -1170,7 +1162,7 @@ export function downloadInvoicePDF(opts: {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(148, 163, 184);
-  doc.text(`This is a computer-generated official tax invoice from ${BRAND.name}. Powered by Rotstruck Pvt Ltd.`, 14, footerY + 6);
+  doc.text(`This is a computer-generated official invoice from ${BRAND.name}. Powered by Rotstruck Pvt Ltd.`, 14, footerY + 6);
   if (billedBy) {
     doc.text(`Prepared By: ${billedBy}`, 14, footerY + 11);
   }
@@ -1208,7 +1200,6 @@ export function exportBillingToCSV(bills: any[], patients: any[] = []) {
     'Bill Type',
     'Gross Subtotal (INR)',
     'Discount (INR)',
-    'Tax (INR)',
     'Net Amount (INR)',
     'Paid Amount (INR)',
     'Balance Due (INR)',
@@ -1233,7 +1224,6 @@ export function exportBillingToCSV(bills: any[], patients: any[] = []) {
     const date = b.created_at ? new Date(b.created_at).toISOString().split('T')[0] : '';
     const gross = b.gross_amount ?? b.total_amount ?? b.net_amount ?? 0;
     const disc = b.discount ?? 0;
-    const tax = b.tax ?? 0;
     const net = b.net_amount ?? 0;
     const paid = b.paid_amount ?? 0;
     const due = b.balance_due ?? Math.max(0, net - paid);
@@ -1248,7 +1238,6 @@ export function exportBillingToCSV(bills: any[], patients: any[] = []) {
       escapeCSV(b.bill_type || 'OPD'),
       gross,
       disc,
-      tax,
       net,
       paid,
       due,

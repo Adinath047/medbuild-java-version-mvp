@@ -116,24 +116,29 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
     }
   }, [syncCount, load]);
 
-  // Auto-cancel any appointments that exceeded 8 hours past scheduled time without check-in
-  useEffect(() => {
-    const expiredList = appts.filter(a => isApptExpiredWithoutCheckIn(a) && a.status !== 'Cancelled');
-    if (expiredList.length > 0) {
-      expiredList.forEach(a => {
-        updateStatus(a.id, 'Cancelled');
-      });
-    }
-  }, [appts]);
-
   useEffect(() => {
     (async () => {
-      try { const r = await apiClient.get('/patients',{params:{limit:200}}); setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); }
-      catch { setPatients(await db.patients.toArray()); }
+      try { 
+        const r = await apiClient.get('/patients', { params: { limit: 200 } }); 
+        setPatients(Array.isArray(r.data) ? r.data : (r.data?.patients || [])); 
+      } catch { 
+        setPatients(await db.patients.toArray()); 
+      }
     })();
     (async () => {
-      try { const r = await apiClient.get('/users/doctors'); setDoctors(Array.isArray(r.data) ? r.data : (r.data?.doctors || [])); }
-      catch { /* ignore offline docs for now */ }
+      try { 
+        const r = await apiClient.get('/users/doctors'); 
+        const docs = Array.isArray(r.data) ? r.data : (r.data?.doctors || []);
+        if (docs.length > 0) {
+          setDoctors(docs);
+        } else {
+          const uRes = await apiClient.get('/users');
+          const allUsers = Array.isArray(uRes.data) ? uRes.data : [];
+          setDoctors(allUsers.filter((u: any) => u.role === 'doctor'));
+        }
+      } catch { 
+        /* ignore offline docs */
+      }
     })();
   }, []);
 

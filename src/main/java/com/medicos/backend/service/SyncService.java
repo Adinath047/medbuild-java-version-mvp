@@ -51,7 +51,13 @@ public class SyncService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> pullData(User user, String since, String tables) {
-        String hospitalId = (user != null && !"super_admin".equalsIgnoreCase(user.getRole())) ? user.getHospitalId() : null;
+        String hospitalId = (user != null && !"super_admin".equalsIgnoreCase(user.getRole())) 
+                ? user.getHospitalId() 
+                : com.medicos.backend.security.TenantContext.getTenantId();
+        
+        if ("GLOBAL".equalsIgnoreCase(hospitalId) || (hospitalId != null && hospitalId.trim().isEmpty())) {
+            hospitalId = null;
+        }
 
         Set<String> requestedTables;
         if (tables != null && !tables.trim().isEmpty()) {
@@ -64,32 +70,60 @@ public class SyncService {
         Map<String, Object> data = new HashMap<>();
 
         if (requestedTables.contains("patients")) {
-            List<Patient> list = (hospitalId != null) ? patientRepository.findByHospitalId(hospitalId) : patientRepository.findAll();
-            data.put("patients", list);
+            try {
+                List<Patient> list = (hospitalId != null) ? patientRepository.findByHospitalId(hospitalId) : patientRepository.findAll();
+                data.put("patients", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("patients", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("encounters")) {
-            List<Encounter> list = (hospitalId != null) ? encounterRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : encounterRepository.findAll();
-            data.put("encounters", list);
+            try {
+                List<Encounter> list = (hospitalId != null) ? encounterRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : encounterRepository.findAll();
+                data.put("encounters", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("encounters", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("vitals")) {
-            List<Vital> list = (hospitalId != null) ? vitalRepository.findByHospitalIdOrderByRecordedAtDesc(hospitalId) : vitalRepository.findAll();
-            data.put("vitals", list);
+            try {
+                List<Vital> list = (hospitalId != null) ? vitalRepository.findByHospitalIdOrderByRecordedAtDesc(hospitalId) : vitalRepository.findAll();
+                data.put("vitals", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("vitals", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("prescriptions")) {
-            List<Prescription> list = (hospitalId != null) ? prescriptionRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : prescriptionRepository.findAll();
-            data.put("prescriptions", list);
+            try {
+                List<Prescription> list = (hospitalId != null) ? prescriptionRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : prescriptionRepository.findAll();
+                data.put("prescriptions", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("prescriptions", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("appointments")) {
-            List<Appointment> list = (hospitalId != null) ? appointmentRepository.findByHospitalIdOrderByDateDesc(hospitalId) : appointmentRepository.findAll();
-            data.put("appointments", list);
+            try {
+                List<Appointment> list = (hospitalId != null) ? appointmentRepository.findByHospitalIdOrderByDateDesc(hospitalId) : appointmentRepository.findAll();
+                data.put("appointments", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("appointments", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("billing")) {
-            List<Billing> list = (hospitalId != null) ? billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : billingRepository.findAll();
-            data.put("billing", list);
+            try {
+                List<Billing> list = (hospitalId != null) ? billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId) : billingRepository.findAll();
+                data.put("billing", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("billing", Collections.emptyList());
+            }
         }
         if (requestedTables.contains("medicines")) {
-            List<Medicine> list = (hospitalId != null) ? medicineRepository.findByHospitalId(hospitalId) : medicineRepository.findAll();
-            data.put("medicines", list);
+            try {
+                List<Medicine> list = (hospitalId != null) ? medicineRepository.findByHospitalId(hospitalId) : medicineRepository.findAll();
+                data.put("medicines", list != null ? list : Collections.emptyList());
+            } catch (Exception e) {
+                data.put("medicines", Collections.emptyList());
+            }
         }
 
         String nowIso = Instant.now().toString();

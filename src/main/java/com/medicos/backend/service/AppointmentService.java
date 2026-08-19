@@ -233,7 +233,7 @@ public class AppointmentService {
         }
 
         if (appt.getStatus() == null || appt.getStatus().isEmpty()) {
-            appt.setStatus("confirmed");
+            appt.setStatus("Confirmed");
         }
 
         if (appt.getCreatedAt() == null) appt.setCreatedAt(LocalDateTime.now());
@@ -264,6 +264,8 @@ public class AppointmentService {
         appt.setStatus(newStatus.trim());
         appt.setUpdatedAt(LocalDateTime.now());
 
-        return appointmentRepository.save(appt);
+        Appointment saved = appointmentRepository.save(appt);
+        populateAppointmentDetails(saved);
+        return saved;
     }
 }

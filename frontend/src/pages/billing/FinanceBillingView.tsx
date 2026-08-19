@@ -78,7 +78,6 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [items, setItems] = useState<BillingItem[]>([{ ...EMPTY_ITEM }]);
   const [discount, setDiscount] = useState('0');
-  const [taxPercent, setTaxPercent] = useState('0');
   const [payMode, setPayMode] = useState('Cash');
   const [paidAmount, setPaid] = useState('');
   const [isManualPaid, setIsManualPaid] = useState(false);
@@ -205,7 +204,6 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       amount: days * rate,
     }]);
     setDiscount('0');
-    setTaxPercent('0');
     setPaid('');
     setIsManualPaid(false);
     setNotes(`Bed stay charges for Room ${stay.room || ''} (${stay.bed_number || ''}) — Admitted: ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}, Discharged: ${stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : 'Today'}`);
@@ -297,15 +295,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     return Math.min(rawDisc, grossSubtotal);
   }, [discount, grossSubtotal]);
 
-  const taxableAmount = Math.max(0, grossSubtotal - discountAmount);
-
-  const taxAmount = useMemo(() => {
-    const tPct = parseFloat(taxPercent || '0');
-    if (isNaN(tPct) || tPct <= 0) return 0;
-    return (taxableAmount * tPct) / 100;
-  }, [taxPercent, taxableAmount]);
-
-  const netPayable = Math.round(taxableAmount + taxAmount);
+  const netPayable = Math.round(Math.max(0, grossSubtotal - discountAmount));
   const paidVal = parseFloat(paidAmount || '0') || 0;
   const balanceDue = Math.max(0, netPayable - paidVal);
 
@@ -408,7 +398,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       items: validItems,
       gross_amount: grossSubtotal,
       discount: discountAmount,
-      tax: taxAmount,
+      tax: 0.0,
       net_amount: netPayable,
       paid_amount: paidVal,
       balance_due: balanceDue,
@@ -436,7 +426,6 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       setShowPatientDropdown(false);
       setItems([{ ...EMPTY_ITEM }]);
       setDiscount('0');
-      setTaxPercent('0');
       setPaid('');
       setIsManualPaid(false);
       setNotes('');
@@ -1207,7 +1196,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 </div>
 
                 {/* Calculation breakdown */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: 12, background: 'var(--surface-alt)', padding: 14, borderRadius: 8, border: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 16, background: 'var(--surface-alt)', padding: 14, borderRadius: 8, border: '1px solid var(--border-light)' }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontWeight: 600, fontSize: 12 }}>Discount (Flat ₹)</label>
                     <input
@@ -1220,21 +1209,8 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                       placeholder="0"
                     />
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontWeight: 600, fontSize: 12 }}>Tax / GST (%)</label>
-                    <select
-                      className="input"
-                      value={taxPercent}
-                      onChange={e => setTaxPercent(e.target.value)}
-                    >
-                      <option value="0">0% (Healthcare Exempt)</option>
-                      <option value="5">5% GST</option>
-                      <option value="12">12% GST</option>
-                      <option value="18">18% GST</option>
-                    </select>
-                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Subtotal: ₹{grossSubtotal} {discountAmount > 0 ? `− ₹${discountAmount}` : ''} {taxAmount > 0 ? `+ ₹${Math.round(taxAmount)}` : ''}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Subtotal: ₹{grossSubtotal} {discountAmount > 0 ? `− ₹${discountAmount}` : ''}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)', marginTop: 2 }}>
                       Net Payable: ₹{netPayable}
                     </div>

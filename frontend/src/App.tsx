@@ -595,13 +595,18 @@ export default function App() {
       case 'prescriptions':   return <PrescriptionsListPage onNavigate={navigate} />;
       case 'encounters':      return <EncountersListPage onNavigate={navigate} />;
       case 'vitals':          return <VitalsPage onNavigate={navigate} />;
-      case 'appointments':    return <AppointmentsPage onNavigate={navigate} />;
+      case 'appointments':    return <AppointmentsPage onNavigate={navigate} data={pageData} />;
       case 'billing':         return <BillingPage onNavigate={navigate} data={pageData} />;
       case 'pharmacy':        return <PharmacyBillingPage onNavigate={navigate} />;
-      case 'patient_detail':  return <PatientDetail onNavigate={navigate} data={pageData} />;
-      case 'new_encounter':   return <NewEncounter onNavigate={navigate} data={pageData} />;
-      case 'new_prescription':return <PrescriptionPage onNavigate={navigate} data={pageData} />;
-      case 'new_vitals':      return <VitalsPage onNavigate={navigate} data={pageData} mode="record" />;
+      case 'patient_detail':  
+      case 'patient-detail':  return <PatientDetail onNavigate={navigate} data={pageData} />;
+      case 'new_encounter':   
+      case 'encounter-new':
+      case 'encounter_new':   return <NewEncounter onNavigate={navigate} data={pageData} />;
+      case 'new_prescription':
+      case 'prescription-new':return <PrescriptionPage onNavigate={navigate} data={pageData} />;
+      case 'new_vitals':      
+      case 'vitals-new':      return <VitalsPage onNavigate={navigate} data={pageData} mode="record" />;
       case 'beds':            return <BedsPage />;
       case 'settings':        return <SettingsPage />;
       default:                return <PatientsPage onNavigate={navigate} />;

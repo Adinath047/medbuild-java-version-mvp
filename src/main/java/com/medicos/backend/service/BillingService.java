@@ -149,14 +149,14 @@ public class BillingService {
 
         double gross = itemsSum > 0 ? itemsSum : (bill.getGrossAmount() != null && bill.getGrossAmount() > 0 ? bill.getGrossAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0));
         double discount = Math.max(0.0, bill.getDiscount() != null ? bill.getDiscount() : 0.0);
-        double tax = Math.max(0.0, bill.getTax() != null ? bill.getTax() : 0.0);
-        double net = Math.max(0.0, gross - discount + tax);
+        double tax = 0.0;
+        double net = Math.max(0.0, gross - discount);
         double paid = bill.getPaidAmount() != null ? Math.max(0.0, bill.getPaidAmount()) : 0.0;
 
         bill.setGrossAmount(gross);
         bill.setTotalAmount(gross);
         bill.setDiscount(discount);
-        bill.setTax(tax);
+        bill.setTax(0.0);
         bill.setNetAmount(net);
         bill.setPaidAmount(paid);
 
