@@ -645,11 +645,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                           <td><code>#{b.invoice_number || b.id.slice(0, 8)}</code></td>
                           <td>
                             <div style={{ fontWeight: 600 }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || patient?.uhid || '—'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || b.patient_uhid || patient?.uhid || '—'}</div>
                           </td>
                           <td style={{ fontSize: 12.5 }}>{b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}</td>
                           <td style={{ fontSize: 12.5 }}>
-                            <div style={{ fontWeight: 500 }}>{b.bill_type === 'bed_stay' ? '🛏️ IPD Bed Stay' : (b.bill_type === 'pharmacy' ? '💊 Pharmacy' : '🩺 OPD Consultation')}</div>
+                            <div style={{ fontWeight: 500 }}>{b.bill_type === 'bed_stay' ? 'IPD Bed Stay' : (b.bill_type === 'pharmacy' ? 'Pharmacy Sales' : 'OPD Consultation')}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{b.notes || 'Hospital Services'}</div>
                           </td>
                           <td style={{ fontSize: 12.5 }}>

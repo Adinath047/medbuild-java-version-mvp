@@ -109,6 +109,10 @@ public class User {
     @Column(name = "print_font_size")
     private Double printFontSize = 11.0;
 
+    @JsonProperty("tour_completed")
+    @Column(name = "tour_completed")
+    private Integer tourCompleted = 0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -215,6 +219,9 @@ public class User {
 
     public Double getPrintFontSize() { return printFontSize; }
     public void setPrintFontSize(Double printFontSize) { this.printFontSize = printFontSize; }
+
+    public Integer getTourCompleted() { return tourCompleted; }
+    public void setTourCompleted(Integer tourCompleted) { this.tourCompleted = tourCompleted; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

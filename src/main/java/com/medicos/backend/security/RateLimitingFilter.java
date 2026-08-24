@@ -35,20 +35,17 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private boolean enabled;
 
     // General API requests per minute per IP
-    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 300;
+    private static final int MAX_GENERAL_REQUESTS_PER_MINUTE = 1200;
 
-    // Auth endpoints (login, register, hospital lookup) per minute per IP.
-    // Configurable via rate-limiting.auth-max-per-minute to allow test environments
-    // to use a higher value without changing the production default.
-    @Value("${rate-limiting.auth-max-per-minute:20}")
+    // Auth endpoints (login, register) per minute per IP.
+    @Value("${rate-limiting.auth-max-per-minute:120}")
     private int maxAuthRequestsPerMinute;
 
     // OTP-specific limit — much tighter to prevent 6-digit brute force
-    // 6-digit OTP = 1,000,000 combinations; at 5/min it would take 138 days
-    private static final int MAX_OTP_REQUESTS_PER_MINUTE = 5;
+    private static final int MAX_OTP_REQUESTS_PER_MINUTE = 10;
 
     // Trial signup limit — strictly capped to prevent schema generation abuse
-    private static final int MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR = 3;
+    private static final int MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR = 10;
     private static final long ONE_HOUR_IN_MS = 3600_000L;
 
     // IPv4 pattern for X-Forwarded-For validation
@@ -114,6 +111,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             || path.endsWith(".css")      || path.endsWith(".js")
             || path.endsWith(".png")      || path.endsWith(".ico")
             || path.startsWith("/api/sync")
+            || path.startsWith("/api/auth/hospital/")
+            || path.equals("/api/auth/me")
+            || path.equals("/api/auth/refresh")
+            || path.equals("/api/auth/logout")
+            || path.startsWith("/api/trial/")
             || path.equals("/api/health")
             || path.equals("/api/system/status");
     }
@@ -123,7 +125,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private boolean isAuthEndpoint(String path) {
-        return path.startsWith("/api/auth/");
+        return "/api/auth/login".equals(path) || "/api/auth/register".equals(path);
     }
 
     /**

@@ -146,9 +146,8 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
         setVitalsHistory([]);
       }
       try {
-        const billsRes = await apiClient.get('/billing');
-        const rawBills = Array.isArray(billsRes.data) ? billsRes.data : (billsRes.data?.bills || []);
-        const pBills = rawBills.filter((b: any) => b.patient_id === patientId);
+        const billsRes = await apiClient.get('/billing', { params: { patient_id: patientId } });
+        const pBills = Array.isArray(billsRes.data) ? billsRes.data : (billsRes.data?.bills || []);
         setPatientBills(pBills);
       } catch (err) {
         console.warn("Failed to load patient bills from api", err);

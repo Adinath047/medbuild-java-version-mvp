@@ -140,8 +140,6 @@ public class SyncService {
     public Map<String, Object> pushData(Map<String, Object> payload, User user) {
         List<Map<String, Object>> records = (List<Map<String, Object>>) payload.getOrDefault("records", Collections.emptyList());
         String userHospitalId = user != null ? user.getHospitalId() : "hsp-001";
-        boolean isSuperAdmin = user != null && "super_admin".equalsIgnoreCase(user.getRole());
-
         List<Map<String, Object>> results = new ArrayList<>();
         int synced = 0;
         int failed = 0;
@@ -166,13 +164,13 @@ public class SyncService {
             Map<String, Object> itemPayload = new HashMap<>(rawItemPayload);
 
             String recordHospitalId = (String) itemPayload.get("hospital_id");
-            if (!isSuperAdmin && recordHospitalId != null && !recordHospitalId.equals(userHospitalId)) {
+            if (recordHospitalId != null && !recordHospitalId.equals(userHospitalId)) {
                 results.add(Map.of("id", itemPayload.get("id"), "status", "rejected", "reason", "hospital mismatch"));
                 failed++;
                 continue;
             }
 
-            if (!isSuperAdmin && recordHospitalId == null) {
+            if (recordHospitalId == null) {
                 itemPayload.put("hospital_id", userHospitalId);
             }
 

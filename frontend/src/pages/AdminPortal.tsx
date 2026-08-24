@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
 
-const ROLES = ['doctor', 'receptionist', 'nurse', 'lab_technician', 'pharmacist', 'admin', 'billing'] as const;
+const ROLES = ['doctor', 'receptionist', 'nurse', 'lab_technician', 'pharmacist', 'admin'] as const;
 const SPECIALIZATIONS = [
   'General Medicine','General Surgery','Pediatrics','Obstetrics & Gynaecology',
   'Cardiology','Neurology','Orthopedics','Ophthalmology','ENT','Dermatology',
@@ -18,8 +18,7 @@ const ROLE_COLOR: Record<string, string> = {
   nurse:'#7c3aed', 
   lab_technician:'#0369a1', 
   pharmacist:'#16a34a', 
-  admin:'#2563eb', 
-  billing:'#be123c' 
+  admin:'#2563eb' 
 };
 
 const ROLE_BG: Record<string, string> = { 
@@ -28,8 +27,7 @@ const ROLE_BG: Record<string, string> = {
   nurse:'#f5f3ff', 
   lab_technician:'#e0f2fe', 
   pharmacist:'#dcfce7', 
-  admin:'#eff6ff', 
-  billing:'#ffe4e6' 
+  admin:'#eff6ff' 
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -38,8 +36,7 @@ const ROLE_LABEL: Record<string, string> = {
   nurse: 'Nurse',
   lab_technician: 'Lab Technician',
   pharmacist: 'Pharmacist',
-  admin: 'Hospital Admin',
-  billing: 'Billing & Finance'
+  admin: 'Hospital Admin'
 };
 
 // ── Add Staff Modal ────────────────────────────────────────────────────
@@ -122,7 +119,6 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (u: any) =
                   <option value="nurse">Nurse (Station & Vitals)</option>
                   <option value="lab_technician">Lab Technician</option>
                   <option value="pharmacist">Pharmacist</option>
-                  <option value="billing">Insurance & Finance Officer</option>
                   <option value="admin">Hospital Master Admin</option>
                 </select>
               </div>
@@ -969,7 +965,6 @@ export default function AdminPortal() {
                   ['nurse','Nurses','#7c3aed'],
                   ['lab_technician','Lab Techs','#0369a1'],
                   ['pharmacist','Pharmacy','#16a34a'],
-                  ['billing','Billing','#be123c'],
                   ['admin','Admins','#2563eb']
                 ] as const).map(([r, label, color]) => {
                   const selected = roleFilter === r;

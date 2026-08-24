@@ -8,6 +8,7 @@ export interface AuthUser {
   email:            string;
   role:             string;
   hospitalId?:      string;
+  phone?:           string;
   photoUrl?:        string;
   staff_type?:      string;
   specialization?:  string;
@@ -25,15 +26,25 @@ export interface AuthUser {
   printMarginBottom?:         number;
   printMarginLeftRight?:      number;
   printFontSize?:             number;
+  tourCompleted?:             boolean;
 }
 
 interface AuthState {
-  user:           AuthUser | null;
-  isLoading:      boolean;
-  loginError:     string | null;
-  login: (staffId: string, password: string, hospitalId?: string) => Promise<boolean>;
-  logout:         () => void;
-  restoreSession: () => Promise<void>;
+  user:             AuthUser | null;
+  isLoading:        boolean;
+  loginError:       string | null;
+  trialStatus:      'ACTIVE' | 'EXPIRED' | 'ACTIVATED' | null;
+  trialEndsAt:      string | null;
+  subscriptionPlan: string | null;
+  isReadOnly:       boolean;
+  daysRemaining:    number;
+  hoursRemaining:   number;
+  tourCompleted:    boolean;
+  login:            (staffId: string, password: string, hospitalId?: string) => Promise<boolean>;
+  logout:           () => void;
+  restoreSession:   () => Promise<void>;
+  fetchTrialStatus: () => Promise<void>;
+  completeTour:     () => Promise<void>;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -85,9 +96,54 @@ function persistLocalAuth(user: AuthUser, token?: string) {
 
 // ── Store ──────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user:       null,
-  isLoading:  true,
-  loginError: null,
+  user:             null,
+  isLoading:        true,
+  loginError:       null,
+  trialStatus:      null,
+  trialEndsAt:      null,
+  subscriptionPlan: null,
+  isReadOnly:       false,
+  daysRemaining:    7,
+  hoursRemaining:   168,
+  tourCompleted:    false,
+
+  fetchTrialStatus: async () => {
+    try {
+      const res = await apiClient.get('/trial/status');
+      const data = res.data;
+      if (data) {
+        const isExpired = data.trial_status === 'EXPIRED' || data.is_read_only === true;
+        const currentUserId = get().user?.id;
+        const localTourKey = currentUserId ? localStorage.getItem(`tour_completed_${currentUserId}`) : null;
+        const tourDone = data.tour_completed || localTourKey === 'true';
+
+        set({
+          trialStatus:      data.trial_status || 'ACTIVE',
+          trialEndsAt:      data.trial_ends_at || null,
+          subscriptionPlan: data.subscription_plan || 'TRIAL',
+          isReadOnly:       isExpired,
+          daysRemaining:    data.days_remaining !== undefined ? data.days_remaining : 7,
+          hoursRemaining:   data.hours_remaining !== undefined ? data.hours_remaining : 168,
+          tourCompleted:    tourDone,
+        });
+      }
+    } catch (err) {
+      console.warn('[authStore] Failed to fetch trial status:', err);
+    }
+  },
+
+  completeTour: async () => {
+    try {
+      const currentUserId = get().user?.id;
+      if (currentUserId) {
+        localStorage.setItem(`tour_completed_${currentUserId}`, 'true');
+      }
+      set({ tourCompleted: true });
+      await apiClient.post('/trial/tour/complete');
+    } catch (err) {
+      console.warn('[authStore] Failed to mark tour complete on backend:', err);
+    }
+  },
 
   restoreSession: async () => {
     // 1. Immediately sync cached token & user for instant hydration
@@ -127,6 +183,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       persistLocalAuth(user, getAccessToken() || cachedToken || undefined);
       set({ user, isLoading: false });
+
+      // Fetch trial status
+      get().fetchTrialStatus().catch(console.error);
 
       import('../sync/syncManager').then(m => m.syncNow()).catch(console.error);
     } catch (err: any) {
@@ -173,6 +232,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({ user, loginError: null });
+
+      // Fetch trial status
+      get().fetchTrialStatus().catch(console.error);
 
       import('../sync/syncManager').then(m => m.syncNow()).catch(console.error);
 

@@ -34,17 +34,29 @@ public class TenantContextFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String tenantId = null;
+            String jwt = null;
             String authHeader = request.getHeader(AUTHORIZATION_HEADER);
 
-            // 1. Derive tenant ID from secure server-side JWT token if present
+            // 1. Derive tenant ID from Authorization header
             if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) {
-                String jwt = authHeader.substring(BEARER_PREFIX.length()).trim();
-                if (jwtTokenProvider.validateToken(jwt)) {
-                    tenantId = jwtTokenProvider.getHospitalIdFromToken(jwt);
+                jwt = authHeader.substring(BEARER_PREFIX.length()).trim();
+            }
+
+            // 2. Or derive from emr_token cookie if header is absent
+            if (!StringUtils.hasText(jwt) && request.getCookies() != null) {
+                for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                    if ("emr_token".equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                        jwt = cookie.getValue().trim();
+                        break;
+                    }
                 }
             }
 
-            // 2. Fallback to header for unauthenticated endpoints if JWT is absent
+            if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
+                tenantId = jwtTokenProvider.getHospitalIdFromToken(jwt);
+            }
+
+            // 3. Fallback to header for unauthenticated endpoints if JWT is absent
             if (!StringUtils.hasText(tenantId)) {
                 tenantId = request.getHeader(TENANT_HEADER);
                 if (!StringUtils.hasText(tenantId)) {

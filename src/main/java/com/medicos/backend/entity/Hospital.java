@@ -28,6 +28,18 @@ public class Hospital {
     @Column(name = "is_active", nullable = false)
     private Integer isActive = 1;
 
+    @Column(name = "subscription_plan", length = 50)
+    private String subscriptionPlan = "TRIAL";
+
+    @Column(name = "trial_started_at")
+    private LocalDateTime trialStartedAt;
+
+    @Column(name = "trial_ends_at")
+    private LocalDateTime trialEndsAt;
+
+    @Column(name = "trial_status", length = 50)
+    private String trialStatus = "ACTIVE";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -40,6 +52,10 @@ public class Hospital {
     public void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (updatedAt == null) updatedAt = LocalDateTime.now();
+        if (trialStartedAt == null) trialStartedAt = LocalDateTime.now();
+        if (trialEndsAt == null) trialEndsAt = LocalDateTime.now().plusDays(7);
+        if (trialStatus == null) trialStatus = "ACTIVE";
+        if (subscriptionPlan == null) subscriptionPlan = "TRIAL";
     }
 
     @PreUpdate
@@ -80,6 +96,18 @@ public class Hospital {
 
     public Integer getIsActive() { return isActive; }
     public void setIsActive(Integer isActive) { this.isActive = isActive; }
+
+    public String getSubscriptionPlan() { return subscriptionPlan; }
+    public void setSubscriptionPlan(String subscriptionPlan) { this.subscriptionPlan = subscriptionPlan; }
+
+    public LocalDateTime getTrialStartedAt() { return trialStartedAt; }
+    public void setTrialStartedAt(LocalDateTime trialStartedAt) { this.trialStartedAt = trialStartedAt; }
+
+    public LocalDateTime getTrialEndsAt() { return trialEndsAt; }
+    public void setTrialEndsAt(LocalDateTime trialEndsAt) { this.trialEndsAt = trialEndsAt; }
+
+    public String getTrialStatus() { return trialStatus; }
+    public void setTrialStatus(String trialStatus) { this.trialStatus = trialStatus; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

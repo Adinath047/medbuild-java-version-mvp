@@ -123,6 +123,7 @@ public class AuthDTO {
         private Integer printMarginBottom;
         private Integer printMarginLeftRight;
         private Double printFontSize;
+        private Integer tourCompleted;
 
         public UserDTO() {}
 
@@ -194,6 +195,9 @@ public class AuthDTO {
 
         public Double getPrintFontSize() { return printFontSize; }
         public void setPrintFontSize(Double printFontSize) { this.printFontSize = printFontSize; }
+
+        public Integer getTourCompleted() { return tourCompleted; }
+        public void setTourCompleted(Integer tourCompleted) { this.tourCompleted = tourCompleted; }
     }
 
     public static class LoginResponse {

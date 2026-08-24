@@ -11,7 +11,7 @@ export default defineConfig({
       injectManifest: undefined,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        navigateFallbackDenylist: [/^\/super-admin/, /^\/api/],
+        navigateFallbackDenylist: [/^\/api/],
         skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [

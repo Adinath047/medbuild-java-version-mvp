@@ -25,6 +25,8 @@ import { db } from './db/localDB';
 import PrintRequestModal, { PrintModalData } from './components/PrintRequestModal';
 import { useNotificationStore } from './store/notificationStore';
 import { EmergencyBanner, NotificationBell } from './components/NotificationUI';
+import TrialBanner from './components/TrialBanner';
+import OnboardingTour from './components/OnboardingTour';
 
 // ── SVG Icons (Matching ClinicalHub Screenshots) ─────────────────────
 const Icons: Record<string, JSX.Element> = {
@@ -65,19 +67,12 @@ function getNav(user: any) {
     { icon: 'profile',      label: 'Profile',               page: 'settings' },
   ];
 
-  if (role.includes('billing') || role.includes('finance')) return [
-    { section: 'WORKSPACE' },
-    { icon: 'home',         label: 'Home',           page: 'dashboard' },
-    { icon: 'patients',     label: 'My Patients',    page: 'patients' },
-    { icon: 'billing',      label: 'Billing',        page: 'billing' },
-    { icon: 'profile',      label: 'Profile',        page: 'settings' },
-  ];
-
   if (role.includes('nurse')) return [
     { section: 'WORKSPACE' },
     { icon: 'home',         label: 'Home',           page: 'dashboard' },
     { icon: 'patients',     label: 'Patients',       page: 'patients' },
     { icon: 'beds',         label: 'Beds & Vitals',  page: 'beds' },
+    { icon: 'billing',      label: 'Billing',        page: 'billing' },
     { icon: 'profile',      label: 'Profile',        page: 'settings' },
   ];
 
@@ -116,7 +111,6 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
     nurse:          { label: 'Nurse', sub: 'NURSING SUITE' },
     lab_technician: { label: 'Lab Technician', sub: 'DIAGNOSTICS' },
     pharmacist:     { label: 'Pharmacist', sub: 'PHARMACY' },
-    billing:        { label: 'Billing Officer', sub: 'FINANCE' },
   };
   const { label: roleLabel, sub: roleSub } = roleInfo[user?.role] ?? { label: user?.role, sub: 'CLINICAL SUITE' };
 
@@ -275,12 +269,7 @@ export default function App() {
   } = useNotificationStore();
 
   const [page, setPage]         = useState(() => sessionStorage.getItem('emr_current_page') || '');
-  const [pageData, setPageData] = useState<any>(() => {
-    try {
-      const stored = sessionStorage.getItem('emr_current_page_data');
-      return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
-  });
+  const [pageData, setPageData] = useState<any>(null);
   const [sidebarOpen, setSidebar] = useState(false);
   const [showInactivityModal, setShowInactivityModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -507,8 +496,6 @@ export default function App() {
     setPage(p);
     setPageData(data ?? null);
     sessionStorage.setItem('emr_current_page', p);
-    if (data) sessionStorage.setItem('emr_current_page_data', JSON.stringify(data));
-    else sessionStorage.removeItem('emr_current_page_data');
   }
 
   if (isLoading) return (
@@ -617,6 +604,9 @@ export default function App() {
     <div className="app-shell">
       <Sidebar page={page} onNav={navigate} user={user} sidebarOpen={sidebarOpen} onClose={() => setSidebar(false)} />
       <main className="main-area" role="main" aria-label="EMR Application Workspace">
+        {/* Trial Countdown & Upgrade Notice Ribbon */}
+        <TrialBanner />
+
         <header className="topbar">
           <div className="topbar-left">
             <button className="topbar-hamburger" onClick={() => setSidebar(o => !o)} aria-label="Toggle Navigation Sidebar">
@@ -727,6 +717,9 @@ export default function App() {
         data={activePrintModalData} 
         onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
       />
+
+      {/* Role-Aware Onboarding Tour for First-Time Users */}
+      <OnboardingTour />
     </div>
   );
 }

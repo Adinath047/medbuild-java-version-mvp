@@ -424,6 +424,7 @@ public class AuthService {
         dto.setPrintMarginBottom(user.getPrintMarginBottom());
         dto.setPrintMarginLeftRight(user.getPrintMarginLeftRight());
         dto.setPrintFontSize(user.getPrintFontSize());
+        dto.setTourCompleted(user.getTourCompleted() != null ? user.getTourCompleted() : 0);
         return dto;
     }
 

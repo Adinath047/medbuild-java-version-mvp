@@ -1,11 +1,13 @@
 package com.medicos.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "billing")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Billing {
 
     @Id
@@ -106,6 +108,19 @@ public class Billing {
     @Transient
     @JsonProperty("doctor_name")
     private String doctorName;
+
+    @Transient
+    @JsonProperty("uhid")
+    public String getUhid() {
+        return patientUhid;
+    }
+
+    @JsonProperty("uhid")
+    public void setUhid(String uhid) {
+        if (uhid != null && !uhid.isBlank() && (this.patientUhid == null || this.patientUhid.isBlank())) {
+            this.patientUhid = uhid;
+        }
+    }
 
     @Transient
     @JsonProperty("balance_due")

@@ -42,6 +42,9 @@ public class SecurityConfig {
     @Value("${swagger.enabled:true}")
     private boolean swaggerEnabled;
 
+    @Value("${jwt.cookie-secure:false}")
+    private boolean cookieSecure;
+
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           RateLimitingFilter rateLimitingFilter,
                           TenantContextFilter tenantContextFilter) {
@@ -57,15 +60,17 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfRepository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite("Lax"));
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfRepository)
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 .ignoringRequestMatchers(
                     "/api/auth/**",
                     "/api/trial/signup",
-                    "/api/super-admin/unlock",
                     "/api/mobile/**"
                 )
                 .ignoringRequestMatchers(request -> {
@@ -139,7 +144,7 @@ public class SecurityConfig {
                         "/manifest.webmanifest", "/*.webmanifest",
                         "/static/**", "/css/**", "/js/**", "/assets/**", "/fonts/**",
                         "/portal/**", "/app/**", "/doctor/**", "/patient/**",
-                        "/admin/**", "/super-admin/**", "/_vercel/**",
+                        "/admin/**", "/_vercel/**",
                         "/sw.js", "/registerSW.js", "/workbox-*.js", "/error"
                     ).permitAll()
 
@@ -152,8 +157,11 @@ public class SecurityConfig {
                     .requestMatchers("/api/health").permitAll()
                     .requestMatchers("/api/system/**").permitAll()
 
-                    // ── Super admin unlock (uses secret key in service layer) ──
-                    .requestMatchers(HttpMethod.POST, "/api/super-admin/unlock").permitAll()
+                    // ── Trial & Onboarding ─────────────────────────────────────
+                    .requestMatchers(HttpMethod.POST, "/api/trial/signup").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/trial/contact").permitAll()
+                    .requestMatchers("/api/trial/status").permitAll()
+                    .requestMatchers("/api/trial/tour/complete").authenticated()
 
                     // ── Prescription public slip (token-based public link) ─────
                     .requestMatchers("/api/prescriptions/slip/**").permitAll()

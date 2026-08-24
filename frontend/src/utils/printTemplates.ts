@@ -10,6 +10,16 @@ const BRAND = {
   tagline: 'Compassionate Care · Advanced Medicine',
 };
 
+export function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function openPrintWindow(html: string) {
   // Remove any stale print frame from a previous call
   const stale = document.getElementById('__medicos_print_frame__');
@@ -18,24 +28,24 @@ function openPrintWindow(html: string) {
   const iframe = document.createElement('iframe');
   iframe.id = '__medicos_print_frame__';
   iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;';
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!doc) { alert('Could not open print view. Please try again.'); return; }
-
-  doc.open();
-  doc.write(html);
-  doc.close();
 
   // Wait for iframe content (fonts, images) to load before printing
   iframe.onload = () => {
     setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      // Clean up after print dialog closes (generous timeout for slow dialogs)
-      setTimeout(() => iframe.remove(), 2000);
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Print execution failed:', err);
+      } finally {
+        // Clean up after print dialog closes (generous timeout for slow dialogs)
+        setTimeout(() => iframe.remove(), 2000);
+      }
     }, 150);
   };
+
+  document.body.appendChild(iframe);
+  iframe.srcdoc = html;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ public class WebViewController {
     /**
      * Forwards root URL and any frontend SPA routes to index.html
      */
-    @GetMapping({"/", "/portal/**", "/app/**", "/doctor/**", "/patient/**", "/admin/**", "/super-admin/**"})
+    @GetMapping({"/", "/portal/**", "/app/**", "/doctor/**", "/patient/**", "/admin/**"})
     public String index() {
         return "forward:/index.html";
     }

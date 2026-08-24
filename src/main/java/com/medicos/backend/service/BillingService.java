@@ -75,13 +75,17 @@ public class BillingService {
             double paid = b.getPaidAmount() != null ? b.getPaidAmount() : 0.0;
             String currentStatus = b.getPaymentStatus() != null ? b.getPaymentStatus().trim() : "";
 
-            if (paid >= net && net > 0 && !"Paid".equalsIgnoreCase(currentStatus)) {
+            if ("Cancelled".equalsIgnoreCase(currentStatus) || "Waived".equalsIgnoreCase(currentStatus)) {
+                continue;
+            }
+
+            if (paid >= net && !"Paid".equalsIgnoreCase(currentStatus)) {
                 b.setPaymentStatus("Paid");
                 toSave.add(b);
             } else if (paid > 0 && paid < net && !"Partial".equalsIgnoreCase(currentStatus)) {
                 b.setPaymentStatus("Partial");
                 toSave.add(b);
-            } else if (paid <= 0 && !"Pending".equalsIgnoreCase(currentStatus) && !"Cancelled".equalsIgnoreCase(currentStatus)) {
+            } else if (paid <= 0 && net > 0 && !"Pending".equalsIgnoreCase(currentStatus)) {
                 b.setPaymentStatus("Pending");
                 toSave.add(b);
             }
@@ -132,14 +136,19 @@ public class BillingService {
                         double qty = 1.0;
                         double price = 0.0;
                         if (itemMap.containsKey("quantity") && itemMap.get("quantity") != null) {
-                            qty = Double.parseDouble(itemMap.get("quantity").toString());
+                            try { qty = Double.parseDouble(itemMap.get("quantity").toString()); } catch (Exception ignored) {}
+                        }
+                        if (itemMap.containsKey("amount") && itemMap.get("amount") != null) {
+                            try { 
+                                double amt = Double.parseDouble(itemMap.get("amount").toString());
+                                itemsSum += amt;
+                                continue;
+                            } catch (Exception ignored) {}
                         }
                         if (itemMap.containsKey("unit_price") && itemMap.get("unit_price") != null) {
-                            price = Double.parseDouble(itemMap.get("unit_price").toString());
+                            try { price = Double.parseDouble(itemMap.get("unit_price").toString()); } catch (Exception ignored) {}
                         } else if (itemMap.containsKey("price") && itemMap.get("price") != null) {
-                            price = Double.parseDouble(itemMap.get("price").toString());
-                        } else if (itemMap.containsKey("amount") && itemMap.get("amount") != null) {
-                            price = Double.parseDouble(itemMap.get("amount").toString()) / (qty > 0 ? qty : 1.0);
+                            try { price = Double.parseDouble(itemMap.get("price").toString()); } catch (Exception ignored) {}
                         }
                         itemsSum += (qty * price);
                     }
@@ -147,20 +156,20 @@ public class BillingService {
             }
         } catch (Exception ignored) {}
 
-        double gross = itemsSum > 0 ? itemsSum : (bill.getGrossAmount() != null && bill.getGrossAmount() > 0 ? bill.getGrossAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0));
+        double gross = itemsSum > 0 ? itemsSum : (bill.getGrossAmount() != null && bill.getGrossAmount() > 0 ? bill.getGrossAmount() : (bill.getTotalAmount() != null && bill.getTotalAmount() > 0 ? bill.getTotalAmount() : (bill.getNetAmount() != null ? bill.getNetAmount() : 0.0)));
         double discount = Math.max(0.0, bill.getDiscount() != null ? bill.getDiscount() : 0.0);
-        double tax = 0.0;
-        double net = Math.max(0.0, gross - discount);
+        double tax = Math.max(0.0, bill.getTax() != null ? bill.getTax() : 0.0);
+        double net = Math.max(0.0, gross - discount + tax);
         double paid = bill.getPaidAmount() != null ? Math.max(0.0, bill.getPaidAmount()) : 0.0;
 
         bill.setGrossAmount(gross);
         bill.setTotalAmount(gross);
         bill.setDiscount(discount);
-        bill.setTax(0.0);
+        bill.setTax(tax);
         bill.setNetAmount(net);
         bill.setPaidAmount(paid);
 
-        if (paid >= net && net > 0) {
+        if (paid >= net) {
             bill.setPaymentStatus("Paid");
         } else if (paid > 0) {
             bill.setPaymentStatus("Partial");
@@ -202,55 +211,65 @@ public class BillingService {
         double oldPaid = bill.getPaidAmount() != null ? bill.getPaidAmount() : 0.0;
         double net = bill.getNetAmount() != null ? bill.getNetAmount() : (bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0);
 
-        if (body.containsKey("paid_amount") && body.get("paid_amount") != null) {
+        double newPaid = oldPaid;
+        double paymentIncrement = 0.0;
+
+        if (body.containsKey("amount") && body.get("amount") != null) {
             try {
-                double newPaid = Double.parseDouble(body.get("paid_amount").toString().trim());
-                if (newPaid < 0) {
-                    throw new BadRequestException("Paid amount cannot be negative.");
-                }
-                double paymentIncrement = Math.max(0.0, newPaid - oldPaid);
-                bill.setPaidAmount(newPaid);
-
-                if (newPaid >= net && net > 0) {
-                    bill.setPaymentStatus("Paid");
-                } else if (newPaid > 0) {
-                    bill.setPaymentStatus("Partial");
-                } else {
-                    bill.setPaymentStatus("Pending");
-                }
-
-                // Add installment to payment_history
-                if (paymentIncrement > 0) {
-                    List<Map<String, Object>> history = new ArrayList<>();
-                    Object rawHist = bill.getPaymentHistory();
-                    if (rawHist instanceof List<?> histList) {
-                        for (Object o : histList) {
-                            if (o instanceof Map<?, ?> m) {
-                                history.add(new HashMap<>((Map<String, Object>) m));
-                            }
-                        }
-                    }
-                    Map<String, Object> txn = new HashMap<>();
-                    txn.put("id", "txn-" + UUID.randomUUID().toString().substring(0, 8));
-                    txn.put("amount", paymentIncrement);
-                    txn.put("payment_mode", body.getOrDefault("payment_mode", bill.getPaymentMode() != null ? bill.getPaymentMode() : "Cash").toString());
-                    txn.put("date", LocalDateTime.now().toString());
-                    txn.put("received_by", body.getOrDefault("received_by", "Cashier").toString());
-                    txn.put("notes", body.getOrDefault("notes", "Installment payment recorded").toString());
-                    history.add(txn);
-                    bill.setPaymentHistory(history);
-                }
+                double amt = Double.parseDouble(body.get("amount").toString().trim());
+                if (amt < 0) throw new BadRequestException("Payment amount cannot be negative.");
+                paymentIncrement = amt;
+                newPaid = oldPaid + amt;
+            } catch (NumberFormatException e) {
+                throw new BadRequestException("Invalid numeric value for amount.");
+            }
+        } else if (body.containsKey("paid_amount") && body.get("paid_amount") != null) {
+            try {
+                newPaid = Double.parseDouble(body.get("paid_amount").toString().trim());
+                if (newPaid < 0) throw new BadRequestException("Paid amount cannot be negative.");
+                paymentIncrement = Math.max(0.0, newPaid - oldPaid);
             } catch (NumberFormatException e) {
                 throw new BadRequestException("Invalid numeric value for paid_amount.");
             }
+        }
+
+        bill.setPaidAmount(newPaid);
+        if (newPaid >= net) {
+            bill.setPaymentStatus("Paid");
+        } else if (newPaid > 0) {
+            bill.setPaymentStatus("Partial");
+        } else {
+            bill.setPaymentStatus("Pending");
         }
 
         if (body.containsKey("payment_mode") && body.get("payment_mode") != null) {
             bill.setPaymentMode(body.get("payment_mode").toString().trim());
         }
 
-        if (body.containsKey("payment_status") && body.get("payment_status") != null) {
+        if (body.containsKey("payment_status") && body.get("payment_status") != null && !body.get("payment_status").toString().isBlank()) {
             bill.setPaymentStatus(body.get("payment_status").toString().trim());
+        }
+
+        // Add installment to payment_history
+        if (paymentIncrement > 0) {
+            List<Map<String, Object>> history = new ArrayList<>();
+            Object rawHist = bill.getPaymentHistory();
+            if (rawHist instanceof List<?> histList) {
+                for (Object o : histList) {
+                    if (o instanceof Map<?, ?> m) {
+                        history.add(new HashMap<>((Map<String, Object>) m));
+                    }
+                }
+            }
+            Map<String, Object> txn = new HashMap<>();
+            txn.put("id", "txn-" + UUID.randomUUID().toString().substring(0, 8));
+            txn.put("amount", paymentIncrement);
+            txn.put("payment_mode", body.getOrDefault("payment_mode", bill.getPaymentMode() != null ? bill.getPaymentMode() : "Cash").toString());
+            txn.put("date", LocalDateTime.now().toString());
+            txn.put("received_by", body.getOrDefault("received_by", "Cashier").toString());
+            txn.put("notes", body.getOrDefault("notes", "Installment payment recorded").toString());
+            history.add(txn);
+            bill.setPaymentHistory(history);
         }
 
         bill.setUpdatedAt(LocalDateTime.now());
