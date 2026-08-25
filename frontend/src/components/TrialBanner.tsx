@@ -14,39 +14,63 @@ export default function TrialBanner() {
 
   const isExpired = trialStatus === 'EXPIRED';
 
-  // Determine styling based on remaining days
-  let bannerBg = 'bg-emerald-600';
-  let badgeBg = 'bg-emerald-800 text-emerald-100';
-  let buttonStyle = 'bg-white text-emerald-800 hover:bg-emerald-50';
-
-  if (isExpired) {
-    bannerBg = 'bg-rose-700';
-    badgeBg = 'bg-rose-900 text-rose-100';
-    buttonStyle = 'bg-white text-rose-800 hover:bg-rose-50';
-  } else if (daysRemaining <= 1) {
-    bannerBg = 'bg-amber-600';
-    badgeBg = 'bg-amber-800 text-amber-100';
-    buttonStyle = 'bg-white text-amber-900 hover:bg-amber-50';
-  } else if (daysRemaining <= 3) {
-    bannerBg = 'bg-orange-600';
-    badgeBg = 'bg-orange-800 text-orange-100';
-    buttonStyle = 'bg-white text-orange-900 hover:bg-orange-50';
-  }
-
   if (isDismissed && !isExpired && daysRemaining > 1) {
     return null;
   }
 
+  let bgColor = '#059669'; // emerald-600
+  let badgeBg = 'rgba(0, 0, 0, 0.2)';
+  let btnColor = '#065f46';
+
+  if (isExpired) {
+    bgColor = '#be123c'; // rose-700
+    badgeBg = 'rgba(0, 0, 0, 0.25)';
+    btnColor = '#9f1239';
+  } else if (daysRemaining <= 1) {
+    bgColor = '#d97706'; // amber-600
+    btnColor = '#92400e';
+  } else if (daysRemaining <= 3) {
+    bgColor = '#ea580c'; // orange-600
+    btnColor = '#9a3412';
+  }
+
   return (
     <>
-      <div className={`${bannerBg} text-white px-4 py-2 text-xs md:text-sm font-medium shadow-sm flex items-center justify-between transition-colors z-40 relative`}>
-        <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${badgeBg}`}>
+      <div
+        style={{
+          backgroundColor: bgColor,
+          color: '#ffffff',
+          padding: '8px 16px',
+          fontSize: 12.5,
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+          gap: 12,
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              backgroundColor: badgeBg,
+              padding: '3px 8px',
+              borderRadius: 20,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.4px',
+              textTransform: 'uppercase'
+            }}
+          >
             {isExpired ? 'Trial Expired' : '7-Day Trial'}
           </span>
           <span>
             {isExpired ? (
-              <span>Your hospital trial has ended. Read-only mode active.</span>
+              <span>Your hospital trial period has ended. Read-only mode active.</span>
             ) : daysRemaining > 0 ? (
               <span>You have <strong>{daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}</strong> ({hoursRemaining}h) remaining in your trial.</span>
             ) : (
@@ -55,25 +79,51 @@ export default function TrialBanner() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
+            type="button"
             onClick={() => setIsModalOpen(true)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 ${buttonStyle}`}
+            style={{
+              backgroundColor: '#ffffff',
+              color: btnColor,
+              border: 'none',
+              borderRadius: 6,
+              padding: '5px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+            }}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             Contact Us to Upgrade
           </button>
 
           {!isExpired && daysRemaining > 1 && (
             <button
+              type="button"
               onClick={() => setIsDismissed(true)}
-              className="text-white/80 hover:text-white p-1 rounded hover:bg-black/10 transition-colors"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.8)',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                borderRadius: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
               title="Dismiss banner"
+              aria-label="Dismiss banner"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           )}
