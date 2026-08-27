@@ -1,36 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import TrialContactModal from './TrialContactModal';
 
+function computeRemaining(trialEndsAt: string | null): { days: number; hours: number; isExpired: boolean } {
+  if (!trialEndsAt) return { days: 0, hours: 0, isExpired: false };
+  const endsAt = new Date(trialEndsAt).getTime();
+  const now = Date.now();
+  const diffMs = endsAt - now;
+  if (diffMs <= 0) return { days: 0, hours: 0, isExpired: true };
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  return { days, hours: totalHours, isExpired: false };
+}
+
 export default function TrialBanner() {
-  const { trialStatus, subscriptionPlan, daysRemaining, hoursRemaining, user } = useAuthStore();
+  const { trialStatus, trialEndsAt, subscriptionPlan, user, fetchTrialStatus } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // If activated or not in trial, don't display trial ribbon
+  // Live countdown — recompute every 60 seconds from trialEndsAt
+  const [remaining, setRemaining] = useState(() => computeRemaining(trialEndsAt));
+
+  const refresh = useCallback(() => {
+    setRemaining(computeRemaining(trialEndsAt));
+  }, [trialEndsAt]);
+
+  useEffect(() => {
+    refresh();
+    const tick = setInterval(refresh, 60_000);
+    return () => clearInterval(tick);
+  }, [refresh]);
+
+  // Re-fetch trial status from backend every 30 minutes to keep data fresh
+  useEffect(() => {
+    if (!user) return;
+    const poll = setInterval(() => {
+      fetchTrialStatus().catch(console.error);
+    }, 30 * 60_000);
+    return () => clearInterval(poll);
+  }, [user, fetchTrialStatus]);
+
+  // Sync store values into remaining when trialEndsAt changes (e.g. on login)
+  useEffect(() => {
+    setRemaining(computeRemaining(trialEndsAt));
+  }, [trialEndsAt]);
+
   if (!user || subscriptionPlan === 'STANDARD' || subscriptionPlan === 'PREMIUM' || trialStatus === 'ACTIVATED') {
     return null;
   }
 
-  const isExpired = trialStatus === 'EXPIRED';
+  const isExpired = trialStatus === 'EXPIRED' || remaining.isExpired;
+  const { days: daysRemaining, hours: hoursRemaining } = remaining;
 
   if (isDismissed && !isExpired && daysRemaining > 1) {
     return null;
   }
 
-  let bgColor = '#059669'; // emerald-600
-  let badgeBg = 'rgba(0, 0, 0, 0.2)';
+  let bgColor = '#059669';
+  let badgeBg = 'rgba(0, 0, 0, 0.20)';
   let btnColor = '#065f46';
 
   if (isExpired) {
-    bgColor = '#be123c'; // rose-700
+    bgColor = '#be123c';
     badgeBg = 'rgba(0, 0, 0, 0.25)';
     btnColor = '#9f1239';
   } else if (daysRemaining <= 1) {
-    bgColor = '#d97706'; // amber-600
+    bgColor = '#d97706';
     btnColor = '#92400e';
   } else if (daysRemaining <= 3) {
-    bgColor = '#ea580c'; // orange-600
+    bgColor = '#ea580c';
     btnColor = '#9a3412';
   }
 
@@ -72,7 +110,10 @@ export default function TrialBanner() {
             {isExpired ? (
               <span>Your hospital trial period has ended. Read-only mode active.</span>
             ) : daysRemaining > 0 ? (
-              <span>You have <strong>{daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}</strong> ({hoursRemaining}h) remaining in your trial.</span>
+              <span>
+                You have <strong>{daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}</strong>{' '}
+                ({hoursRemaining}h) remaining in your trial.
+              </span>
             ) : (
               <span>Your trial expires today (<strong>{hoursRemaining} hours</strong> remaining).</span>
             )}
@@ -119,18 +160,19 @@ export default function TrialBanner() {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}
-              title="Dismiss banner"
-              aria-label="Dismiss banner"
+              aria-label="Dismiss trial banner"
             >
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 18L18 6M6 6l12 12" />
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           )}
         </div>
       </div>
 
-      <TrialContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      {isModalOpen && (
+        <TrialContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      )}
     </>
   );
 }

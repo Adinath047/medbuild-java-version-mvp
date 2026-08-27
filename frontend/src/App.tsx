@@ -151,6 +151,7 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
               : (
                 <div 
                   key={i} 
+                  data-tour-page={item.page}
                   className={`nav-item${page === item.page ? ' active' : ''}`}
                   onClick={() => { onNav(item.page); onClose(); }}
                   style={{
