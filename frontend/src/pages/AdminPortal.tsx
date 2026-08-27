@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
+import OnboardingTour from '../components/OnboardingTour';
 
 const ROLES = ['doctor', 'receptionist', 'nurse', 'lab_technician', 'pharmacist', 'admin'] as const;
 const SPECIALIZATIONS = [
@@ -750,6 +751,9 @@ export default function AdminPortal() {
 
   return (
     <div style={{ width:'100%', flex:1, background:'#f8fafc', minHeight: '100vh', display:'flex', flexDirection:'column' }}>
+      {/* Guided onboarding tour for first-time admin users */}
+      <OnboardingTour />
+
       {showAdd && <AddModal onClose={() => setShowAdd(false)} onDone={u => { setStaff(s => [u, ...s]); setShowAdd(false); }} />}
       {editing  && <EditModal staff={editing} onClose={() => setEditing(null)} onDone={updated => {
         if (updated._deleted) {
@@ -836,6 +840,7 @@ export default function AdminPortal() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button 
               type="button"
+              data-tour-tab="staff"
               onClick={() => setActiveTab('staff')}
               style={{
                 padding: '12px 20px',
@@ -868,6 +873,7 @@ export default function AdminPortal() {
 
             <button 
               type="button"
+              data-tour-tab="erasure"
               onClick={() => setActiveTab('erasure')}
               style={{
                 padding: '12px 20px',
@@ -890,6 +896,7 @@ export default function AdminPortal() {
 
             <button 
               type="button"
+              data-tour-tab="config"
               onClick={() => setActiveTab('config')}
               style={{
                 padding: '12px 20px',
@@ -912,6 +919,7 @@ export default function AdminPortal() {
 
             <button 
               type="button"
+              data-tour-tab="audit"
               onClick={() => setActiveTab('audit')}
               style={{
                 padding: '12px 20px',
