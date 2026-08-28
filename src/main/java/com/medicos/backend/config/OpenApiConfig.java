@@ -18,11 +18,11 @@ public class OpenApiConfig {
         final String securitySchemeName = "bearerAuth";
         return new OpenAPI()
                 .info(new Info()
-                        .title("Medicos Hospital EMR API")
+                        .title("Medbuilds Hospital EMR API")
                         .version("1.0.0")
-                        .description("Production-grade Spring Boot 3 RESTful APIs for Medicos Hospital EMR with Security & Audit Logging")
-                        .contact(new Contact().name("Medicos Engineering Team").email("support@medicos-emr.com"))
-                        .license(new License().name("Proprietary").url("https://medicos-emr.com")))
+                        .description("Production-grade Spring Boot 3 RESTful APIs for Medbuilds Hospital EMR with Security & Audit Logging")
+                        .contact(new Contact().name("Medbuilds Engineering Team").email("support@rotstruck.com"))
+                        .license(new License().name("Proprietary").url("https://rotstruck.com")))
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName,

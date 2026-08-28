@@ -152,7 +152,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
       try {
         await apiClient.post('/notifications', {
           doctor_id: 'all',
-          message: `🧪 Lab Report Completed & Synced: ${targetPat?.name} (${targetPat?.uhid}) - ${labForm.test_name}`,
+          message: `Lab Report Completed & Synced: ${targetPat?.name} (${targetPat?.uhid}) - ${labForm.test_name}`,
         });
       } catch (err) {
         console.log('Notification fallback');
@@ -505,7 +505,13 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         <div style={{ padding: 0 }}>
           {labOrders.length === 0 ? (
             <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>🧪</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 54, height: 54, borderRadius: '50%', background: '#e0f2fe', color: '#0284c7', marginBottom: 12 }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2" />
+                  <path d="M8.5 2h7" />
+                  <path d="M7 16h10" />
+                </svg>
+              </div>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>No active lab requisitions found</h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 6, maxWidth: 460, margin: '6px auto 16px' }}>
                 There are currently no lab reports recorded in the database. Click below to enter lab test values for any registered patient.
@@ -587,14 +593,18 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         </div>
       </div>
 
-      {/* 🧪 MODAL 1: Enter Test Results & Doctor Sync */}
+      {/* MODAL 1: Enter Test Results & Doctor Sync */}
       {showLabResultModal && (
         <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }} onClick={() => setShowLabResultModal(false)}>
           <div className="modal" style={{ maxWidth: 560, width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ background: '#f0f9ff', borderBottom: '1px solid #bae6fd', padding: '16px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                  🧪
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2" />
+                    <path d="M8.5 2h7" />
+                    <path d="M7 16h10" />
+                  </svg>
                 </div>
                 <div>
                   <h3 className="modal-title" style={{ fontSize: 16, fontWeight: 700, color: '#0369a1', margin: 0 }}>Enter Lab Results & Doctor Sync</h3>
@@ -741,7 +751,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         </div>
       )}
 
-      {/* 🧪 MODAL 2: Register Sample Specimen */}
+      {/* MODAL 2: Register Sample Specimen */}
       {showSampleModal && (
         <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }} onClick={() => setShowSampleModal(false)}>
           <div className="modal" style={{ maxWidth: 480, width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={e => e.stopPropagation()}>
@@ -779,7 +789,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         </div>
       )}
 
-      {/* 🧪 MODAL 3: Lab Reference Catalog */}
+      {/* MODAL 3: Lab Reference Catalog */}
       {showCatalogModal && (
         <div className="modal-overlay" style={{ display: 'flex', zIndex: 1100 }} onClick={() => setShowCatalogModal(false)}>
           <div className="modal" style={{ maxWidth: 640, width: '100%', borderRadius: 'var(--radius-xl)' }} onClick={e => e.stopPropagation()}>
@@ -865,7 +875,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               <button type="button" className="btn btn-danger" onClick={async () => {
                 try {
                   await apiClient.post('/notifications', {
-                    doctor_id: 'all',
+                    type: 'emergency',
                     message: alertMsg || 'Critical Lab Alert Broadcasted'
                   });
                   alert('Critical lab alert broadcasted to attending doctors!');

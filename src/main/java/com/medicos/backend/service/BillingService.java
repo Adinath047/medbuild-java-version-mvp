@@ -2,18 +2,22 @@ package com.medicos.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medicos.backend.entity.BedAdmission;
 import com.medicos.backend.entity.Billing;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
+import com.medicos.backend.repository.BedAdmissionRepository;
 import com.medicos.backend.repository.BillingRepository;
 import com.medicos.backend.repository.PatientRepository;
 import com.medicos.backend.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -22,14 +26,17 @@ public class BillingService {
     private final BillingRepository billingRepository;
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
+    private final BedAdmissionRepository admissionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public BillingService(BillingRepository billingRepository,
                           PatientRepository patientRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          BedAdmissionRepository admissionRepository) {
         this.billingRepository = billingRepository;
         this.patientRepository = patientRepository;
         this.userRepository = userRepository;
+        this.admissionRepository = admissionRepository;
     }
 
     private void populateBillingDetails(Billing b) {
@@ -96,6 +103,7 @@ public class BillingService {
         return list;
     }
 
+    @CacheEvict(value = "bed_history", allEntries = true)
     @Transactional
     public Billing createBill(Billing bill, User user) {
         Optional.ofNullable(bill.getPatientId())
@@ -114,7 +122,9 @@ public class BillingService {
         }
 
         if (bill.getInvoiceNumber() == null || bill.getInvoiceNumber().isEmpty()) {
-            bill.setInvoiceNumber("INV-" + System.currentTimeMillis());
+            String datePrefix = DateTimeFormatter.ofPattern("yyMMdd").format(LocalDateTime.now());
+            String randomPart = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+            bill.setInvoiceNumber("INV-" + datePrefix + "-" + randomPart);
         }
 
         if (bill.getBilledBy() == null || bill.getBilledBy().isEmpty()) {
@@ -192,10 +202,35 @@ public class BillingService {
         }
 
         Billing saved = billingRepository.save(bill);
+
+        // Link and mark Bed Admission as Billed if admission_id provided or bill_type is bed_stay
+        try {
+            if (bill.getAdmissionId() != null && !bill.getAdmissionId().isBlank()) {
+                admissionRepository.findById(bill.getAdmissionId()).ifPresent(adm -> {
+                    adm.setBillingStatus("Billed");
+                    adm.setBillingId(saved.getId());
+                    admissionRepository.save(adm);
+                });
+            } else if ("bed_stay".equalsIgnoreCase(bill.getBillType()) && bill.getPatientId() != null) {
+                List<BedAdmission> admissions = admissionRepository.findByPatientIdOrderByAdmittedAtDesc(bill.getPatientId());
+                if (!admissions.isEmpty()) {
+                    for (BedAdmission adm : admissions) {
+                        if (!"Billed".equalsIgnoreCase(adm.getBillingStatus())) {
+                            adm.setBillingStatus("Billed");
+                            adm.setBillingId(saved.getId());
+                            admissionRepository.save(adm);
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         populateBillingDetails(saved);
         return saved;
     }
 
+    @CacheEvict(value = "bed_history", allEntries = true)
     @Transactional
     public Billing recordPayment(String id, Map<String, Object> body) {
         Billing bill = billingRepository.findById(id)

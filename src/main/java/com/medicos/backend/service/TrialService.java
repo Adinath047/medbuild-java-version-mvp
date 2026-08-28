@@ -39,7 +39,7 @@ public class TrialService {
     public TrialStatusResponse getTrialStatus(String hospitalId, String userId) {
         if (hospitalId == null || hospitalId.isBlank()) {
             return new TrialStatusResponse(
-                "", "Medicos EMR", "STANDARD",
+                "", "Medbuilds EMR", "STANDARD",
                 LocalDateTime.now(), LocalDateTime.now().plusYears(1),
                 "ACTIVATED", 365, 8760, false, true
             );

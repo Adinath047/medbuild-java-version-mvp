@@ -309,7 +309,7 @@ public class PrescriptionService {
 
     public PrescriptionPdfData mapToPdfData(PrescriptionDTO dto) {
         PrescriptionPdfData data = new PrescriptionPdfData();
-        data.setHospitalName("Medicos Hospital");
+        data.setHospitalName("Medbuilds Hospital");
         data.setHospitalTagline("Compassionate Care · Advanced Medicine");
         data.setHospitalAddress("LAN Ward, Main Building, Healthcare Complex");
         data.setHospitalPhone(dto.getDoctorPhone() != null ? dto.getDoctorPhone() : "+91-XXXX-XXXXXX");

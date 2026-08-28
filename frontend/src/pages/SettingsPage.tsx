@@ -213,7 +213,12 @@ function EditUserModal({ user, onClose, onDone }: { user:any; onClose:()=>void; 
                     setSaving(false);
                   }
                 }}>
-                🗑 Delete
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  Delete
+                </span>
               </button>
             </div>
             <button type="button" className="btn btn-ghost" onClick={onClose}>Close</button>
@@ -353,7 +358,12 @@ function EditMedicineModal({ medicine, onClose, onDone, onDelete }: { medicine:a
           <div className="modal-footer">
             <div style={{ marginRight:'auto' }}>
               <button type="button" className="btn btn-ghost btn-sm" style={{ color:'var(--danger)' }} onClick={() => { if(confirm('Delete this medicine?')) onDelete(medicine.id); }}>
-                🗑 Delete
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  Delete
+                </span>
               </button>
             </div>
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -830,7 +840,12 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                             }}
                             onClick={() => setProfileForm(f => ({ ...f, photoUrl: '' }))}
                           >
-                            🗑 Clear
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                              Clear
+                            </span>
                           </button>
                         )}
                       </div>

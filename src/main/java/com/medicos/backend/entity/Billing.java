@@ -110,6 +110,10 @@ public class Billing {
     private String doctorName;
 
     @Transient
+    @JsonProperty("admission_id")
+    private String admissionId;
+
+    @Transient
     @JsonProperty("uhid")
     public String getUhid() {
         return patientUhid;
@@ -268,4 +272,7 @@ public class Billing {
 
     public String getDoctorName() { return doctorName; }
     public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
+
+    public String getAdmissionId() { return admissionId; }
+    public void setAdmissionId(String admissionId) { this.admissionId = admissionId; }
 }

@@ -376,7 +376,7 @@ public class AuthService {
         return Map.of(
                 "hospital", Map.of(
                         "id", hospital.getId(),
-                        "name", hospital.getName() != null ? hospital.getName() : "Medicos EMR Clinic",
+                        "name", hospital.getName() != null ? hospital.getName() : "Medbuilds EMR Clinic",
                         "type", hospital.getType() != null ? hospital.getType() : "General"
                 ),
                 "staff", staff

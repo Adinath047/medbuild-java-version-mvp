@@ -84,9 +84,22 @@ export function EmergencyBanner() {
 export function NotificationBell() {
   const { notifications, unreadCount, markAllAsRead, markAsRead } = useNotificationStore();
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isOpen]);
 
   return (
-    <div style={{ position: 'relative', marginRight: 8 }} className="no-print">
+    <div ref={dropdownRef} style={{ position: 'relative', marginRight: 8 }} className="no-print">
       <button
         onClick={() => setIsOpen(o => !o)}
         style={{

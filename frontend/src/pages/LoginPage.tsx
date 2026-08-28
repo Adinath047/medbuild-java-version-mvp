@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<string, string> = {
   nurse:          'Nurse',
   lab_technician: 'Lab Technician',
   pharmacist:     'Pharmacist',
+  billing:        'Billing Staff',
 };
 
 export default function LoginPage() {
@@ -71,10 +72,20 @@ export default function LoginPage() {
         localStorage.setItem('last_hospital_code', canonicalHospitalId);
       }
       
-      // Pre-select first user of default role if available
-      const defaultRoleUsers = res.data.staff.filter((s: any) => s.role === 'doctor');
-      if (defaultRoleUsers.length > 0) {
-        setSelectedStaffId(defaultRoleUsers[0].id);
+      // Auto-select first doctor, fall back to admin, then any first staff
+      const allStaff: any[] = res.data.staff;
+      const doctorUsers = allStaff.filter((s: any) => s.role === 'doctor');
+      const adminUsers  = allStaff.filter((s: any) => s.role === 'admin');
+      if (doctorUsers.length > 0) {
+        setRole('doctor');
+        setSelectedStaffId(doctorUsers[0].id);
+      } else if (adminUsers.length > 0) {
+        setRole('admin');
+        setSelectedStaffId(adminUsers[0].id);
+      } else if (allStaff.length > 0) {
+        const firstStaff = allStaff[0];
+        setRole(firstStaff.role);
+        setSelectedStaffId(firstStaff.id);
       } else {
         setSelectedStaffId('');
       }
@@ -338,7 +349,7 @@ export default function LoginPage() {
           lineHeight: 1.45,
           textAlign: 'center'
         }}>
-          <strong>Medical & Legal Disclaimer:</strong> Medicos is a clinical workflow assistance tool. It does not replace professional medical judgment, diagnosis, or treatment decisions.
+          <strong>Medical & Legal Disclaimer:</strong> Medbuilds is a clinical workflow assistance tool. It does not replace professional medical judgment, diagnosis, or treatment decisions.
         </div>
 
         <PrivacyTermsModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />

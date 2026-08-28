@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
-import OnboardingTour from '../components/OnboardingTour';
 
 const ROLES = ['doctor', 'receptionist', 'nurse', 'lab_technician', 'pharmacist', 'admin'] as const;
 const SPECIALIZATIONS = [
@@ -131,7 +130,7 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (u: any) =
 
               <div style={{ gridColumn:'1/-1' }} className="form-group">
                 <label className="form-label">Login Email Address *</label>
-                <input className="input" type="email" placeholder="staff.name@medicos.com" value={form.email} onChange={e => set('email', e.target.value)} required />
+                <input className="input" type="email" placeholder="staff.name@medbuilds.com" value={form.email} onChange={e => set('email', e.target.value)} required />
               </div>
 
               <div className="form-group">
@@ -547,7 +546,7 @@ function HospitalConfigTab() {
   const [config, setConfig] = useState(() => {
     const local = localStorage.getItem('hospital_master_config');
     return local ? JSON.parse(local) : {
-      name: 'ClinicalHub Super Specialty Hospital',
+      name: 'Medbuilds Super Specialty Hospital',
       tagline: 'Excellence in Healthcare & Clinical Operations',
       reg_no: 'REG-MH-2026-88910',
       address: '102 Medical Enclave, Civil Hospital Road, Mumbai',
@@ -751,9 +750,6 @@ export default function AdminPortal() {
 
   return (
     <div style={{ width:'100%', flex:1, background:'#f8fafc', minHeight: '100vh', display:'flex', flexDirection:'column' }}>
-      {/* Guided onboarding tour for first-time admin users */}
-      <OnboardingTour />
-
       {showAdd && <AddModal onClose={() => setShowAdd(false)} onDone={u => { setStaff(s => [u, ...s]); setShowAdd(false); }} />}
       {editing  && <EditModal staff={editing} onClose={() => setEditing(null)} onDone={updated => {
         if (updated._deleted) {
@@ -792,7 +788,7 @@ export default function AdminPortal() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/><path d="M9 10h6"/><path d="M12 7v6"/><path d="M9 18h6"/></svg>
           </div>
           <div>
-            <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', letterSpacing: '-0.3px', lineHeight:1 }}>ClinicalHub</div>
+            <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', letterSpacing: '-0.3px', lineHeight:1 }}>Medbuilds</div>
             <div style={{ fontSize:10, fontWeight: 700, color:'var(--primary)', letterSpacing: '0.8px', marginTop: 3 }}>ADMINISTRATION CONSOLE</div>
           </div>
         </div>
@@ -840,7 +836,6 @@ export default function AdminPortal() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button 
               type="button"
-              data-tour-tab="staff"
               onClick={() => setActiveTab('staff')}
               style={{
                 padding: '12px 20px',
@@ -873,7 +868,6 @@ export default function AdminPortal() {
 
             <button 
               type="button"
-              data-tour-tab="erasure"
               onClick={() => setActiveTab('erasure')}
               style={{
                 padding: '12px 20px',
@@ -896,7 +890,6 @@ export default function AdminPortal() {
 
             <button 
               type="button"
-              data-tour-tab="config"
               onClick={() => setActiveTab('config')}
               style={{
                 padding: '12px 20px',
@@ -919,7 +912,6 @@ export default function AdminPortal() {
 
             <button 
               type="button"
-              data-tour-tab="audit"
               onClick={() => setActiveTab('audit')}
               style={{
                 padding: '12px 20px',

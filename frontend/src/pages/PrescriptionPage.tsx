@@ -788,7 +788,7 @@ function generatePrescriptionPDF(opts: {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(29, 78, 216); // blue-700
-    doc.text('Medicos Hospital', margin, y + 3);
+    doc.text('Medbuilds Hospital', margin, y + 3);
     
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8);

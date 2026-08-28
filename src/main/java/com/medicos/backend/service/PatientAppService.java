@@ -224,12 +224,12 @@ public class PatientAppService {
         view.setFee(user.getConsultationFee() != null ? user.getConsultationFee() : 0.0);
 
         // Derive hospital name from hospitalId
-        String hospitalName = "Medicos Clinic";
+        String hospitalName = "Medbuilds Clinic";
         if (user.getHospitalId() != null) {
             try {
                 hospitalName = hospitalRepository.findById(user.getHospitalId())
                         .map(Hospital::getName)
-                        .orElse("Medicos Clinic");
+                        .orElse("Medbuilds Clinic");
             } catch (Exception ignored) {}
         }
         view.setHospital(hospitalName);

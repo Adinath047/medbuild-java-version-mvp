@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { jsPDF } from 'jspdf';
 
 const BRAND = {
-  name:    'Medicos Hospital',
+  name:    'Medbuilds Hospital',
   address: 'LAN Ward, Main Building',
   phone:   '+91-XXXX-XXXXXX',
   tagline: 'Compassionate Care · Advanced Medicine',
@@ -576,7 +576,7 @@ export function printPrescriptionSlip(opts: {
       <span>DPDP Act 2023 & ABDM Compliant EMR</span>
     </div>
     <div class="powered" style="text-align: right;">
-      <span>Powered by Medicos EMR</span><br/>
+      <span>Powered by Medbuilds EMR</span><br/>
       <span style="font-size: ${printFontSize - 3.5}pt; color: #94a3b8;">Rotstruck Pvt Ltd</span>
     </div>
   </div>
@@ -1264,7 +1264,7 @@ export function exportBillingToCSV(bills: any[], patients: any[] = []) {
   const link = document.createElement('a');
   link.setAttribute('href', url);
   const dateStr = new Date().toISOString().split('T')[0];
-  link.setAttribute('download', `Medicos_Hospital_Billing_Report_${dateStr}.csv`);
+  link.setAttribute('download', `Medbuilds_Hospital_Billing_Report_${dateStr}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

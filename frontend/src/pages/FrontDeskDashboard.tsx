@@ -4,6 +4,7 @@ import ReceptionDashboard from './dashboards/ReceptionDashboard';
 import BillingDashboard from './dashboards/BillingDashboard';
 import LabTechnicianDashboard from './dashboards/LabTechnicianDashboard';
 import NurseDashboard from './dashboards/NurseDashboard';
+import PharmacyBillingView from './billing/PharmacyBillingView';
 
 interface FrontDeskDashboardProps {
   onNavigate: (page: string, data?: any) => void;
@@ -15,7 +16,7 @@ interface FrontDeskDashboardProps {
  */
 export default function FrontDeskDashboard({ onNavigate }: FrontDeskDashboardProps) {
   const { user } = useAuthStore();
-  const role = user?.role?.toLowerCase();
+  const role = user?.role?.toLowerCase() || '';
 
   if (role === 'lab_technician' || role === 'pathologist' || role === 'lab') {
     return <LabTechnicianDashboard onNavigate={onNavigate} />;
@@ -27,6 +28,10 @@ export default function FrontDeskDashboard({ onNavigate }: FrontDeskDashboardPro
 
   if (role === 'nurse') {
     return <NurseDashboard onNavigate={onNavigate} />;
+  }
+
+  if (role.includes('pharm')) {
+    return <PharmacyBillingView onNavigate={onNavigate} />;
   }
 
   // Default Front Desk / Receptionist Dashboard

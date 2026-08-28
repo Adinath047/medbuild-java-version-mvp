@@ -25,7 +25,7 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
     setSubmittingAlert(true);
     try {
       await apiClient.post('/notifications', {
-        doctor_id: 'all',
+        type: 'emergency',
         message: alertMessage.trim(),
       });
       alert('Emergency alert broadcasted to all doctors.');

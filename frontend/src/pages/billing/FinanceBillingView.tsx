@@ -66,6 +66,11 @@ const PRESET_SERVICES = [
   { name: 'Catheterization Procedure', defaultPrice: 300, category: 'Procedures & Nursing' },
 ];
 
+const formatINR = (val: number | string | undefined | null): string => {
+  const num = Number(val) || 0;
+  return '₹' + Math.round(num).toLocaleString('en-IN');
+};
+
 export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (p: string, d?: any) => void; data?: any }) {
   const { user } = useAuthStore();
   const { syncCount } = useSync();
@@ -87,6 +92,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
   const [filter, setFilter] = useState<'All' | 'Pending' | 'Paid' | 'Partial'>('All');
   const [selectedCategoryPreset, setSelectedCategoryPreset] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentStayId, setCurrentStayId] = useState<string | null>(null);
   
   // Record Payment modal state
   const [recordPaymentBill, setRecordPaymentBill] = useState<any>(null);
@@ -186,11 +192,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       if (found) setPatientSearchTerm(`${found.name} (${found.uhid || 'No UHID'})`);
     }
     if (data?.showAdd) {
+      setCurrentStayId(null);
       setShowAdd(true);
     }
   }, [data?.patientId, data?.showAdd, patients]);
 
   function handleBillStay(stay: any) {
+    setCurrentStayId(stay.id);
     setPatientId(stay.patient_id);
     const pat = patients.find(p => p.id === stay.patient_id);
     if (pat) setPatientSearchTerm(`${pat.name} (${pat.uhid || 'No UHID'})`);
@@ -198,7 +206,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     const days = stay.stay_days || 1;
     setItems([{
       category: 'Bed Stay',
-      description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.ward || 'General'} Ward (${days} days @ ₹${rate}/day)`,
+      description: `Bed Stay: Room ${stay.room || ''} (${stay.bed_number || ''}) — ${stay.ward || 'General'} Ward (${days} day${days > 1 ? 's' : ''} @ ₹${rate}/day)`,
       quantity: days,
       unit_price: rate,
       amount: days * rate,
@@ -206,7 +214,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     setDiscount('0');
     setPaid('');
     setIsManualPaid(false);
-    setNotes(`Bed stay charges for Room ${stay.room || ''} (${stay.bed_number || ''}) — Admitted: ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}, Discharged: ${stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : 'Today'}`);
+    setNotes(`Bed stay charges for Room ${stay.room || ''} (${stay.bed_number || ''}) — Admitted: ${stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}, Discharged: ${stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : 'Ongoing'}`);
     setShowAdd(true);
   }
 
@@ -233,7 +241,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }
 
     if (amt > dueAmount) {
-      alert(`Payment amount (₹${amt}) cannot exceed the outstanding balance due (₹${dueAmount}).`);
+      alert(`Payment amount (${formatINR(amt)}) cannot exceed the outstanding balance due (${formatINR(dueAmount)}).`);
       return;
     }
     
@@ -244,11 +252,12 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     
     try {
       const res = await apiClient.put(`/billing/${recordPaymentBill.id}/payment`, {
+        amount: amt,
         paid_amount: cumulativePaid,
         payment_mode: newPayMode,
         payment_status: calculatedStatus,
         received_by: user?.name || 'Cashier',
-        notes: paymentRemarks.trim() || `Installment payment of ₹${amt}`
+        notes: paymentRemarks.trim() || `Installment payment of ${formatINR(amt)}`
       });
       
       const updated = res.data || {
@@ -269,6 +278,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     } finally {
       setSubmittingPayment(false);
       fetchBills();
+      fetchBedStays(true);
     }
   }
 
@@ -390,11 +400,12 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     const b = {
       id: uuid(),
       patient_id: patientId,
+      admission_id: currentStayId || undefined,
       patient_name: pat?.name || 'Patient',
       uhid: pat?.uhid || '—',
       doctor_id: doctorInfo?.id || user?.id || null,
       doctor_name: doctorInfo?.name || user?.name || null,
-      bill_type: activeTab === 'bed' ? 'bed_stay' : 'OPD',
+      bill_type: currentStayId || activeTab === 'bed' ? 'bed_stay' : 'OPD',
       items: validItems,
       gross_amount: grossSubtotal,
       discount: discountAmount,
@@ -421,6 +432,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     } finally {
       setSaving(false);
       setShowAdd(false);
+      setCurrentStayId(null);
       setPatientId('');
       setPatientSearchTerm('');
       setShowPatientDropdown(false);
@@ -431,6 +443,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       setNotes('');
       triggerSyncBroadcast();
       fetchBills();
+      fetchBedStays(true);
     }
   }
 
@@ -473,10 +486,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const pName = (b.patient_name || '').toLowerCase();
-        const uhid = (b.uhid || '').toLowerCase();
+        const uhid = (b.uhid || b.patient_uhid || '').toLowerCase();
         const inv = (b.invoice_number || b.id || '').toLowerCase();
-        const notes = (b.notes || '').toLowerCase();
-        return pName.includes(q) || uhid.includes(q) || inv.includes(q) || notes.includes(q);
+        const notesText = (b.notes || '').toLowerCase();
+        return pName.includes(q) || uhid.includes(q) || inv.includes(q) || notesText.includes(q);
       }
 
       return true;
@@ -504,9 +517,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     }).length;
   }, [bills]);
 
-  const dueAmt = recordPaymentBill ? Math.max(0, (recordPaymentBill.net_amount || 0) - (recordPaymentBill.paid_amount || 0)) : 0;
-  const netAmt = recordPaymentBill ? (recordPaymentBill.net_amount || 0) : 0;
-  const paidAmt = recordPaymentBill ? (recordPaymentBill.paid_amount || 0) : 0;
+  const unbilledStaysCount = useMemo(() => {
+    return bedStays.filter(s => s.billing_status !== 'Billed').length;
+  }, [bedStays]);
+
+  const dueAmt = recordPaymentBill ? Math.max(0, (Number(recordPaymentBill.net_amount) || 0) - (Number(recordPaymentBill.paid_amount) || 0)) : 0;
+  const netAmt = recordPaymentBill ? (Number(recordPaymentBill.net_amount) || 0) : 0;
+  const paidAmt = recordPaymentBill ? (Number(recordPaymentBill.paid_amount) || 0) : 0;
 
   const visiblePresetServices = useMemo(() => {
     if (selectedCategoryPreset === 'All') return PRESET_SERVICES;
@@ -523,17 +540,25 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
             <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>Hospital Invoices & Payments</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Manage OPD consultation fees, IPD bed stay settlements, and track payment installments.</p>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-secondary"
               onClick={() => exportBillingToCSV(filteredBills, patients)}
-              style={{ fontWeight: 600, padding: '10px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ fontWeight: 600, padding: '9px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
               title="Download billing records as CSV spreadsheet"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Export CSV
             </button>
-            <button className="btn btn-primary" onClick={() => { setShowAdd(true); setPatientId(patientFilterId || ''); }} style={{ fontWeight: 600, padding: '10px 20px', borderRadius: 8 }}>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => { 
+                setCurrentStayId(null);
+                setShowAdd(true); 
+                setPatientId(patientFilterId || ''); 
+              }} 
+              style={{ fontWeight: 600, padding: '9px 20px', borderRadius: 8 }}
+            >
               + Create New Invoice
             </button>
           </div>
@@ -542,29 +567,29 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
       {/* Financial Metrics Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-        <div className="card" style={{ margin: 0, padding: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Revenue Collected</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', marginTop: 8 }}>₹{Math.round(totalRevenueCollected).toLocaleString('en-IN')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Payment settlements received</div>
+        <div className="card" style={{ margin: 0, padding: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Total Revenue Collected</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', marginTop: 8 }}>{formatINR(totalRevenueCollected)}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>Payment settlements received</div>
         </div>
 
-        <div className="card" style={{ margin: 0, padding: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Outstanding Dues</div>
+        <div className="card" style={{ margin: 0, padding: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Total Outstanding Dues</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: totalOutstandingDues > 0 ? 'var(--danger)' : 'var(--text-muted)', marginTop: 8 }}>
-            ₹{Math.round(totalOutstandingDues).toLocaleString('en-IN')}
+            {formatINR(totalOutstandingDues)}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Across pending invoices</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>Across pending invoices</div>
         </div>
 
-        <div className="card" style={{ margin: 0, padding: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pending Invoices</div>
+        <div className="card" style={{ margin: 0, padding: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Pending Invoices</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', marginTop: 8 }}>{pendingInvoicesCount}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Awaiting full settlement</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>Awaiting full settlement</div>
         </div>
       </div>
 
       {/* View Mode Tabs */}
-      <div style={{ display: 'flex', gap: 10, borderBottom: '2px solid var(--border-light)', paddingBottom: 4 }}>
+      <div style={{ display: 'flex', gap: 10, borderBottom: '2px solid var(--border-light)', paddingBottom: 4, flexWrap: 'wrap' }}>
         <button
           type="button"
           onClick={() => setActiveTab('opd')}
@@ -580,16 +605,16 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
           style={{ fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           Bed Stay Inpatient Stays (IPD)
-          {bedStays.filter(s => s.billing_status !== 'Billed').length > 0 && (
-            <span style={{ background: '#ef4444', color: '#fff', fontSize: 10, padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>
-              {bedStays.filter(s => s.billing_status !== 'Billed').length} Unbilled
+          {unbilledStaysCount > 0 && (
+            <span style={{ background: '#ef4444', color: '#fff', fontSize: 10.5, padding: '2px 7px', borderRadius: 10, fontWeight: 700 }}>
+              {unbilledStaysCount} Unbilled
             </span>
           )}
         </button>
       </div>
 
       {/* Main Table Card */}
-      <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ margin: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
         {activeTab === 'opd' ? (
           <>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -599,10 +624,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                   placeholder="Search invoices by patient, UHID, or invoice #..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  style={{ width: '100%', maxWidth: 360 }}
+                  style={{ width: '100%', maxWidth: 380 }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {(['All', 'Pending', 'Partial', 'Paid'] as const).map(f => (
                   <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f)}>
                     {f}
@@ -616,23 +641,25 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
             ) : filteredBills.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No invoice records found.</div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table">
+              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+                <table className="data-table" style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th>Invoice #</th>
-                      <th>Patient</th>
-                      <th>Date</th>
-                      <th>Type & Notes</th>
-                      <th>Total Breakdown</th>
-                      <th>Settlement</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
+                      <th style={{ minWidth: 140, whiteSpace: 'nowrap' }}>Invoice #</th>
+                      <th style={{ minWidth: 160 }}>Patient</th>
+                      <th style={{ minWidth: 100, whiteSpace: 'nowrap' }}>Date</th>
+                      <th style={{ minWidth: 220 }}>Type & Notes</th>
+                      <th style={{ minWidth: 140, whiteSpace: 'nowrap' }}>Total Breakdown</th>
+                      <th style={{ minWidth: 140, whiteSpace: 'nowrap' }}>Settlement</th>
+                      <th style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Status</th>
+                      <th style={{ minWidth: 200, whiteSpace: 'nowrap', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredBills.map(b => {
                       const patient = patients.find(p => p.id === b.patient_id);
+                      const grossAmount = Number(b.gross_amount) || Number(b.total_amount) || Number(b.net_amount) || 0;
+                      const discountVal = Number(b.discount) || 0;
                       const netAmount = Number(b.net_amount) || 0;
                       const paidAmount = Number(b.paid_amount) || 0;
                       const isFullyPaid = paidAmount >= netAmount && netAmount > 0;
@@ -642,36 +669,57 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
                       return (
                         <tr key={b.id}>
-                          <td><code>#{b.invoice_number || b.id.slice(0, 8)}</code></td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <span style={{ 
+                              fontFamily: 'monospace', 
+                              fontWeight: 700, 
+                              fontSize: 12, 
+                              background: 'var(--surface-alt)', 
+                              padding: '3px 8px', 
+                              borderRadius: 6, 
+                              border: '1px solid var(--border)',
+                              display: 'inline-block'
+                            }}>
+                              #{b.invoice_number || b.id.slice(0, 8)}
+                            </span>
+                          </td>
                           <td>
-                            <div style={{ fontWeight: 600 }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
+                            <div style={{ fontWeight: 600, color: 'var(--text)' }}>{b.patient_name || patient?.name || 'Registered Patient'}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {b.uhid || b.patient_uhid || patient?.uhid || '—'}</div>
                           </td>
-                          <td style={{ fontSize: 12.5 }}>{b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}</td>
-                          <td style={{ fontSize: 12.5 }}>
-                            <div style={{ fontWeight: 500 }}>{b.bill_type === 'bed_stay' ? 'IPD Bed Stay' : (b.bill_type === 'pharmacy' ? 'Pharmacy Sales' : 'OPD Consultation')}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{b.notes || 'Hospital Services'}</div>
+                          <td style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                            {b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}
                           </td>
                           <td style={{ fontSize: 12.5 }}>
-                            <div>Gross: ₹{b.gross_amount || b.total_amount || netAmount}</div>
-                            {b.discount > 0 && <div style={{ color: 'var(--success)', fontSize: 11 }}>Discount: -₹{b.discount}</div>}
-                            <div style={{ fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>Net: ₹{netAmount.toLocaleString('en-IN')}</div>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span className={`badge ${b.bill_type === 'bed_stay' ? 'badge-info' : (b.bill_type === 'pharmacy' ? 'badge-secondary' : 'badge-neutral')}`} style={{ fontSize: 10.5, fontWeight: 700 }}>
+                                {b.bill_type === 'bed_stay' ? 'IPD Bed Stay' : (b.bill_type === 'pharmacy' ? 'Pharmacy Sales' : 'OPD Consultation')}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 3, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {b.notes || 'Hospital Services'}
+                            </div>
                           </td>
-                          <td style={{ fontSize: 12.5 }}>
-                            <div style={{ color: 'var(--success)', fontWeight: 600 }}>Paid: ₹{paidAmount.toLocaleString('en-IN')}</div>
+                          <td style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                            <div style={{ color: 'var(--text-muted)' }}>Gross: {formatINR(grossAmount)}</div>
+                            {discountVal > 0 && <div style={{ color: 'var(--success)', fontSize: 11 }}>Discount: -{formatINR(discountVal)}</div>}
+                            <div style={{ fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>Net: {formatINR(netAmount)}</div>
+                          </td>
+                          <td style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                            <div style={{ color: 'var(--success)', fontWeight: 700 }}>Paid: {formatINR(paidAmount)}</div>
                             {outstanding > 0 ? (
-                              <div style={{ color: 'var(--danger)', fontWeight: 600, fontSize: 11 }}>Due: ₹{outstanding.toLocaleString('en-IN')}</div>
+                              <div style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 11.5 }}>Due: {formatINR(outstanding)}</div>
                             ) : (
                               <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Settled ({b.payment_mode || 'Cash'})</div>
                             )}
                           </td>
-                          <td>
-                            <span className={`badge ${displayStatus === 'Paid' ? 'badge-success' : (displayStatus === 'Partial' ? 'badge-warning' : 'badge-neutral')}`}>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <span className={`badge ${displayStatus === 'Paid' ? 'badge-success' : (displayStatus === 'Partial' ? 'badge-warning' : 'badge-neutral')}`} style={{ fontWeight: 700 }}>
                               {displayStatus}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
                               {!isFullyPaid && (
                                 <button
                                   className="btn btn-secondary btn-sm"
@@ -680,6 +728,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                                     setNewPaidAmount(outstanding.toString());
                                     setNewPayMode(b.payment_mode || 'Cash');
                                   }}
+                                  style={{ fontWeight: 600, fontSize: 11.5 }}
                                 >
                                   Record Payment
                                 </button>
@@ -689,6 +738,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                                   className="btn btn-ghost btn-sm"
                                   onClick={() => setViewHistoryBill(b)}
                                   title="View Payment Installments"
+                                  style={{ fontSize: 11.5 }}
                                 >
                                   Receipts ({b.payment_history.length})
                                 </button>
@@ -697,12 +747,14 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                                 className="btn btn-secondary btn-sm"
                                 onClick={() => handleDownloadPdf(b)}
                                 title="Download Vector PDF Invoice"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
                               >
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                                 PDF
                               </button>
-                              <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)}>Print</button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => handlePrint(b)} style={{ fontSize: 11.5 }}>
+                                Print
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -715,10 +767,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
           </>
         ) : (
           <>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Bed Stay Admissions & Billing Records</h3>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail of inpatient stays, stay durations, daily rates, and billing settlements</div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Bed Stay Admissions & Inpatient Billing</h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail of admitted stays, stay durations, daily rates, and billing settlements</div>
               </div>
               <button className="btn btn-secondary btn-sm" onClick={() => fetchBedStays(false)}>
                 Refresh Stays
@@ -730,75 +782,78 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
             ) : bedStays.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No bed stay admission records found.</div>
             ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Patient</th>
-                    <th>Room & Bed</th>
-                    <th>Ward</th>
-                    <th>Admitted</th>
-                    <th>Discharged</th>
-                    <th>Duration</th>
-                    <th>Rate & Total</th>
-                    <th>Billing Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bedStays.map((stay, idx) => {
-                    const rate = getStayDailyRate(stay.ward, stay.bed_type);
-                    const days = stay.stay_days || 1;
-                    const estimatedTotal = days * rate;
-                    const isBilled = stay.billing_status === 'Billed';
+              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+                <table className="data-table" style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 150 }}>Patient</th>
+                      <th style={{ minWidth: 120 }}>Room & Bed</th>
+                      <th style={{ minWidth: 100 }}>Ward</th>
+                      <th style={{ minWidth: 100, whiteSpace: 'nowrap' }}>Admitted</th>
+                      <th style={{ minWidth: 110, whiteSpace: 'nowrap' }}>Discharged</th>
+                      <th style={{ minWidth: 90 }}>Duration</th>
+                      <th style={{ minWidth: 130, whiteSpace: 'nowrap' }}>Rate & Total</th>
+                      <th style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Status</th>
+                      <th style={{ minWidth: 160, whiteSpace: 'nowrap', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bedStays.map((stay, idx) => {
+                      const rate = getStayDailyRate(stay.ward, stay.bed_type);
+                      const days = stay.stay_days || 1;
+                      const estimatedTotal = days * rate;
+                      const isBilled = stay.billing_status === 'Billed';
 
-                    return (
-                      <tr key={stay.id || idx}>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>{stay.patient_name || 'Inpatient'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {stay.patient_uhid || '—'}</div>
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 600 }}>Room {stay.room || '—'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bed: {stay.bed_number || '—'}</div>
-                        </td>
-                        <td>
-                          <span className="badge badge-secondary" style={{ fontSize: 11 }}>{stay.ward || 'General'}</span>
-                        </td>
-                        <td style={{ fontSize: 12 }}>
-                          {stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}
-                        </td>
-                        <td style={{ fontSize: 12 }}>
-                          {stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : (
-                            <span className="badge badge-success" style={{ fontSize: 10 }}>Currently Admitted</span>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>
-                          {days} day{days !== 1 ? 's' : ''}
-                        </td>
-                        <td>
-                          <div>₹{rate}/day</div>
-                          <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 11.5 }}>
-                            Est. Total: ₹{estimatedTotal.toLocaleString('en-IN')}
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`badge ${isBilled ? 'badge-success' : 'badge-warning'}`}>
-                            {isBilled ? 'Billed' : 'Unbilled'}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            className={`btn btn-sm ${isBilled ? 'btn-ghost' : 'btn-primary'}`}
-                            onClick={() => handleBillStay(stay)}
-                          >
-                            {isBilled ? 'Re-generate Bill' : 'Create Bed Invoice'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      return (
+                        <tr key={stay.id || idx}>
+                          <td>
+                            <div style={{ fontWeight: 600, color: 'var(--text)' }}>{stay.patient_name || 'Inpatient'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>UHID: {stay.patient_uhid || '—'}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>Room {stay.room || '—'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bed: {stay.bed_number || '—'}</div>
+                          </td>
+                          <td>
+                            <span className="badge badge-secondary" style={{ fontSize: 11 }}>{stay.ward || 'General'}</span>
+                          </td>
+                          <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {stay.admitted_at ? new Date(stay.admitted_at).toLocaleDateString('en-IN') : '—'}
+                          </td>
+                          <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {stay.discharged_at ? new Date(stay.discharged_at).toLocaleDateString('en-IN') : (
+                              <span className="badge badge-success" style={{ fontSize: 10 }}>Currently Admitted</span>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {days} day{days !== 1 ? 's' : ''}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div>{formatINR(rate)}/day</div>
+                            <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 11.5 }}>
+                              Est. Total: {formatINR(estimatedTotal)}
+                            </div>
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <span className={`badge ${isBilled ? 'badge-success' : 'badge-warning'}`} style={{ fontWeight: 700 }}>
+                              {isBilled ? 'Billed' : 'Unbilled'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              className={`btn btn-sm ${isBilled ? 'btn-secondary' : 'btn-primary'}`}
+                              onClick={() => handleBillStay(stay)}
+                              style={{ fontWeight: 600 }}
+                            >
+                              {isBilled ? 'Re-generate Bill' : 'Create Bed Invoice'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </>
         )}
@@ -820,9 +875,9 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                     Patient: {recordPaymentBill.patient_name || patients.find(p => p.id === recordPaymentBill.patient_id)?.name || 'Registered Patient'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12, fontSize: 12.5 }}>
-                    <div>Net Total: <strong>₹{netAmt}</strong></div>
-                    <div>Paid so far: <strong style={{ color: 'var(--success)' }}>₹{paidAmt}</strong></div>
-                    <div>Outstanding: <strong style={{ color: dueAmt > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>₹{dueAmt}</strong></div>
+                    <div>Net Total: <strong>{formatINR(netAmt)}</strong></div>
+                    <div>Paid so far: <strong style={{ color: 'var(--success)' }}>{formatINR(paidAmt)}</strong></div>
+                    <div>Outstanding: <strong style={{ color: dueAmt > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{formatINR(dueAmt)}</strong></div>
                   </div>
                 </div>
 
@@ -835,7 +890,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                       onClick={() => setNewPaidAmount(dueAmt.toString())}
                       style={{ padding: '0 6px', fontSize: 11, color: 'var(--primary)', fontWeight: 600, minHeight: 'auto' }}
                     >
-                      Pay Full Due (₹{dueAmt})
+                      Pay Full Due ({formatINR(dueAmt)})
                     </button>
                   </div>
                   <input
@@ -870,7 +925,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setRecordPaymentBill(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={submittingPayment}>
-                  {submittingPayment ? 'Saving Receipt...' : `Collect ₹${newPaidAmount || 0}`}
+                  {submittingPayment ? 'Saving Receipt...' : `Collect ${formatINR(newPaidAmount || 0)}`}
                 </button>
               </div>
             </form>
@@ -890,32 +945,34 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
               <div style={{ background: 'var(--surface-alt)', padding: 12, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>INVOICE #{viewHistoryBill.invoice_number || viewHistoryBill.id.slice(0,8)}</div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>Patient: {viewHistoryBill.patient_name || 'Patient'}</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Net Amount: <strong>₹{viewHistoryBill.net_amount}</strong> | Paid: <strong style={{ color: 'var(--success)' }}>₹{viewHistoryBill.paid_amount}</strong></div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Net Amount: <strong>{formatINR(viewHistoryBill.net_amount)}</strong> | Paid: <strong style={{ color: 'var(--success)' }}>{formatINR(viewHistoryBill.paid_amount)}</strong></div>
               </div>
 
               {Array.isArray(viewHistoryBill.payment_history) && viewHistoryBill.payment_history.length > 0 ? (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Date & Time</th>
-                      <th>Amount</th>
-                      <th>Mode</th>
-                      <th>Received By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewHistoryBill.payment_history.map((txn: any, idx: number) => (
-                      <tr key={txn.id || idx}>
-                        <td>{idx + 1}</td>
-                        <td style={{ fontSize: 12 }}>{txn.date ? new Date(txn.date).toLocaleString('en-IN') : '—'}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--success)' }}>₹{txn.amount}</td>
-                        <td><span className="badge badge-neutral" style={{ fontSize: 11 }}>{txn.payment_mode || 'Cash'}</span></td>
-                        <td style={{ fontSize: 12 }}>{txn.received_by || 'Cashier'}</td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Date & Time</th>
+                        <th>Amount</th>
+                        <th>Mode</th>
+                        <th>Received By</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {viewHistoryBill.payment_history.map((txn: any, idx: number) => (
+                        <tr key={txn.id || idx}>
+                          <td>{idx + 1}</td>
+                          <td style={{ fontSize: 12 }}>{txn.date ? new Date(txn.date).toLocaleString('en-IN') : '—'}</td>
+                          <td style={{ fontWeight: 700, color: 'var(--success)' }}>{formatINR(txn.amount)}</td>
+                          <td><span className="badge badge-neutral" style={{ fontSize: 11 }}>{txn.payment_mode || 'Cash'}</span></td>
+                          <td style={{ fontSize: 12 }}>{txn.received_by || 'Cashier'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No payment transactions recorded yet.</div>
               )}
@@ -1086,11 +1143,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
                 {/* Service Catalog Quick Picker */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: '#f8fafc', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border-light)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
                       Preloaded Clinical Catalog:
                     </span>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {['All', 'Consultation', 'Bed Stay', 'Lab & Diagnostics', 'Procedures & Nursing'].map(cat => (
                         <button
                           key={cat}
@@ -1134,7 +1191,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 <div className="form-group">
                   <label className="form-label" style={{ fontWeight: 700, color: 'var(--text)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>Line Items & Charges</span>
-                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Subtotal: ₹{grossSubtotal}</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Subtotal: {formatINR(grossSubtotal)}</span>
                   </label>
                   {items.map((item, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2.5fr 0.8fr 1.2fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
@@ -1176,7 +1233,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                         style={{ fontSize: 13 }}
                       />
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', textAlign: 'right', paddingRight: 6 }}>
-                        ₹{item.amount || ((Number(item.quantity) || 1) * (Number(item.unit_price) || 0))}
+                        {formatINR(item.amount || ((Number(item.quantity) || 1) * (Number(item.unit_price) || 0)))}
                       </div>
                       {items.length > 1 && (
                         <button
@@ -1210,9 +1267,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Subtotal: ₹{grossSubtotal} {discountAmount > 0 ? `− ₹${discountAmount}` : ''}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Subtotal: {formatINR(grossSubtotal)} {discountAmount > 0 ? `− ${formatINR(discountAmount)}` : ''}
+                    </div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--primary)', marginTop: 2 }}>
-                      Net Payable: ₹{netPayable}
+                      Net Payable: {formatINR(netPayable)}
                     </div>
                   </div>
                 </div>
@@ -1232,7 +1291,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                           }}
                           style={{ padding: '0 4px', fontSize: 10.5, color: 'var(--success)', fontWeight: 600, minHeight: 'auto' }}
                         >
-                          Full (₹{netPayable})
+                          Full ({formatINR(netPayable)})
                         </button>
                         <button
                           type="button"
@@ -1276,10 +1335,10 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
               </div>
               <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: 13.5 }}>
-                  Net: <strong style={{ color: 'var(--primary)', fontSize: 16 }}>₹{netPayable}</strong>
+                  Net: <strong style={{ color: 'var(--primary)', fontSize: 16 }}>{formatINR(netPayable)}</strong>
                   {paidVal > 0 && paidVal < netPayable && (
                     <span style={{ fontSize: 12, color: 'var(--danger)', marginLeft: 8, fontWeight: 600 }}>
-                      (Due: ₹{balanceDue})
+                      (Due: {formatINR(balanceDue)})
                     </span>
                   )}
                   {paidVal >= netPayable && netPayable > 0 && (
@@ -1291,7 +1350,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? 'Generating Invoice...' : `Create Invoice (Net: ₹${netPayable})`}
+                    {saving ? 'Generating Invoice...' : `Create Invoice (Net: ${formatINR(netPayable)})`}
                   </button>
                 </div>
               </div>
@@ -1302,4 +1361,3 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
     </div>
   );
 }
-

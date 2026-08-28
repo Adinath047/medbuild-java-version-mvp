@@ -26,7 +26,7 @@ import PrintRequestModal, { PrintModalData } from './components/PrintRequestModa
 import { useNotificationStore } from './store/notificationStore';
 import { EmergencyBanner, NotificationBell } from './components/NotificationUI';
 import TrialBanner from './components/TrialBanner';
-import OnboardingTour from './components/OnboardingTour';
+
 
 // ── SVG Icons (Matching ClinicalHub Screenshots) ─────────────────────
 const Icons: Record<string, JSX.Element> = {
@@ -84,6 +84,15 @@ function getNav(user: any) {
     { icon: 'profile',      label: 'Profile',        page: 'settings' },
   ];
 
+  if (role.includes('billing') || role.includes('finance')) return [
+    { section: 'WORKSPACE' },
+    { icon: 'home',         label: 'Home',           page: 'dashboard' },
+    { icon: 'billing',      label: 'Invoices & POS', page: 'billing' },
+    { icon: 'patients',     label: 'Patients',       page: 'patients' },
+    { icon: 'beds',         label: 'Bed Billing',    page: 'beds' },
+    { icon: 'profile',      label: 'Profile',        page: 'settings' },
+  ];
+
   const isReception = role.includes('reception');
 
   return [
@@ -111,6 +120,7 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
     nurse:          { label: 'Nurse', sub: 'NURSING SUITE' },
     lab_technician: { label: 'Lab Technician', sub: 'DIAGNOSTICS' },
     pharmacist:     { label: 'Pharmacist', sub: 'PHARMACY' },
+    billing:        { label: 'Billing Officer', sub: 'FINANCE & BILLING' },
   };
   const { label: roleLabel, sub: roleSub } = roleInfo[user?.role] ?? { label: user?.role, sub: 'CLINICAL SUITE' };
 
@@ -138,7 +148,7 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
             </svg>
           </div>
           <div>
-            <div className="sidebar-brand-name" style={{ fontWeight: 800, fontSize: 17, color: 'var(--text)', letterSpacing: '-0.4px', lineHeight: 1.1 }}>ClinicalHub</div>
+            <div className="sidebar-brand-name" style={{ fontWeight: 800, fontSize: 17, color: 'var(--text)', letterSpacing: '-0.4px', lineHeight: 1.1 }}>Medbuilds</div>
             <div className="sidebar-brand-sub" style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', marginTop: 3 }}>{roleSub}</div>
           </div>
         </div>
@@ -151,7 +161,6 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
               : (
                 <div 
                   key={i} 
-                  data-tour-page={item.page}
                   className={`nav-item${page === item.page ? ' active' : ''}`}
                   onClick={() => { onNav(item.page); onClose(); }}
                   style={{
@@ -719,8 +728,6 @@ export default function App() {
         onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
       />
 
-      {/* Role-Aware Onboarding Tour for First-Time Users */}
-      <OnboardingTour />
     </div>
   );
 }

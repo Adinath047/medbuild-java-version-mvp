@@ -310,19 +310,19 @@ CREATE TABLE IF NOT EXISTS patient_uploads (
 
 -- ── 13. SEED INITIAL DATA ─────────────────────────────────────────────
 INSERT INTO hospitals (id, name, type, city, phone) 
-VALUES ('hsp-001', 'Medicos General Hospital', 'General', 'Mumbai', '+91-22-12345678')
+VALUES ('hsp-001', 'Medbuilds General Hospital', 'General', 'Mumbai', '+91-22-12345678')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed default Super Admin (Password: admin123)
 INSERT INTO users (id, name, email, password, role, hospital_id)
-VALUES ('usr-admin-001', 'Adinath Admin', 'adinathmade@medicos.com',
+VALUES ('usr-admin-001', 'Adinath Admin', 'adinathmade@medbuilds.com',
         '$2a$10$1LADfgd8HQ0allD5lnGLb.dVxH.sVVCt07WYykl48x0vryQ1fCgLO',
         'admin', 'hsp-001')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed default Doctor (Password: doctor123)
 INSERT INTO users (id, name, email, password, role, hospital_id, staff_id, specialization, qualification)
-VALUES ('usr-doc-001', 'Dr. Ananya Rao', 'doctor@medicos.com',
+VALUES ('usr-doc-001', 'Dr. Ananya Rao', 'doctor@medbuilds.com',
         '$2a$10$1LADfgd8HQ0allD5lnGLb.dVxH.sVVCt07WYykl48x0vryQ1fCgLO',
         'doctor', 'hsp-001', 'STF-101', 'Cardiology', 'MBBS, MD (Cardiology)')
 ON CONFLICT (id) DO NOTHING;
