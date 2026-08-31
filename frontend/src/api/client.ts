@@ -120,6 +120,15 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Handle 402 Payment Required (License Locked / Read-Only Mode)
+    if (err.response?.status === 402) {
+      const data = err.response.data;
+      console.warn('[client] 402 Payment Required: Hospital license is in read-only mode.', data);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('emr:license_locked', { detail: data }));
+      }
+    }
+
     if (!err.response && (err.message === 'Network Error' || !navigator.onLine)) {
       console.warn(
         `[client] Offline Mode — Server unreachable (${err.config?.url}). Falling back to local IndexedDB.`

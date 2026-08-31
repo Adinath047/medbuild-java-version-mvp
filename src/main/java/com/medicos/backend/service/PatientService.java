@@ -21,17 +21,20 @@ public class PatientService {
     private final VitalRepository vitalRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final AppointmentRepository appointmentRepository;
+    private final AuditLogService auditLogService;
 
     public PatientService(PatientRepository patientRepository,
                           EncounterRepository encounterRepository,
                           VitalRepository vitalRepository,
                           PrescriptionRepository prescriptionRepository,
-                          AppointmentRepository appointmentRepository) {
+                          AppointmentRepository appointmentRepository,
+                          AuditLogService auditLogService) {
         this.patientRepository = patientRepository;
         this.encounterRepository = encounterRepository;
         this.vitalRepository = vitalRepository;
         this.prescriptionRepository = prescriptionRepository;
         this.appointmentRepository = appointmentRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Cacheable(value = "patients", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + (#search != null ? #search : 'ALL') + '_' + #limit")
@@ -138,7 +141,15 @@ public class PatientService {
 
         Optional.ofNullable(currentUser).ifPresent(u -> patient.setRegisteredBy(u.getId()));
 
-        return patientRepository.save(patient);
+        Patient saved = patientRepository.save(patient);
+
+        if (auditLogService != null) {
+            auditLogService.record("CREATE_PATIENT",
+                    "Registered new patient " + saved.getName() + " (" + saved.getUhid() + ")",
+                    currentUser, saved.getId(), saved.getUhid(), "SUCCESS");
+        }
+
+        return saved;
     }
 
     @Caching(evict = {
@@ -173,6 +184,57 @@ public class PatientService {
         Optional.ofNullable(updated.getChronicConditions()).ifPresent(p::setChronicConditions);
         Optional.ofNullable(updated.getPrimaryDoctorId()).ifPresent(p::setPrimaryDoctorId);
 
-        return patientRepository.save(p);
+        Patient saved = patientRepository.save(p);
+
+        if (auditLogService != null) {
+            auditLogService.record("UPDATE_PATIENT",
+                    "Updated patient details for " + saved.getName() + " (" + saved.getUhid() + ")",
+                    null, saved.getId(), saved.getUhid(), "SUCCESS");
+        }
+
+        return saved;
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "patients", allEntries = true),
+            @CacheEvict(value = "patient_by_id", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id"),
+            @CacheEvict(value = "patient_summary", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
+    })
+    @Transactional
+    public void executeErasure(String id, User adminUser) {
+        Patient p = patientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
+
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+            if (p.getHospitalId() != null && !hospitalId.equals(p.getHospitalId())) {
+                throw new ResourceNotFoundException("Patient not found with ID: " + id);
+            }
+        }
+
+        String patName = p.getName();
+        String patUhid = p.getUhid();
+
+        // Delete associated records under DPDP Right to Erasure
+        try {
+            vitalRepository.findByPatientIdOrderByRecordedAtDesc(id).forEach(v -> vitalRepository.delete(v));
+            encounterRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(e -> encounterRepository.delete(e));
+            prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(rx -> prescriptionRepository.delete(rx));
+            appointmentRepository.findByPatientIdOrderByDateDesc(id).forEach(a -> appointmentRepository.delete(a));
+            patientRepository.delete(p);
+
+            if (auditLogService != null) {
+                auditLogService.record("DPDP_ERASURE",
+                        "Permanently erased patient record and clinical history for " + patName + " (" + patUhid + ") under Section 12 Right to Erasure",
+                        adminUser, id, patUhid, "SUCCESS");
+            }
+        } catch (Exception e) {
+            if (auditLogService != null) {
+                auditLogService.record("DPDP_ERASURE",
+                        "Failed to erase patient record for " + patName + " (" + patUhid + "): " + e.getMessage(),
+                        adminUser, id, patUhid, "FAILURE");
+            }
+            throw new RuntimeException("Failed to execute patient erasure: " + e.getMessage(), e);
+        }
     }
 }

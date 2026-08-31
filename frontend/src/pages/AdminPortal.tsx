@@ -623,81 +623,119 @@ function HospitalConfigTab() {
 }
 
 // ── Security & Audit Logs Tab ──────────────────────────────────────────
+// ── Security & Audit Logs Tab ──────────────────────────────────────────
 function AuditLogsTab() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/audit-logs');
+      setLogs(res.data || []);
+    } catch {
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiClient.get('/audit-logs');
-        setLogs(res.data || []);
-      } catch {
-        setLogs([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchLogs();
   }, []);
 
+  const filtered = logs.filter(l => {
+    const q = search.toLowerCase();
+    if (!q) return true;
+    return (
+      (l.action || l.actionType || '').toLowerCase().includes(q) ||
+      (l.userName || l.user_name || '').toLowerCase().includes(q) ||
+      (l.userRole || l.user_role || '').toLowerCase().includes(q) ||
+      (l.details || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 }}>
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>HIPAA Audit Trail</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--success)', marginTop: 4 }}>Active</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Aspect-based auto logging</div>
+    <div className="card" style={{ boxShadow: 'var(--shadow-sm)', overflow: 'hidden', padding: 0 }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Hospital Security & Administrative Audit Trail</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>Append-only security log for current hospital tenant.</p>
         </div>
-
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>DPDP Data Guard</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>Compliant</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Sec 12 Erasure Enforced</div>
-        </div>
-
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Recorded Logs</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>{logs.length} Logged</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Audit trail items</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input
+            type="text"
+            placeholder="Filter logs..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              fontSize: 12,
+              background: 'var(--surface-alt)',
+              color: 'var(--text)',
+              outline: 'none',
+              width: 180
+            }}
+          />
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={fetchLogs}
+            disabled={loading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            Refresh
+          </button>
         </div>
       </div>
-
-      <div className="card" style={{ boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Recent Security & Administrative Audit Log</h3>
-        </div>
-        <div className="table-wrap" style={{ overflowX: 'auto' }}>
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /></div>
-          ) : logs.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No audit logs recorded yet.</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Event Action</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Executed By</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Role</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</th>
-                  <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Audit Status</th>
+      <div className="table-wrap" style={{ overflowX: 'auto' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center' }}><div className="spinner" /> Loading audit records...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            {search ? 'No audit records match your search filter.' : 'No audit logs recorded for this hospital yet.'}
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</th>
+                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Event Action</th>
+                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Details</th>
+                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>User & Role</th>
+                <th style={{ padding: '12px 20px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((l: any) => (
+                <tr key={l.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '12px 20px', color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                    {l.timestamp ? new Date(l.timestamp).toLocaleString('en-IN') : '—'}
+                  </td>
+                  <td style={{ padding: '12px 20px', fontWeight: 600, fontSize: 12.5, color: 'var(--text)' }}>
+                    {l.action || l.actionType || l.event || 'System Action'}
+                  </td>
+                  <td style={{ padding: '12px 20px', color: 'var(--text-muted)', fontSize: 12 }}>
+                    {l.details || '—'}
+                  </td>
+                  <td style={{ padding: '12px 20px', fontSize: 12 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{l.userName || l.user_name || l.user_id || 'System'}</span>
+                    <span style={{ marginLeft: 6, fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase' }}>({l.userRole || l.user_role || 'User'})</span>
+                  </td>
+                  <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                    <span className="badge badge-success" style={{ fontSize: 10.5, padding: '3px 10px' }}>{l.status || 'Recorded'}</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {logs.map((l: any) => (
-                  <tr key={l.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '14px 20px', fontWeight: 600 }}>{l.action || l.event || 'System Action'}</td>
-                    <td style={{ padding: '14px 20px' }}>{l.userName || l.user_id || l.user || 'System'}</td>
-                    <td style={{ padding: '14px 20px' }}>{l.userRole || l.role || 'User'}</td>
-                    <td style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 12 }}>{l.timestamp ? new Date(l.timestamp).toLocaleString('en-IN') : '—'}</td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <span className="badge badge-success" style={{ fontSize: 10.5, padding: '3px 10px' }}>{l.status || 'Recorded'}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

@@ -62,4 +62,11 @@ public class PatientController {
         Patient saved = patientService.updatePatient(id, updated);
         return ResponseEntity.ok(saved);
     }
+
+    @PostMapping("/{id}/erasure")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> executeErasure(@PathVariable("id") String id, @AuthenticationPrincipal User user) {
+        patientService.executeErasure(id, user);
+        return ResponseEntity.ok(java.util.Collections.singletonMap("message", "Patient record securely erased under DPDP Section 12"));
+    }
 }

@@ -308,10 +308,81 @@ CREATE TABLE IF NOT EXISTS patient_uploads (
   uploaded_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- ── 13. SEED INITIAL DATA ─────────────────────────────────────────────
+-- ── 13. AUDIT LOGS (HIPAA & DPDP) ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id            VARCHAR(64) PRIMARY KEY,
+  hospital_id   VARCHAR(64),
+  timestamp     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  user_id       VARCHAR(64),
+  user_role     VARCHAR(50),
+  user_name     VARCHAR(255),
+  patient_id    VARCHAR(64),
+  patient_uhid  VARCHAR(100),
+  action_type   VARCHAR(100) NOT NULL,
+  details       VARCHAR(1000),
+  ip_address    VARCHAR(100),
+  endpoint      VARCHAR(255),
+  http_method   VARCHAR(20),
+  status        VARCHAR(50) NOT NULL DEFAULT 'SUCCESS'
+);
+
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS hospital_id VARCHAR(64);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_id VARCHAR(64);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_role VARCHAR(50);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS patient_id VARCHAR(64);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS patient_uhid VARCHAR(100);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action_type VARCHAR(100);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS details VARCHAR(1000);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR(100);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS endpoint VARCHAR(255);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS http_method VARCHAR(20);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'SUCCESS';
+
+-- ── 14. TENANT SUBSCRIPTIONS (TRIAL & LICENSING) ─────────────────────
+CREATE TABLE IF NOT EXISTS tenant_subscriptions (
+  id                    VARCHAR(64) PRIMARY KEY,
+  tenant_id             VARCHAR(64) UNIQUE NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+  plan_type             VARCHAR(30) NOT NULL DEFAULT 'trial',
+  trial_started_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  trial_ends_at         TIMESTAMP WITH TIME ZONE NOT NULL,
+  grace_ends_at         TIMESTAMP WITH TIME ZONE,
+  converted_at          TIMESTAMP WITH TIME ZONE,
+  status                VARCHAR(30) NOT NULL DEFAULT 'active',
+  data_export_deadline  TIMESTAMP WITH TIME ZONE,
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ── 15. SUBSCRIPTION AUDIT LOGS ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS subscription_audit_logs (
+  id                VARCHAR(64) PRIMARY KEY,
+  tenant_id         VARCHAR(64) NOT NULL REFERENCES hospitals(id) ON DELETE CASCADE,
+  from_state        VARCHAR(30) NOT NULL,
+  to_state          VARCHAR(30) NOT NULL,
+  transitioned_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actor             VARCHAR(100) NOT NULL DEFAULT 'system',
+  details           TEXT
+);
+
+-- ── 16. SEED INITIAL DATA ─────────────────────────────────────────────
 INSERT INTO hospitals (id, name, type, city, phone) 
 VALUES ('hsp-001', 'Medbuilds General Hospital', 'General', 'Mumbai', '+91-22-12345678')
 ON CONFLICT (id) DO NOTHING;
+
+-- Seed default Subscription for hsp-001 (30-day trial with 7-day grace period)
+INSERT INTO tenant_subscriptions (id, tenant_id, plan_type, trial_started_at, trial_ends_at, grace_ends_at, status, data_export_deadline)
+VALUES (
+  'sub-hsp-001',
+  'hsp-001',
+  'trial',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP + INTERVAL '30 days',
+  CURRENT_TIMESTAMP + INTERVAL '37 days',
+  'active',
+  CURRENT_TIMESTAMP + INTERVAL '82 days'
+)
+ON CONFLICT (tenant_id) DO NOTHING;
 
 -- Seed default Super Admin (Password: admin123)
 INSERT INTO users (id, name, email, password, role, hospital_id)
@@ -339,6 +410,14 @@ VALUES
   ('bed-101', 'hsp-001', 'B-101', 'ICU', 'ICU-1', 'ICU', 'Available'),
   ('bed-102', 'hsp-001', 'B-102', 'General', 'G-102', 'General', 'Available'),
   ('bed-103', 'hsp-001', 'B-103', 'General', 'G-103', 'General', 'Available')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed initial audit logs for hsp-001
+INSERT INTO audit_logs (id, hospital_id, timestamp, user_id, user_role, user_name, action_type, details, status)
+VALUES 
+  ('aud-001', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '2 hours', 'usr-admin-001', 'admin', 'Adinath Admin', 'SYSTEM_INITIALIZATION', 'Hospital security parameters and tenant RLS initialized', 'SUCCESS'),
+  ('aud-002', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '1 hour', 'usr-admin-001', 'admin', 'Adinath Admin', 'USER_LOGIN', 'Administrator logged into Medbuilds EMR console', 'SUCCESS'),
+  ('aud-003', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '30 minutes', 'usr-doc-001', 'doctor', 'Dr. Ananya Rao', 'VIEW_PATIENT', 'Accessed clinical history for patient pat-001 (UHID-001-000001)', 'SUCCESS')
 ON CONFLICT (id) DO NOTHING;
 
 -- ── 14. ROW-LEVEL SECURITY (RLS) POLICIES ─────────────────────────────
@@ -437,6 +516,14 @@ ALTER TABLE patient_uploads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_uploads FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON patient_uploads;
 CREATE POLICY tenant_isolation_policy ON patient_uploads
+  USING (hospital_id = current_setting('app.current_hospital_id', true))
+  WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
+
+-- Audit Logs Table
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_policy ON audit_logs;
+CREATE POLICY tenant_isolation_policy ON audit_logs
   USING (hospital_id = current_setting('app.current_hospital_id', true))
   WITH CHECK (hospital_id = current_setting('app.current_hospital_id', true));
 

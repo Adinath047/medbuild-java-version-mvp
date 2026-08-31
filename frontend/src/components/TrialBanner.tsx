@@ -1,75 +1,106 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { apiClient } from '../api/client';
 import TrialContactModal from './TrialContactModal';
 
-function computeRemaining(trialEndsAt: string | null): { days: number; hours: number; isExpired: boolean } {
-  if (!trialEndsAt) return { days: 0, hours: 0, isExpired: false };
-  const endsAt = new Date(trialEndsAt).getTime();
-  const now = Date.now();
-  const diffMs = endsAt - now;
-  if (diffMs <= 0) return { days: 0, hours: 0, isExpired: true };
-  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const days = Math.floor(totalHours / 24);
-  return { days, hours: totalHours, isExpired: false };
+interface LicenseStatus {
+  tenantId: string;
+  planType: string;
+  licenseState: 'TRIAL_ACTIVE' | 'TRIAL_ENDING_SOON' | 'GRACE_PERIOD' | 'LOCKED' | 'ARCHIVED' | 'PAID';
+  daysRemaining: number;
+  trialEndsAt: string;
+  graceEndsAt?: string;
+  dataExportDeadline?: string;
+  isReadOnly: boolean;
+  isArchived: boolean;
+  isGracePeriod: boolean;
 }
 
 export default function TrialBanner() {
-  const { trialStatus, trialEndsAt, subscriptionPlan, user, fetchTrialStatus } = useAuthStore();
+  const { user } = useAuthStore();
+  const [license, setLicense] = useState<LicenseStatus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  // Live countdown — recompute every 60 seconds from trialEndsAt
-  const [remaining, setRemaining] = useState(() => computeRemaining(trialEndsAt));
-
-  const refresh = useCallback(() => {
-    setRemaining(computeRemaining(trialEndsAt));
-  }, [trialEndsAt]);
-
-  useEffect(() => {
-    refresh();
-    const tick = setInterval(refresh, 60_000);
-    return () => clearInterval(tick);
-  }, [refresh]);
-
-  // Re-fetch trial status from backend every 30 minutes to keep data fresh
-  useEffect(() => {
+  const fetchStatus = useCallback(async () => {
     if (!user) return;
-    const poll = setInterval(() => {
-      fetchTrialStatus().catch(console.error);
-    }, 30 * 60_000);
-    return () => clearInterval(poll);
-  }, [user, fetchTrialStatus]);
+    try {
+      const res = await apiClient.get('/licensing/status');
+      if (res.data) {
+        setLicense(res.data);
+      }
+    } catch {
+      // Fallback gracefully
+    }
+  }, [user]);
 
-  // Sync store values into remaining when trialEndsAt changes (e.g. on login)
   useEffect(() => {
-    setRemaining(computeRemaining(trialEndsAt));
-  }, [trialEndsAt]);
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5 * 60_000); // refresh every 5 mins
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
-  if (!user || subscriptionPlan === 'STANDARD' || subscriptionPlan === 'PREMIUM' || trialStatus === 'ACTIVATED') {
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const res = await apiClient.get('/licensing/export');
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `medbuilds-clinical-archive-${license?.tenantId || 'hospital'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Failed to export data', e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  if (!user || !license || license.licenseState === 'PAID') {
     return null;
   }
 
-  const isExpired = trialStatus === 'EXPIRED' || remaining.isExpired;
-  const { days: daysRemaining, hours: hoursRemaining } = remaining;
+  const { licenseState, daysRemaining } = license;
 
-  if (isDismissed && !isExpired && daysRemaining > 1) {
+  if (isDismissed && licenseState === 'TRIAL_ACTIVE' && daysRemaining > 3) {
     return null;
   }
 
   let bgColor = '#059669';
   let badgeBg = 'rgba(0, 0, 0, 0.20)';
   let btnColor = '#065f46';
+  let title = '30-Day Trial';
+  let message = `You have ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining in your trial.`;
 
-  if (isExpired) {
+  if (licenseState === 'ARCHIVED') {
+    bgColor = '#475569';
+    badgeBg = 'rgba(0, 0, 0, 0.35)';
+    btnColor = '#334155';
+    title = 'Account Archived';
+    message = 'Hospital account has reached data retention limits. Clinical data is preserved in cold storage.';
+  } else if (licenseState === 'LOCKED') {
     bgColor = '#be123c';
     badgeBg = 'rgba(0, 0, 0, 0.25)';
     btnColor = '#9f1239';
-  } else if (daysRemaining <= 1) {
+    title = 'Read-Only Mode';
+    message = `Trial expired. Patient records are viewable to preserve clinical care. New entries require an active subscription. Export window active (${daysRemaining} days remaining).`;
+  } else if (licenseState === 'GRACE_PERIOD') {
     bgColor = '#d97706';
+    badgeBg = 'rgba(0, 0, 0, 0.22)';
     btnColor = '#92400e';
-  } else if (daysRemaining <= 3) {
+    title = 'Grace Period';
+    message = `Trial ended. You have ${daysRemaining} days of clinical grace. Patient care continues, but user management is locked.`;
+  } else if (licenseState === 'TRIAL_ENDING_SOON') {
     bgColor = '#ea580c';
+    badgeBg = 'rgba(0, 0, 0, 0.22)';
     btnColor = '#9a3412';
+    title = 'Ending Soon';
+    message = `Trial ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}. Upgrade now to retain seamless administrative access.`;
   }
 
   return (
@@ -104,23 +135,38 @@ export default function TrialBanner() {
               textTransform: 'uppercase'
             }}
           >
-            {isExpired ? 'Trial Expired' : '7-Day Trial'}
+            {title}
           </span>
-          <span>
-            {isExpired ? (
-              <span>Your hospital trial period has ended. Read-only mode active.</span>
-            ) : daysRemaining > 0 ? (
-              <span>
-                You have <strong>{daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}</strong>{' '}
-                ({hoursRemaining}h) remaining in your trial.
-              </span>
-            ) : (
-              <span>Your trial expires today (<strong>{hoursRemaining} hours</strong> remaining).</span>
-            )}
-          </span>
+          <span>{message}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {(licenseState === 'LOCKED' || licenseState === 'GRACE_PERIOD') && (
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exporting}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: 6,
+                padding: '5px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {exporting ? 'Exporting...' : 'Export Clinic Data'}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
@@ -142,10 +188,10 @@ export default function TrialBanner() {
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            Contact Us to Upgrade
+            Upgrade Plan
           </button>
 
-          {!isExpired && daysRemaining > 1 && (
+          {licenseState === 'TRIAL_ACTIVE' && daysRemaining > 3 && (
             <button
               type="button"
               onClick={() => setIsDismissed(true)}

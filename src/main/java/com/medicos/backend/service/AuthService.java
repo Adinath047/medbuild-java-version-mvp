@@ -35,16 +35,23 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final TenantSessionBinder tenantSessionBinder;
+    private final AuditLogService auditLogService;
 
     @org.springframework.beans.factory.annotation.Value("${jwt.cookie-secure:false}")
     private boolean cookieSecure;
 
-    public AuthService(UserRepository userRepository, HospitalRepository hospitalRepository, PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider, TenantSessionBinder tenantSessionBinder) {
+    public AuthService(UserRepository userRepository,
+                       HospitalRepository hospitalRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtTokenProvider tokenProvider,
+                       TenantSessionBinder tenantSessionBinder,
+                       AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.hospitalRepository = hospitalRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.tenantSessionBinder = tenantSessionBinder;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -130,6 +137,13 @@ public class AuthService {
         response.addHeader(HttpHeaders.SET_COOKIE, csrfCookie.toString());
 
         AuthDTO.UserDTO userDTO = mapToDTO(user);
+
+        if (auditLogService != null) {
+            auditLogService.record("USER_LOGIN",
+                    "User " + user.getName() + " (" + user.getRole() + ") successfully signed into hospital console",
+                    user, null, null, "SUCCESS");
+        }
+
         return Map.of(
                 "token", accessToken,
                 "accessToken", accessToken,
@@ -269,6 +283,12 @@ public class AuthService {
 
         User savedUser = userRepository.save(newUser);
         String token = tokenProvider.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole(), savedUser.getHospitalId());
+
+        if (auditLogService != null) {
+            auditLogService.record("CREATE_STAFF",
+                    "Registered new staff member " + savedUser.getName() + " with role " + savedUser.getRole(),
+                    adminUser, null, null, "SUCCESS");
+        }
 
         return Map.of(
                 "token", token,

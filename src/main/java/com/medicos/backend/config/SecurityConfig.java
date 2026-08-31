@@ -34,6 +34,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitingFilter rateLimitingFilter;
     private final TenantContextFilter tenantContextFilter;
+    private final com.medicos.backend.licensing.LicenseEnforcementFilter licenseEnforcementFilter;
 
     @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private String allowedOrigins;
@@ -47,10 +48,12 @@ public class SecurityConfig {
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           RateLimitingFilter rateLimitingFilter,
-                          TenantContextFilter tenantContextFilter) {
+                          TenantContextFilter tenantContextFilter,
+                          com.medicos.backend.licensing.LicenseEnforcementFilter licenseEnforcementFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitingFilter = rateLimitingFilter;
         this.tenantContextFilter = tenantContextFilter;
+        this.licenseEnforcementFilter = licenseEnforcementFilter;
     }
 
     @Bean
@@ -157,7 +160,8 @@ public class SecurityConfig {
                     .requestMatchers("/api/health").permitAll()
                     .requestMatchers("/api/system/**").permitAll()
 
-                    // ── Trial & Onboarding ─────────────────────────────────────
+                    // ── Trial & Licensing Endpoints ─────────────────────────
+                    .requestMatchers("/api/licensing/**").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/trial/signup").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/trial/contact").permitAll()
                     .requestMatchers("/api/trial/status").permitAll()
@@ -189,7 +193,8 @@ public class SecurityConfig {
             })
             .addFilterBefore(tenantContextFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(licenseEnforcementFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
@@ -209,7 +214,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization", "Content-Type", "X-CSRF-Token",
                 "X-Requested-With", "Accept", "X-Hospital-Code"));
-        configuration.setExposedHeaders(List.of("X-Request-Id")); // allows clients to read request IDs
+        configuration.setExposedHeaders(List.of("X-Request-Id", "X-License-State", "X-License-Days-Left"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
