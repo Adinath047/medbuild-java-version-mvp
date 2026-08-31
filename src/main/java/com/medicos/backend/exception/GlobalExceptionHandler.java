@@ -41,6 +41,11 @@ public class GlobalExceptionHandler {
 
     private final com.medicos.backend.telemetry.TelemetryReporter telemetryReporter;
 
+    public GlobalExceptionHandler() {
+        this.telemetryReporter = null;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     public GlobalExceptionHandler(com.medicos.backend.telemetry.TelemetryReporter telemetryReporter) {
         this.telemetryReporter = telemetryReporter;
     }
