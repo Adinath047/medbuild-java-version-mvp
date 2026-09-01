@@ -32,8 +32,16 @@ public class AuditLogService {
      */
     @Transactional(propagation = Propagation.REQUIRED)
     public AuditLog record(String actionType, String details, User user, String patientId, String patientUhid, String status) {
+        return record(null, actionType, details, user, patientId, patientUhid, status);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public AuditLog record(String targetHospitalId, String actionType, String details, User user, String patientId, String patientUhid, String status) {
         try {
-            String hospitalId = TenantContext.getTenantId();
+            String hospitalId = targetHospitalId;
+            if (hospitalId == null || hospitalId.trim().isEmpty()) {
+                hospitalId = TenantContext.getTenantId();
+            }
             if ((hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) && user != null) {
                 hospitalId = user.getHospitalId();
             }

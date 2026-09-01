@@ -88,6 +88,8 @@ public class InviteService {
             throw new BadRequestException("Admin email is required.");
         }
 
+        tenantSessionBinder.bindTenant("GLOBAL");
+
         String hospitalId = "hsp-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String planType = req.getPlanType() != null && !req.getPlanType().isBlank() ? req.getPlanType().toUpperCase() : "TRIAL";
         int trialDays = req.getTrialDays() != null && req.getTrialDays() > 0 ? req.getTrialDays() : 30;
@@ -131,6 +133,7 @@ public class InviteService {
     }
 
     public java.util.List<java.util.Map<String, Object>> getAllHospitals() {
+        tenantSessionBinder.bindTenant("GLOBAL");
         java.util.List<Hospital> hospitals = hospitalRepository.findAll();
         return hospitals.stream().map(h -> {
             java.util.Map<String, Object> map = new java.util.HashMap<>();
@@ -218,7 +221,7 @@ public class InviteService {
                 : (admin != null && admin.getName() != null && !admin.getName().isBlank() ? admin.getName() : "Rotstruck Pvt. Ltd.");
         dispatchInviteEmail(email, user.getName(), req.getRole(), hospital.getName(), inviteLink, inviter);
 
-        auditLogService.record("STAFF_INVITE_SENT", "Invited " + email + " as " + req.getRole(), admin, null, null, "SUCCESS");
+        auditLogService.record(hospitalId, "STAFF_INVITE_SENT", "Invited " + email + " as " + req.getRole(), admin, null, null, "SUCCESS");
 
         log.info("[InviteService] Invite sent to {} (role={}, hospital={})", email, req.getRole(), hospitalId);
     }
