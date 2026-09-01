@@ -46,34 +46,52 @@ public class LicenseService {
 
     @Transactional
     public TenantSubscription getOrCreateSubscription(String tenantId) {
+        return getOrCreateSubscription(tenantId, "trial", 30);
+    }
+
+    @Transactional
+    public TenantSubscription getOrCreateSubscription(String tenantId, String planType, Integer trialDays) {
         if (tenantId == null || tenantId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(tenantId)) {
             return null;
         }
 
         return subscriptionRepository.findByTenantId(tenantId).orElseGet(() -> {
+            boolean isPaid = "PAID".equalsIgnoreCase(planType) || "ENTERPRISE".equalsIgnoreCase(planType);
             TenantSubscription sub = new TenantSubscription();
             sub.setId("sub-" + UUID.randomUUID().toString().substring(0, 8));
             sub.setTenantId(tenantId);
-            sub.setPlanType("trial");
             Instant now = Instant.now();
-            sub.setTrialStartedAt(now);
-            sub.setTrialEndsAt(now.plus(Duration.ofDays(30))); // 30 Days Trial
-            sub.setGraceEndsAt(now.plus(Duration.ofDays(37)));  // 7 Days Grace
-            sub.setDataExportDeadline(now.plus(Duration.ofDays(82))); // 45 Days Read-Only Export Window
-            sub.setStatus("active");
-            
+
+            if (isPaid) {
+                sub.setPlanType("paid");
+                sub.setStatus("active");
+                sub.setTrialStartedAt(now);
+                sub.setTrialEndsAt(now.plus(Duration.ofDays(3650))); // 10 years active
+                sub.setGraceEndsAt(null);
+                sub.setDataExportDeadline(null);
+            } else {
+                int days = (trialDays != null && trialDays > 0) ? trialDays : 30;
+                sub.setPlanType("trial");
+                sub.setStatus("active");
+                sub.setTrialStartedAt(now);
+                sub.setTrialEndsAt(now.plus(Duration.ofDays(days)));
+                sub.setGraceEndsAt(sub.getTrialEndsAt().plus(Duration.ofDays(7)));
+                sub.setDataExportDeadline(sub.getGraceEndsAt().plus(Duration.ofDays(45)));
+            }
+
             TenantSubscription saved = subscriptionRepository.save(sub);
-            
+
             // Record creation in audit log
             auditLogRepository.save(new SubscriptionAuditLog(
                     "saud-" + UUID.randomUUID().toString().substring(0, 8),
                     tenantId,
                     "NONE",
-                    "TRIAL_ACTIVE",
+                    isPaid ? "PAID_ACTIVE" : "TRIAL_ACTIVE",
                     "system",
-                    "30-day initial trial subscription initialized"
+                    isPaid ? "Direct Paid / Enterprise subscription activated without trial limit"
+                           : ((trialDays != null && trialDays > 0) ? trialDays : 30) + "-day initial trial subscription initialized"
             ));
-            
+
             return saved;
         });
     }

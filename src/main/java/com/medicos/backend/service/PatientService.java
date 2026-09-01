@@ -215,23 +215,61 @@ public class PatientService {
         String patName = p.getName();
         String patUhid = p.getUhid();
 
-        // Delete associated records under DPDP Right to Erasure
         try {
-            vitalRepository.findByPatientIdOrderByRecordedAtDesc(id).forEach(v -> vitalRepository.delete(v));
-            encounterRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(e -> encounterRepository.delete(e));
-            prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(rx -> prescriptionRepository.delete(rx));
-            appointmentRepository.findByPatientIdOrderByDateDesc(id).forEach(a -> appointmentRepository.delete(a));
-            patientRepository.delete(p);
+            // 1. Sanitize & Redact Encounters (Keep relational linkage, scrub PII and clinical notes)
+            encounterRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(e -> {
+                e.setNotes("[REDACTED PURSUANT TO DPDP DATA ERASURE]");
+                e.setDiagnosis("[REDACTED]");
+                encounterRepository.save(e);
+            });
 
+            // 2. Sanitize Prescriptions (Keep medicine dispense totals for inventory audits, scrub advice notes)
+            prescriptionRepository.findByPatientIdOrderByCreatedAtDesc(id).forEach(rx -> {
+                rx.setAdvice("[REDACTED]");
+                prescriptionRepository.save(rx);
+            });
+
+            // 3. Scrub appointments and non-financial vitals history
+            appointmentRepository.findByPatientIdOrderByDateDesc(id).forEach(appointmentRepository::delete);
+            vitalRepository.findByPatientIdOrderByRecordedAtDesc(id).forEach(vitalRepository::delete);
+
+            // 4. Cryptographic Anonymization / PII Overwrite on Patient record (Preserve primary keys & financial integrity)
+            p.setName("ANONYMIZED_PATIENT");
+            p.setPhone(null);
+            p.setEmail(null);
+            p.setDob(null);
+            p.setAddress(null);
+            p.setLocation(null);
+            p.setEcName(null);
+            p.setEcPhone(null);
+            p.setEcRelation(null);
+            p.setGovtIdNumber(null);
+            p.setGovtIdType(null);
+            p.setInsuranceNumber(null);
+            p.setInsuranceProvider(null);
+            p.setPhotoUrl(null);
+            p.setPastHistory(null);
+            p.setNotes("[PII ERASED PURSUANT TO DPDP SECTION 12 RIGHT TO ERASURE]");
+            p.setAbhaNumber(null);
+            p.setAbhaAddress(null);
+            p.setAbhaStatus("ERASED");
+            p.setAllergies(new ArrayList<>());
+            p.setChronicConditions(new ArrayList<>());
+            p.setCurrentMedications(new ArrayList<>());
+            p.setIsActive(0);
+            p.setConsentGiven(false);
+            patientRepository.save(p);
+
+            // 5. Immutable HIPAA & DPDP Compliance Audit Log
             if (auditLogService != null) {
                 auditLogService.record("DPDP_ERASURE",
-                        "Permanently erased patient record and clinical history for " + patName + " (" + patUhid + ") under Section 12 Right to Erasure",
+                        "Sanitized and permanently anonymized PII for patient " + patUhid + " under DPDP Section 12 Right to Erasure while preserving financial audit consistency.",
                         adminUser, id, patUhid, "SUCCESS");
             }
         } catch (Exception e) {
             if (auditLogService != null) {
                 auditLogService.record("DPDP_ERASURE",
-                        "Failed to erase patient record for " + patName + " (" + patUhid + "): " + e.getMessage(),
+                        "Failed to anonymize patient record for " + patName + " (" + patUhid + "): " + e.getMessage(),
                         adminUser, id, patUhid, "FAILURE");
             }
             throw new RuntimeException("Failed to execute patient erasure: " + e.getMessage(), e);

@@ -23,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -147,13 +148,14 @@ public class SecurityConfig {
                         "/manifest.webmanifest", "/*.webmanifest",
                         "/static/**", "/css/**", "/js/**", "/assets/**", "/fonts/**",
                         "/portal/**", "/app/**", "/doctor/**", "/patient/**",
-                        "/admin/**", "/_vercel/**",
+                        "/admin/**", "/_vercel/**", "/accept-invite/**",
                         "/sw.js", "/registerSW.js", "/workbox-*.js", "/error"
                     ).permitAll()
 
                     // ── Authentication endpoints ──────────────────────────────
-                    // Register is admin-only — hospital assignment must come from a verified admin session
+                    // Register and invite are admin-only
                     .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/auth/invite").hasAnyRole("ADMIN", "SUPER_ADMIN")
                     .requestMatchers("/api/auth/**").permitAll()
 
                     // ── System / health ───────────────────────────────────────
@@ -203,17 +205,23 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Parse comma-separated origins from env var
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+        // Parse comma-separated origins/patterns from env var
+        List<String> origins = new ArrayList<>(Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
-                .toList();
-        configuration.setAllowedOrigins(origins);
+                .toList());
 
+        // Ensure Cloud Run and Medbuilds wildcard domains are seamlessly permitted
+        if (!origins.contains("https://*.run.app")) origins.add("https://*.run.app");
+        if (!origins.contains("https://*.medbuilds.com")) origins.add("https://*.medbuilds.com");
+        if (!origins.contains("http://localhost:*")) origins.add("http://localhost:*");
+        if (!origins.contains("http://127.0.0.1:*")) origins.add("http://127.0.0.1:*");
+
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization", "Content-Type", "X-CSRF-Token",
-                "X-Requested-With", "Accept", "X-Hospital-Code"));
+                "X-Requested-With", "Accept", "X-Hospital-Code", "Origin"));
         configuration.setExposedHeaders(List.of("X-Request-Id", "X-License-State", "X-License-Days-Left"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);

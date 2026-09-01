@@ -79,6 +79,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS print_margin_bottom INTEGER DEFAULT 1
 ALTER TABLE users ADD COLUMN IF NOT EXISTS print_margin_left_right INTEGER DEFAULT 18;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS print_font_size REAL DEFAULT 11.0;
 
+-- ── INVITE TOKEN COLUMNS (Staff Onboarding via Email) ─────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_token_hash  VARCHAR(64);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_token_expires TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invited         BOOLEAN DEFAULT FALSE;
+
+-- Fast token lookup index
+CREATE INDEX IF NOT EXISTS idx_users_invite_token_hash ON users(invite_token_hash);
+
 -- ── 3. PATIENTS ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
   id                      VARCHAR(64) PRIMARY KEY,
@@ -384,41 +392,19 @@ VALUES (
 )
 ON CONFLICT (tenant_id) DO NOTHING;
 
--- Seed default Super Admin (Password: admin123)
+-- Seed default Super Admin (Password: asttr@122)
 INSERT INTO users (id, name, email, password, role, hospital_id)
 VALUES ('usr-admin-001', 'Adinath Admin', 'adinathmade@medbuilds.com',
-        '$2a$10$1LADfgd8HQ0allD5lnGLb.dVxH.sVVCt07WYykl48x0vryQ1fCgLO',
+        '$2a$10$BIyx2KqO/54OF7ehuhZ8/OufLax.JZGnKp0KO3dF48QJMewdLiD0e',
         'admin', 'hsp-001')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password;
 
 -- Seed default Doctor (Password: doctor123)
 INSERT INTO users (id, name, email, password, role, hospital_id, staff_id, specialization, qualification)
 VALUES ('usr-doc-001', 'Dr. Ananya Rao', 'doctor@medbuilds.com',
-        '$2a$10$1LADfgd8HQ0allD5lnGLb.dVxH.sVVCt07WYykl48x0vryQ1fCgLO',
+        '$2a$10$2.AbQ2g5v1KgwPVeOxlbYeZG3n8Jp5iMSW.pAejf1mOQ0vSPAee/S',
         'doctor', 'hsp-001', 'STF-101', 'Cardiology', 'MBBS, MD (Cardiology)')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed sample patient
-INSERT INTO patients (id, uhid, hospital_id, name, age, sex, blood_group, phone, allergies, chronic_conditions, registered_by)
-VALUES ('pat-001', 'UHID-001-000001', 'hsp-001', 'Rahul Mehta', 34, 'Male', 'B+',
-        '+91-9876543210', '["Penicillin"]', '["Hypertension", "Type 2 Diabetes"]', 'usr-admin-001')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed initial beds
-INSERT INTO beds (id, hospital_id, bed_number, ward, room, type, status)
-VALUES 
-  ('bed-101', 'hsp-001', 'B-101', 'ICU', 'ICU-1', 'ICU', 'Available'),
-  ('bed-102', 'hsp-001', 'B-102', 'General', 'G-102', 'General', 'Available'),
-  ('bed-103', 'hsp-001', 'B-103', 'General', 'G-103', 'General', 'Available')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed initial audit logs for hsp-001
-INSERT INTO audit_logs (id, hospital_id, timestamp, user_id, user_role, user_name, action_type, details, status)
-VALUES 
-  ('aud-001', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '2 hours', 'usr-admin-001', 'admin', 'Adinath Admin', 'SYSTEM_INITIALIZATION', 'Hospital security parameters and tenant RLS initialized', 'SUCCESS'),
-  ('aud-002', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '1 hour', 'usr-admin-001', 'admin', 'Adinath Admin', 'USER_LOGIN', 'Administrator logged into Medbuilds EMR console', 'SUCCESS'),
-  ('aud-003', 'hsp-001', CURRENT_TIMESTAMP - INTERVAL '30 minutes', 'usr-doc-001', 'doctor', 'Dr. Ananya Rao', 'VIEW_PATIENT', 'Accessed clinical history for patient pat-001 (UHID-001-000001)', 'SUCCESS')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password;
 
 -- ── 14. ROW-LEVEL SECURITY (RLS) POLICIES ─────────────────────────────
 -- Enable and force RLS on all EMR/clinical transactional tables

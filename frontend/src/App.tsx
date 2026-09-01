@@ -19,6 +19,7 @@ import SettingsPage from './pages/SettingsPage';
 import FrontDeskDashboard from './pages/FrontDeskDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import LoginPage from './pages/LoginPage';
+import AcceptInvitePage from './pages/AcceptInvitePage';
 import BedsPage from './pages/BedsPage';
 import { apiClient } from './api/client';
 import { db } from './db/localDB';
@@ -506,6 +507,10 @@ export default function App() {
     setPage(p);
     setPageData(data ?? null);
     sessionStorage.setItem('emr_current_page', p);
+  }
+
+  if (window.location.pathname.startsWith('/accept-invite')) {
+    return <AcceptInvitePage />;
   }
 
   if (isLoading) return (

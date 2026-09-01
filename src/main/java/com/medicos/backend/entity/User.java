@@ -113,6 +113,19 @@ public class User {
     @Column(name = "tour_completed")
     private Integer tourCompleted = 0;
 
+    // ── Invite Token (Staff Onboarding) ──────────────────────────────────
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(name = "invite_token_hash", length = 64)
+    private String inviteTokenHash;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(name = "invite_token_expires")
+    private java.time.OffsetDateTime inviteTokenExpires;
+
+    @JsonProperty("is_invited")
+    @Column(name = "is_invited")
+    private Boolean isInvited = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -228,4 +241,14 @@ public class User {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    // ── Invite Token Accessors ──────────────────────────────────────────
+    public String getInviteTokenHash() { return inviteTokenHash; }
+    public void setInviteTokenHash(String inviteTokenHash) { this.inviteTokenHash = inviteTokenHash; }
+
+    public java.time.OffsetDateTime getInviteTokenExpires() { return inviteTokenExpires; }
+    public void setInviteTokenExpires(java.time.OffsetDateTime inviteTokenExpires) { this.inviteTokenExpires = inviteTokenExpires; }
+
+    public Boolean getIsInvited() { return isInvited; }
+    public void setIsInvited(Boolean isInvited) { this.isInvited = isInvited; }
 }

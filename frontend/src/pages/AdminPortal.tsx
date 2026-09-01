@@ -1,8 +1,7 @@
-// client/src/pages/AdminPortal.tsx
-// Private master admin portal for hospital management, staff directory, DPDP erasure, and audit logs.
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
+import InviteStaffModal from '../components/InviteStaffModal';
 
 const ROLES = ['doctor', 'receptionist', 'nurse', 'lab_technician', 'pharmacist', 'admin'] as const;
 const SPECIALIZATIONS = [
@@ -749,6 +748,7 @@ export default function AdminPortal() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
   const [showAdd, setShowAdd]       = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [editing, setEditing]       = useState<any>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -788,6 +788,7 @@ export default function AdminPortal() {
 
   return (
     <div style={{ width:'100%', flex:1, background:'#f8fafc', minHeight: '100vh', display:'flex', flexDirection:'column' }}>
+      {showInvite && <InviteStaffModal onClose={() => setShowInvite(false)} onSuccess={() => { setShowInvite(false); loadStaff(); }} />}
       {showAdd && <AddModal onClose={() => setShowAdd(false)} onDone={u => { setStaff(s => [u, ...s]); setShowAdd(false); }} />}
       {editing  && <EditModal staff={editing} onClose={() => setEditing(null)} onDone={updated => {
         if (updated._deleted) {
@@ -1046,7 +1047,7 @@ export default function AdminPortal() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
                     <select 
@@ -1071,6 +1072,28 @@ export default function AdminPortal() {
                       Clear Role Filter ({roleFilter})
                     </button>
                   )}
+
+                  <button 
+                    type="button" 
+                    className="btn btn-primary btn-sm" 
+                    onClick={() => setShowInvite(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                      <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    Invite via Email
+                  </button>
+
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setShowAdd(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    + Add Directly
+                  </button>
                 </div>
               </div>
             </div>
