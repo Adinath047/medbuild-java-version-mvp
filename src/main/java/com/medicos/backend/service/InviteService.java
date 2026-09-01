@@ -182,6 +182,22 @@ public class InviteService {
             throw new BadRequestException("Hospital context is required.");
         }
 
+        // 1. Global check across tenants to prevent duplicate key violations
+        tenantSessionBinder.bindTenant("GLOBAL");
+        String email = req.getEmail().toLowerCase().trim();
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user != null && Boolean.FALSE.equals(user.getIsInvited()) && user.getPassword() != null && !user.getPassword().isBlank()) {
+            throw new BadRequestException("A user with email '" + email + "' is already registered and active in the system.");
+        }
+
+        if (user == null) {
+            user = new User();
+            user.setId("usr-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+            user.setEmail(email);
+            user.setPassword(""); // empty until invite is accepted
+        }
+
         tenantSessionBinder.bindTenant(hospitalId);
 
         Hospital hospital = hospitalRepository.findById(hospitalId)
@@ -191,18 +207,6 @@ public class InviteService {
         String rawToken = generateRawToken();
         String tokenHash = sha256(rawToken);
         OffsetDateTime expires = OffsetDateTime.now().plusHours(48);
-
-        String email = req.getEmail().toLowerCase().trim();
-
-        // Upsert: create new user or refresh invite token for existing user
-        User user = userRepository.findByEmail(email).orElseGet(() -> {
-            User u = new User();
-            u.setId("usr-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
-            u.setEmail(email);
-            u.setPassword(""); // empty until invite is accepted
-            u.setIsInvited(true);
-            return u;
-        });
 
         user.setName(req.getName() != null && !req.getName().isBlank() ? req.getName() : email.split("@")[0]);
         user.setRole(req.getRole());

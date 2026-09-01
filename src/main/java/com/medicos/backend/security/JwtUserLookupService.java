@@ -50,6 +50,8 @@ public class JwtUserLookupService {
     public Optional<User> findUserByIdWithTenant(String userId, String hospitalId) {
         if (hospitalId != null && !hospitalId.isBlank()) {
             tenantSessionBinder.bindTenant(hospitalId);
+        } else {
+            tenantSessionBinder.bindTenant("GLOBAL");
         }
         return userRepository.findById(userId);
     }
