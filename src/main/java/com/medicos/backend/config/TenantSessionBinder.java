@@ -67,7 +67,7 @@ public class TenantSessionBinder {
 
     private void validateGlobalElevationPrivileges() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated()) {
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
             boolean hasAdminRole = auth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .anyMatch(role -> "ROLE_SUPER_ADMIN".equalsIgnoreCase(role) || "ROLE_ADMIN".equalsIgnoreCase(role));

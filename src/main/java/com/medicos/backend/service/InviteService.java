@@ -230,6 +230,7 @@ public class InviteService {
     // 2. Validate invite token (called before showing password form)
     // ─────────────────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public InviteDTO.ValidateResponse validateToken(String rawToken) {
         InviteDTO.ValidateResponse resp = new InviteDTO.ValidateResponse();
         if (rawToken == null || rawToken.isBlank()) {
@@ -237,6 +238,8 @@ public class InviteService {
             resp.setMessage("Token is missing.");
             return resp;
         }
+
+        tenantSessionBinder.bindTenant("GLOBAL");
 
         String hash = sha256(rawToken);
         User user = userRepository.findByInviteTokenHash(hash).orElse(null);
@@ -278,6 +281,8 @@ public class InviteService {
         if (req.getPassword() == null || req.getPassword().length() < 8) {
             throw new BadRequestException("Password must be at least 8 characters.");
         }
+
+        tenantSessionBinder.bindTenant("GLOBAL");
 
         String hash = sha256(req.getToken());
         User user = userRepository.findByInviteTokenHash(hash)
