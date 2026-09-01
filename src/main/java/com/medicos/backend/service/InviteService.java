@@ -118,7 +118,7 @@ public class InviteService {
         inviteReq.setHospitalId(hospitalId);
         inviteReq.setPhone(req.getPhone());
 
-        sendInvite(inviteReq, superAdmin);
+        sendInvite(inviteReq, superAdmin, "Rotstruck Pvt. Ltd.");
 
         return java.util.Map.of(
                 "hospital_id", hospitalId,
@@ -162,6 +162,11 @@ public class InviteService {
 
     @Transactional
     public void sendInvite(InviteDTO.SendInviteRequest req, User admin) {
+        sendInvite(req, admin, null);
+    }
+
+    @Transactional
+    public void sendInvite(InviteDTO.SendInviteRequest req, User admin, String customInviterName) {
         if (req.getEmail() == null || req.getEmail().isBlank()) {
             throw new BadRequestException("Recipient email is required.");
         }
@@ -208,8 +213,10 @@ public class InviteService {
 
         // Send invite email
         String inviteLink = frontendUrl + "/accept-invite/" + rawToken;
-        String adminName = admin != null ? admin.getName() : "Administrator";
-        dispatchInviteEmail(email, user.getName(), req.getRole(), hospital.getName(), inviteLink, adminName);
+        String inviter = (customInviterName != null && !customInviterName.isBlank()) 
+                ? customInviterName 
+                : (admin != null && admin.getName() != null && !admin.getName().isBlank() ? admin.getName() : "Rotstruck Pvt. Ltd.");
+        dispatchInviteEmail(email, user.getName(), req.getRole(), hospital.getName(), inviteLink, inviter);
 
         auditLogService.record("STAFF_INVITE_SENT", "Invited " + email + " as " + req.getRole(), admin, null, null, "SUCCESS");
 
@@ -392,7 +399,7 @@ public class InviteService {
                     </div>
                     <div style="background:#f8fafc; padding:20px 40px;">
                       <p style="color:#94a3b8; font-size:11px; margin:0;">
-                        Medbuilds EMR — Secure Clinical Platform
+                        Medbuilds EMR — Powered by Rotstruck Pvt. Ltd.
                       </p>
                     </div>
                   </div>
