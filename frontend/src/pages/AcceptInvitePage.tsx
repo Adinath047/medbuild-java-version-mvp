@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../api/client';
-import { useAuthStore } from '../store/authStore';
+import { apiClient, setAccessToken } from '../api/client';
+import { useAuthStore, normalizeAuthUser } from '../store/authStore';
 
 interface TokenData {
   valid: boolean;
@@ -97,20 +97,29 @@ export default function AcceptInvitePage() {
 
       setSuccess(true);
 
-      // Auto login if token is returned
+      // ── Auto-login: persist session using the same keys the rest of the app reads ──
       if (res.data?.token) {
-        localStorage.setItem('auth_token', res.data.token);
+        // 1. Store token under 'emr_token' (the key apiClient & authStore both read)
+        setAccessToken(res.data.token);
+
+        // 2. Normalise and persist user object to 'emr_user'
         if (res.data?.user) {
-          useAuthStore.setState({ user: res.data.user });
+          const normalizedUser = normalizeAuthUser(res.data.user);
+          localStorage.setItem('emr_user', JSON.stringify(normalizedUser));
+          useAuthStore.setState({ user: normalizedUser, isLoading: false });
         }
+
+        // 3. Small delay so the success banner is visible, then navigate to dashboard
         setTimeout(() => {
           window.location.href = '/';
-        }, 1500);
+        }, 1800);
       } else {
+        // No JWT returned — redirect to login so user can sign in manually
         setTimeout(() => {
           window.location.href = '/';
         }, 2000);
       }
+
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || 'Failed to set password. Link may be expired.';
       setError(msg);

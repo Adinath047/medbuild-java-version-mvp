@@ -296,12 +296,14 @@ public class InviteService {
             throw new BadRequestException("This invite link has expired. Please request a new one.");
         }
 
-        // Set password and clear token (prevent replay)
+        // Set password, clear invite token (prevent replay), and mark as fully active
         user.setPassword(passwordEncoder.encode(req.getPassword()));
         user.setInviteTokenHash(null);
         user.setInviteTokenExpires(null);
         user.setIsActive(1);
+        user.setIsInvited(false); // account is now fully activated — no longer a pending invite
         userRepository.save(user);
+
 
         // Issue JWT for immediate login: (userId, email, role, hospitalId)
         String jwt = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());

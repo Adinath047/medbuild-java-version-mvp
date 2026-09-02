@@ -8,6 +8,8 @@ steps:
     args: ['push', 'gcr.io/$PROJECT_ID/medbuild-java-version-mvp:latest']
 
   # Step 3: Deploy container to Google Cloud Run
+  # APP_FRONTEND_URL is baked here so every invite email link points to the live service.
+  # Do NOT set app.medbuilds.com here until DNS is confirmed pointed at Cloud Run.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -20,9 +22,8 @@ steps:
       - '--port=8080'
       - '--memory=1Gi'
       - '--allow-unauthenticated'
+      - '--update-env-vars=APP_FRONTEND_URL=https://medbuild-java-version-mvp-614571130325.asia-south1.run.app'
 
 images:
   - 'gcr.io/$PROJECT_ID/medbuild-java-version-mvp:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/medbuild-java-version-mvp:latest'
-
-
