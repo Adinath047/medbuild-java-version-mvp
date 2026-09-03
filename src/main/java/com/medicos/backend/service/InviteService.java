@@ -90,7 +90,15 @@ public class InviteService {
 
         tenantSessionBinder.bindTenant("GLOBAL");
 
-        String hospitalId = "hsp-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String hospitalId;
+        if (req.getHospitalId() != null && !req.getHospitalId().trim().isBlank()) {
+            hospitalId = req.getHospitalId().trim().toLowerCase().replaceAll("[^a-z0-9_-]", "");
+            if (hospitalRepository.existsById(hospitalId)) {
+                throw new BadRequestException("Hospital ID '" + hospitalId + "' already exists. Please choose a different code.");
+            }
+        } else {
+            hospitalId = generateHospitalId();
+        }
         String planType = req.getPlanType() != null && !req.getPlanType().isBlank() ? req.getPlanType().toUpperCase() : "TRIAL";
         int trialDays = req.getTrialDays() != null && req.getTrialDays() > 0 ? req.getTrialDays() : 30;
         boolean isPaid = "PAID".equals(planType) || "ENTERPRISE".equals(planType);
@@ -223,7 +231,7 @@ public class InviteService {
         String inviter = (customInviterName != null && !customInviterName.isBlank()) 
                 ? customInviterName 
                 : (admin != null && admin.getName() != null && !admin.getName().isBlank() ? admin.getName() : "Rotstruck Pvt. Ltd.");
-        dispatchInviteEmail(email, user.getName(), req.getRole(), hospital.getName(), inviteLink, inviter);
+        dispatchInviteEmail(email, user.getName(), req.getRole(), hospital.getName(), hospital.getId(), inviteLink, inviter);
 
         auditLogService.record(hospitalId, "STAFF_INVITE_SENT", "Invited " + email + " as " + req.getRole(), admin, null, null, "SUCCESS");
 
@@ -324,6 +332,18 @@ public class InviteService {
     // Internal helpers
     // ─────────────────────────────────────────────────────────────────────────
 
+    private String generateHospitalId() {
+        // Sequential 3-digit scan: hsp-001, hsp-002, hsp-003 ... hsp-999
+        for (int i = 1; i <= 999; i++) {
+            String candidate = String.format("hsp-%03d", i);
+            if (!hospitalRepository.existsById(candidate)) {
+                return candidate;
+            }
+        }
+        SecureRandom random = new SecureRandom();
+        return String.format("hsp-%03d", 100 + random.nextInt(900));
+    }
+
     private String generateRawToken() {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
@@ -350,10 +370,10 @@ public class InviteService {
     }
 
     private void dispatchInviteEmail(String to, String name, String role,
-                                     String hospitalName, String inviteLink, String inviterName) {
+                                     String hospitalName, String hospitalId, String inviteLink, String inviterName) {
         if (mailSender == null || fromEmail == null || fromEmail.isBlank()) {
             // Local dev / unconfigured SMTP fallback — log the link so testing continues uninterrupted
-            log.info("[InviteService][DEV] Invite link for {}: {}", to, inviteLink);
+            log.info("[InviteService][DEV] Invite link for {} (hospital={}): {}", to, hospitalId, inviteLink);
             return;
         }
         try {
@@ -361,10 +381,10 @@ public class InviteService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(fromEmail);
             helper.setTo(to);
-            helper.setSubject("You have been invited to Medbuilds EMR — " + hospitalName);
-            helper.setText(buildHtmlEmail(name, role, hospitalName, inviteLink, inviterName), true);
+            helper.setSubject("You have been invited to Medbuilds EMR — " + hospitalName + " (" + hospitalId + ")");
+            helper.setText(buildHtmlEmail(name, role, hospitalName, hospitalId, inviteLink, inviterName), true);
             mailSender.send(message);
-            log.info("[InviteService] ✅ Invite email dispatched successfully to {}", to);
+            log.info("[InviteService] ✅ Invite email dispatched successfully to {} (hospital={})", to, hospitalId);
         } catch (Exception e) {
             log.error("[InviteService] ❌ Failed to dispatch email to {}: {}", to, e.getMessage());
             log.warn("[InviteService][FALLBACK] Direct invite link: {}", inviteLink);
@@ -372,17 +392,17 @@ public class InviteService {
         }
     }
 
-    private String buildHtmlEmail(String name, String role, String hospitalName,
+    private String buildHtmlEmail(String name, String role, String hospitalName, String hospitalId,
                                    String inviteLink, String inviterName) {
         return """
                 <!DOCTYPE html>
                 <html>
                 <head><meta charset="UTF-8"></head>
-                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                              background:#f4f6f8; margin:0; padding:24px;">
-                  <div style="max-width:520px; margin:0 auto; background:#ffffff;
+                  <div style="max-width:540px; margin:0 auto; background:#ffffff;
                               border-radius:12px; overflow:hidden;
-                              box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+                              box-shadow:0 2px 14px rgba(0,0,0,0.08);">
                     <div style="background:#0f766e; padding:32px 40px;">
                       <h1 style="color:#ffffff; margin:0; font-size:22px; font-weight:700;">
                         Medbuilds EMR
@@ -391,27 +411,41 @@ public class InviteService {
                         Medical Records &amp; Hospital Management
                       </p>
                     </div>
-                    <div style="padding:40px;">
+                    <div style="padding:36px 40px;">
                       <p style="color:#1e293b; font-size:15px; margin:0 0 8px;">
                         Hello <strong>%s</strong>,
                       </p>
-                      <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 24px;">
+                      <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 20px;">
                         <strong>%s</strong> has invited you to join
                         <strong>%s</strong> on Medbuilds EMR as
                         <strong>%s</strong>.
                       </p>
+
+                      <!-- Hospital Instance Code Highlight Card -->
+                      <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:18px 22px; margin:0 0 24px;">
+                        <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.8px;">
+                          Your Hospital Code
+                        </div>
+                        <div style="font-size:28px; font-weight:800; color:#0f766e; font-family:'Courier New', Courier, monospace; margin:6px 0 6px; letter-spacing:1px;">
+                          %s
+                        </div>
+                        <p style="color:#334155; font-size:12.5px; line-height:1.5; margin:0;">
+                          <strong>Save this code!</strong> After creating your password, you and your staff will enter this Hospital Code on the login page to access your clinic.
+                        </p>
+                      </div>
+
                       <a href="%s"
                          style="display:inline-block; background:#0f766e; color:#ffffff;
                                 text-decoration:none; padding:14px 28px; border-radius:8px;
-                                font-size:15px; font-weight:600;">
+                                font-size:15px; font-weight:600; text-align:center;">
                         Activate Account &amp; Set Password
                       </a>
-                      <p style="color:#94a3b8; font-size:12px; margin:24px 0 0;">
-                        This link expires in 48 hours. If you were not expecting this invitation,
-                        you can safely ignore this email.
+
+                      <p style="color:#94a3b8; font-size:12px; margin:24px 0 0; line-height:1.5;">
+                        This link expires in 48 hours. Once you set your password, share your Hospital Code with your team members so they can log in.
                       </p>
                     </div>
-                    <div style="background:#f8fafc; padding:20px 40px;">
+                    <div style="background:#f8fafc; padding:20px 40px; border-top:1px solid #e2e8f0;">
                       <p style="color:#94a3b8; font-size:11px; margin:0;">
                         Medbuilds EMR — Powered by Rotstruck Pvt. Ltd.
                       </p>
@@ -419,7 +453,7 @@ public class InviteService {
                   </div>
                 </body>
                 </html>
-                """.formatted(name, inviterName, hospitalName, role, inviteLink);
+                """.formatted(name, inviterName, hospitalName, role, hospitalId, inviteLink);
     }
 
     private AuthDTO.UserDTO buildUserDTO(User user) {

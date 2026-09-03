@@ -106,7 +106,12 @@ export default function AcceptInvitePage() {
         if (res.data?.user) {
           const normalizedUser = normalizeAuthUser(res.data.user);
           localStorage.setItem('emr_user', JSON.stringify(normalizedUser));
+          if (normalizedUser.hospitalId) {
+            localStorage.setItem('last_hospital_code', normalizedUser.hospitalId);
+          }
           useAuthStore.setState({ user: normalizedUser, isLoading: false });
+        } else if (tokenData?.hospitalId) {
+          localStorage.setItem('last_hospital_code', tokenData.hospitalId);
         }
 
         // 3. Small delay so the success banner is visible, then navigate to dashboard
@@ -249,6 +254,20 @@ export default function AcceptInvitePage() {
               <h3 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px', color: '#0f172a' }}>
                 Password Set Successfully!
               </h3>
+              {tokenData?.hospitalId && (
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1px solid #86efac',
+                  borderRadius: 8,
+                  padding: '6px 14px',
+                  display: 'inline-block',
+                  margin: '0 auto 12px',
+                  fontSize: 12.5,
+                  color: '#166534'
+                }}>
+                  Your Hospital Code: <strong style={{ fontFamily: 'monospace', fontSize: 13.5 }}>{tokenData.hospitalId}</strong>
+                </div>
+              )}
               <p style={{ fontSize: 13.5, color: '#64748b', margin: '0 0 16px' }}>
                 Your account is now active. Redirecting you to your clinical dashboard…
               </p>
@@ -264,8 +283,24 @@ export default function AcceptInvitePage() {
                 padding: '14px 16px',
                 marginBottom: 24
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#0f766e', letterSpacing: '0.5px' }}>
-                  {tokenData?.hospitalName || 'Medbuilds Hospital'}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#0f766e', letterSpacing: '0.5px' }}>
+                    {tokenData?.hospitalName || 'Medbuilds Hospital'}
+                  </div>
+                  {tokenData?.hospitalId && (
+                    <span style={{
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: '#0f766e',
+                      color: '#ffffff',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Code: {tokenData.hospitalId}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>
                   {tokenData?.name || 'Staff Member'}

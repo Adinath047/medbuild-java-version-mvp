@@ -61,6 +61,10 @@ public class InviteDTO {
         public void setPlanType(String planType) { this.planType = planType; }
         public Integer getTrialDays() { return trialDays; }
         public void setTrialDays(Integer trialDays) { this.trialDays = trialDays; }
+        @JsonAlias({"hospital_id", "hospitalId", "hospital_code", "hospitalCode", "custom_code", "customCode"})
+        private String hospitalId;
+        public String getHospitalId() { return hospitalId; }
+        public void setHospitalId(String hospitalId) { this.hospitalId = hospitalId; }
     }
 
     public static class ValidateResponse {
