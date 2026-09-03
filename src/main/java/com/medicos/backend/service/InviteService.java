@@ -190,13 +190,30 @@ public class InviteService {
             throw new BadRequestException("Hospital context is required.");
         }
 
-        // 1. Global check across tenants to prevent duplicate key violations
+        // ── All invite operations run under GLOBAL RLS ────────────────────────
+        // Invites are cross-tenant by definition. Switching to bindTenant(hospitalId)
+        // before userRepository.save() makes PostgreSQL RLS hide the existing row
+        // from the UPDATE (it no longer matches the hospital filter), causing Hibernate
+        // to throw StaleObjectStateException. Keeping GLOBAL throughout is correct.
         tenantSessionBinder.bindTenant("GLOBAL");
         String email = req.getEmail().toLowerCase().trim();
 
         User user = userRepository.findByEmail(email).orElse(null);
-        if (user != null && Boolean.FALSE.equals(user.getIsInvited()) && user.getPassword() != null && !user.getPassword().isBlank()) {
-            throw new BadRequestException("A user with email '" + email + "' is already registered and active in the system.");
+
+        if (user != null) {
+            boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();
+            boolean isActive    = Boolean.TRUE.equals(user.getIsActive() == 1);
+            boolean sameHospital = hospitalId.equals(user.getHospitalId());
+
+            if (hasPassword && isActive && sameHospital) {
+                // Already a fully active member of THIS hospital — nothing to do
+                throw new BadRequestException(
+                    "'" + email + "' is already an active staff member at this hospital.");
+            }
+            // If active at a DIFFERENT hospital → allow transfer.
+            // We re-assign their hospital, reset the invite token, and set
+            // is_invited=true so they go through account activation again.
+            // Their old hospital access is revoked when hospital_id changes.
         }
 
         if (user == null) {
@@ -206,8 +223,7 @@ public class InviteService {
             user.setPassword(""); // empty until invite is accepted
         }
 
-        tenantSessionBinder.bindTenant(hospitalId);
-
+        // Fetch hospital — still under GLOBAL so no tenant switch needed
         Hospital hospital = hospitalRepository.findById(hospitalId)
                 .orElseThrow(() -> new BadRequestException("Hospital not found: " + hospitalId));
 
@@ -219,11 +235,13 @@ public class InviteService {
         user.setName(req.getName() != null && !req.getName().isBlank() ? req.getName() : email.split("@")[0]);
         user.setRole(req.getRole());
         user.setHospitalId(hospitalId);
+        user.setIsActive(0); // inactive until they set password at new hospital
         if (req.getSpecialization() != null) user.setSpecialization(req.getSpecialization());
         if (req.getPhone() != null) user.setPhone(req.getPhone());
         user.setInviteTokenHash(tokenHash);
         user.setInviteTokenExpires(expires);
         user.setIsInvited(true);
+        // Save under GLOBAL — RLS never blocks this regardless of prior hospital_id
         userRepository.save(user);
 
         // Send invite email

@@ -833,23 +833,7 @@ export default function AdminPortal() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: '#059669',
-            background: '#ecfdf5',
-            border: '1px solid #a7f3d0',
-            padding: '4px 10px',
-            borderRadius: 20,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-            System Online • DPDP Compliant
-          </span>
 
-          <div style={{ height: 24, width: 1, background: 'var(--border)' }} />
 
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ textAlign:'right' }}>
@@ -1031,39 +1015,94 @@ export default function AdminPortal() {
             </div>
 
             {/* Search Toolbar Card */}
-            <div className="card" style={{ padding: '14px 18px', boxShadow: 'var(--shadow-sm)' }}>
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 300 }}>
-                  <div className="search-bar" style={{ flex: 1, margin: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input 
-                      placeholder="Search staff by Name or Email address…" 
-                      value={search} 
-                      onChange={e => setSearch(e.target.value)} 
-                    />
-                    {search && (
-                      <button type="button" onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 4px' }}>✕</button>
-                    )}
-                  </div>
+            <div style={{ padding: '16px 0 8px' }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Search input */}
+                <div style={{ display: 'flex', flex: 1, minWidth: 280, position: 'relative', alignItems: 'center' }}>
+                  <svg
+                    width="15" height="15" viewBox="0 0 24 24" fill="none"
+                    stroke="#94a3b8" strokeWidth="2.2"
+                    style={{ position: 'absolute', left: 14, pointerEvents: 'none', flexShrink: 0 }}
+                  >
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <input
+                    placeholder="Search staff by name or email…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      paddingLeft: 40,
+                      paddingRight: search ? 36 : 14,
+                      paddingTop: 10,
+                      paddingBottom: 10,
+                      fontSize: 13.5,
+                      color: 'var(--text)',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: 10,
+                      outline: 'none',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                    onFocus={e => {
+                      e.currentTarget.style.borderColor = '#0d9488';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.12)';
+                    }}
+                    onBlur={e => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                    }}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      style={{
+                        position: 'absolute', right: 10,
+                        background: '#e2e8f0', border: 'none', cursor: 'pointer',
+                        color: '#64748b', borderRadius: '50%',
+                        width: 20, height: 20, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 700, lineHeight: 1,
+                      }}
+                    >✕</button>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Status:</span>
-                    <select 
-                      className="input" 
-                      style={{ padding: '6px 12px', fontSize: 12, minWidth: 110 }}
-                      value={statusFilter} 
-                      onChange={e => setStatusFilter(e.target.value)}
-                    >
-                      <option value="all">All Status</option>
-                      <option value="active">Active Only</option>
-                      <option value="inactive">Inactive Only</option>
-                    </select>
-                  </div>
+                {/* Status filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap' }}>Status:</span>
+                  <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    style={{
+                      padding: '9px 32px 9px 12px',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: 'var(--text)',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: 10,
+                      outline: 'none',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 10px center',
+                    }}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active Only</option>
+                    <option value="inactive">Inactive Only</option>
+                  </select>
+                </div>
 
+                {/* Action buttons */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   {roleFilter !== 'all' && (
-                    <button 
+                    <button
                       type="button"
                       className="btn btn-ghost btn-sm"
                       style={{ fontSize: 12, color: 'var(--primary)' }}
@@ -1073,9 +1112,9 @@ export default function AdminPortal() {
                     </button>
                   )}
 
-                  <button 
-                    type="button" 
-                    className="btn btn-primary btn-sm" 
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
                     onClick={() => setShowInvite(true)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
                   >
@@ -1086,9 +1125,9 @@ export default function AdminPortal() {
                     Invite via Email
                   </button>
 
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary btn-sm" 
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
                     onClick={() => setShowAdd(true)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
@@ -1163,28 +1202,29 @@ export default function AdminPortal() {
                             </td>
 
                             <td style={{ padding: '14px 20px' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
                                 <span style={{
-                                  fontSize: 11, 
-                                  fontWeight: 700, 
-                                  padding: '3px 10px', 
-                                  borderRadius: 20,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  padding: '5px 12px',
+                                  borderRadius: 8,
                                   background: ROLE_BG[s.role] || '#f1f5f9',
                                   color: ROLE_COLOR[s.role] || '#64748b',
-                                  border: `1px solid ${ROLE_COLOR[s.role]}44`,
+                                  border: `1.5px solid ${ROLE_COLOR[s.role]}33`,
+                                  letterSpacing: '0.1px',
                                   display: 'inline-block',
                                 }}>
                                   {ROLE_LABEL[s.role] || s.role}
                                 </span>
 
                                 {s.role === 'receptionist' && s.staff_type === 'pharmacy' && (
-                                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6, background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
                                     Pharmacy Counter
                                   </span>
                                 )}
 
                                 {s.role === 'doctor' && (s.consultation_fee > 0 || s.followup_fee > 0) && (
-                                  <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500 }}>
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>
                                     OPD: ₹{s.consultation_fee || 0} · FU: ₹{s.followup_fee || 0}
                                   </span>
                                 )}
@@ -1204,14 +1244,22 @@ export default function AdminPortal() {
 
                             <td style={{ padding: '14px 20px' }}>
                               <span style={{
-                                fontSize: 11, 
-                                fontWeight: 700, 
-                                padding: '3px 10px', 
-                                borderRadius: 20,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                padding: '5px 12px',
+                                borderRadius: 8,
                                 background: active ? '#ecfdf5' : '#fef2f2',
                                 color: active ? '#047857' : '#dc2626',
-                                border: `1px solid ${active ? '#a7f3d0' : '#fecaca'}`,
+                                border: `1.5px solid ${active ? '#a7f3d0' : '#fecaca'}`,
                               }}>
+                                <span style={{
+                                  width: 6, height: 6, borderRadius: '50%',
+                                  background: active ? '#10b981' : '#f87171',
+                                  flexShrink: 0,
+                                }} />
                                 {active ? 'Active' : 'Deactivated'}
                               </span>
                             </td>
