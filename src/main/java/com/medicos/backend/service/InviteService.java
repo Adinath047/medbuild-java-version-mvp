@@ -53,7 +53,7 @@ public class InviteService {
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
-    @Value("${app.frontend.url:https://app.medbuilds.com}")
+    @Value("${app.frontend.url:https://medbuild-java-version-mvp-614571130325.asia-south1.run.app}")
     private String frontendUrl;
 
     @Value("${spring.mail.username:noreply@medbuilds.com}")
