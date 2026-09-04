@@ -998,11 +998,11 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                 {/* Datalist for preset service descriptions */}
                 <datalist id="common-billing-services">
                   {PRESET_SERVICES.map(ps => (
-                    <option key={ps.name} value={ps.name}>₹{ps.defaultPrice} ({ps.category})</option>
+                    <option key={ps.name} value={ps.name}>{ps.category}</option>
                   ))}
                   {doctorInfo && (doctorInfo.consultation_fee || doctorInfo.consultationFee) > 0 && (
                     <option value={`Consultation Fee — ${doctorInfo.name || 'Doctor'}`}>
-                      ₹{doctorInfo.consultation_fee || doctorInfo.consultationFee} (Doctor Fee)
+                      Doctor Consultation Fee
                     </option>
                   )}
                 </datalist>
@@ -1168,9 +1168,9 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                         type="button"
                         className="btn btn-sm"
                         onClick={() => addReadyItem(`Consultation Fee — ${doctorInfo.name || 'Doctor'}`, doctorInfo.consultation_fee || doctorInfo.consultationFee, 'Consultation')}
-                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 10px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', cursor: 'pointer' }}
+                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 12px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', cursor: 'pointer', fontWeight: 600 }}
                       >
-                        + Dr. Consultation (₹{doctorInfo.consultation_fee || doctorInfo.consultationFee})
+                        + Dr. Consultation
                       </button>
                     )}
                     {visiblePresetServices.map(ps => (
@@ -1179,9 +1179,9 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                         type="button"
                         className="btn btn-sm btn-ghost"
                         onClick={() => addReadyItem(ps.name, ps.defaultPrice, ps.category)}
-                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 10px', background: '#ffffff', color: '#334155', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                        style={{ borderRadius: 16, fontSize: 11.5, padding: '4px 12px', background: '#ffffff', color: '#334155', border: '1px solid #e2e8f0', cursor: 'pointer', fontWeight: 500 }}
                       >
-                        + {ps.name} (₹{ps.defaultPrice})
+                        + {ps.name}
                       </button>
                     ))}
                   </div>

@@ -99,8 +99,14 @@ export default function AcceptInvitePage() {
 
       // ── Auto-login: persist session using the same keys the rest of the app reads ──
       if (res.data?.token) {
+        // Clear any old session/navigation state from previous accounts on this browser
+        localStorage.removeItem('emr_user');
+        localStorage.removeItem('emr_token');
+        sessionStorage.removeItem('emr_current_page');
+
         // 1. Store token under 'emr_token' (the key apiClient & authStore both read)
         setAccessToken(res.data.token);
+        localStorage.setItem('emr_token', res.data.token);
 
         // 2. Normalise and persist user object to 'emr_user'
         if (res.data?.user) {
@@ -158,20 +164,17 @@ export default function AcceptInvitePage() {
           color: '#ffffff'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              background: 'rgba(255, 255, 255, 0.15)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/>
-                <path d="M9 10h6"/><path d="M12 7v6"/><path d="M9 18h6"/>
-              </svg>
-            </div>
+            <img
+              src="/logo.jpg"
+              alt="Medbuilds EMR"
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 10,
+                objectFit: 'cover',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+              }}
+            />
             <div>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: '-0.3px', lineHeight: 1.1 }}>
                 Medbuilds EMR

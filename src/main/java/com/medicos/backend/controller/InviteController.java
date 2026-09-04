@@ -72,8 +72,9 @@ public class InviteController {
      * POST /api/auth/invites/accept
      */
     @PostMapping("/invites/accept")
-    public ResponseEntity<InviteDTO.AcceptResponse> acceptInvite(@RequestBody InviteDTO.AcceptRequest request) {
-        InviteDTO.AcceptResponse response = inviteService.acceptInvite(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<InviteDTO.AcceptResponse> acceptInvite(@RequestBody InviteDTO.AcceptRequest request,
+                                                                 jakarta.servlet.http.HttpServletResponse response) {
+        InviteDTO.AcceptResponse result = inviteService.acceptInvite(request, response);
+        return ResponseEntity.ok(result);
     }
 }

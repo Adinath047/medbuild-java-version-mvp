@@ -169,7 +169,7 @@ public class AppointmentService {
                 .filter(d -> !d.isEmpty())
                 .orElseThrow(() -> new BadRequestException("date is required."));
 
-        // Reject booking for past dates
+        // Reject booking for past dates and times
         try {
             String dateStr = appt.getDate().trim();
             if (dateStr.length() >= 10) {
@@ -177,6 +177,26 @@ public class AppointmentService {
                 LocalDate today = LocalDate.now();
                 if (apptDate.isBefore(today)) {
                     throw new BadRequestException("Cannot book an appointment for a past date (" + dateStr + "). Please select today or a future date.");
+                }
+
+                // Reject booking for past times on today's date (with 5-minute grace period for latency)
+                if (apptDate.isEqual(today) && appt.getTime() != null && !appt.getTime().trim().isEmpty()) {
+                    try {
+                        String timeStr = appt.getTime().trim();
+                        java.time.LocalTime slotTime;
+                        if (timeStr.length() == 4 && timeStr.charAt(1) == ':') {
+                            slotTime = java.time.LocalTime.parse("0" + timeStr);
+                        } else if (timeStr.length() >= 5) {
+                            slotTime = java.time.LocalTime.parse(timeStr.substring(0, 5));
+                        } else {
+                            slotTime = java.time.LocalTime.parse(timeStr);
+                        }
+                        if (slotTime.plusMinutes(5).isBefore(java.time.LocalTime.now())) {
+                            throw new BadRequestException("Cannot book an appointment for a past time (" + timeStr + ") today. Please select an upcoming time slot.");
+                        }
+                    } catch (java.time.format.DateTimeParseException ignored) {
+                        // ignore malformed time string parse here; next validator checks presence
+                    }
                 }
             }
         } catch (java.time.format.DateTimeParseException e) {

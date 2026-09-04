@@ -17,11 +17,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.medicos.backend.config.TenantSessionBinder tenantSessionBinder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
+    public UserService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtTokenProvider jwtTokenProvider,
+                       com.medicos.backend.config.TenantSessionBinder tenantSessionBinder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tenantSessionBinder = tenantSessionBinder;
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +88,7 @@ public class UserService {
 
     @Transactional
     public User updateStatus(String id, Map<String, Object> body) {
+        tenantSessionBinder.bindTenant("GLOBAL");
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
 
@@ -101,25 +107,42 @@ public class UserService {
 
     @Transactional
     public User updateUserProfile(User user, Map<String, Object> body) {
+        tenantSessionBinder.bindTenant("GLOBAL");
         User target = userRepository.findById(user.getId()).orElse(user);
 
         if (body.containsKey("name") && body.get("name") != null) target.setName((String) body.get("name"));
         if (body.containsKey("phone")) target.setPhone((String) body.get("phone"));
         if (body.containsKey("specialization")) target.setSpecialization((String) body.get("specialization"));
+
         if (body.containsKey("license_number")) target.setLicenseNumber((String) body.get("license_number"));
+        else if (body.containsKey("licenseNumber")) target.setLicenseNumber((String) body.get("licenseNumber"));
+
         if (body.containsKey("qualification")) target.setQualification((String) body.get("qualification"));
+
         if (body.containsKey("registration_number")) target.setRegistrationNumber((String) body.get("registration_number"));
+        else if (body.containsKey("registrationNumber")) target.setRegistrationNumber((String) body.get("registrationNumber"));
+
         if (body.containsKey("letterhead")) target.setLetterhead((String) body.get("letterhead"));
+
         if (body.containsKey("photo_url")) target.setPhotoUrl((String) body.get("photo_url"));
+        else if (body.containsKey("photoUrl")) target.setPhotoUrl((String) body.get("photoUrl"));
         
         if (body.containsKey("consultation_fee") && body.get("consultation_fee") != null) {
             try { target.setConsultationFee(Double.parseDouble(body.get("consultation_fee").toString())); } catch (Exception ignored) {}
+        } else if (body.containsKey("consultationFee") && body.get("consultationFee") != null) {
+            try { target.setConsultationFee(Double.parseDouble(body.get("consultationFee").toString())); } catch (Exception ignored) {}
         }
+
         if (body.containsKey("followup_fee") && body.get("followup_fee") != null) {
             try { target.setFollowupFee(Double.parseDouble(body.get("followup_fee").toString())); } catch (Exception ignored) {}
+        } else if (body.containsKey("followupFee") && body.get("followupFee") != null) {
+            try { target.setFollowupFee(Double.parseDouble(body.get("followupFee").toString())); } catch (Exception ignored) {}
         }
+
         if (body.containsKey("bed_per_day_charge") && body.get("bed_per_day_charge") != null) {
             try { target.setBedPerDayCharge(Double.parseDouble(body.get("bed_per_day_charge").toString())); } catch (Exception ignored) {}
+        } else if (body.containsKey("bedPerDayCharge") && body.get("bedPerDayCharge") != null) {
+            try { target.setBedPerDayCharge(Double.parseDouble(body.get("bedPerDayCharge").toString())); } catch (Exception ignored) {}
         }
         if (body.containsKey("show_diagnosis_on_print") && body.get("show_diagnosis_on_print") != null) {
             Object v = body.get("show_diagnosis_on_print");

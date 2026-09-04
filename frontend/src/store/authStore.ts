@@ -163,18 +163,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
-      // 2. Attempt token refresh from HttpOnly refresh cookie
+      // 2. Validate existing token with /auth/me first.
+      //    Only attempt /auth/refresh if no token exists or if /auth/me returns 401.
+      //    This prevents an existing HttpOnly cookie from another user on the same
+      //    machine from overwriting a freshly accepted clinician token.
+      let res;
       try {
-        const refreshRes = await apiClient.post('/auth/refresh');
-        const token = refreshRes.data?.token || refreshRes.data?.accessToken;
-        if (token) {
-          setAccessToken(token);
+        res = await apiClient.get('/auth/me');
+      } catch (meErr: any) {
+        if (meErr?.response?.status === 401) {
+          // Token expired or invalid — try silent refresh via HttpOnly cookie
+          const refreshRes = await apiClient.post('/auth/refresh');
+          const token = refreshRes.data?.token || refreshRes.data?.accessToken;
+          if (token) {
+            setAccessToken(token);
+            res = await apiClient.get('/auth/me');
+          } else {
+            throw meErr;
+          }
+        } else {
+          throw meErr;
         }
-      } catch (refreshErr) {
-        // If refresh fails, fall back to validating existing token with /auth/me
       }
-
-      const res = await apiClient.get('/auth/me');
       const rawUser = (res.data?.user || res.data) as AuthUser;
       const user = normalizeAuthUser(rawUser);
 

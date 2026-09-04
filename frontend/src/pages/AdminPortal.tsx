@@ -812,20 +812,17 @@ export default function AdminPortal() {
         boxShadow: 'var(--shadow-sm)' 
       }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ 
-            width: 38, 
-            height: 38, 
-            borderRadius: 10, 
-            background: 'var(--primary-light)', 
-            color: 'var(--primary)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            fontWeight: 800, 
-            fontSize: 16 
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/><path d="M9 10h6"/><path d="M12 7v6"/><path d="M9 18h6"/></svg>
-          </div>
+          <img
+            src="/logo.jpg"
+            alt="Medbuilds"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              objectFit: 'cover',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+            }}
+          />
           <div>
             <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', letterSpacing: '-0.3px', lineHeight:1 }}>Medbuilds</div>
             <div style={{ fontSize:10, fontWeight: 700, color:'var(--primary)', letterSpacing: '0.8px', marginTop: 3 }}>ADMINISTRATION CONSOLE</div>

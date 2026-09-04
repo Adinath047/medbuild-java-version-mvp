@@ -507,12 +507,15 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
     reader.readAsDataURL(file);
   };
 
-  // Sync profileForm state if user loads/updates
+  // Only initialize profileForm once per logged-in user to prevent background pollers
+  // or state updates from resetting fields while the practitioner is typing or saving
+  const initialUserLoadedRef = React.useRef<string | null>(null);
   useEffect(() => {
-    if (user) {
+    if (user?.id && initialUserLoadedRef.current !== user.id) {
+      initialUserLoadedRef.current = user.id;
       setProfileForm(getInitialProfile(user));
     }
-  }, [user]);
+  }, [user?.id]);
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -525,13 +528,19 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         phone: profileForm.phone,
         specialization: profileForm.specialization,
         license_number: profileForm.licenseNumber,
+        licenseNumber: profileForm.licenseNumber,
         qualification: profileForm.qualification,
         registration_number: profileForm.registrationNumber,
+        registrationNumber: profileForm.registrationNumber,
         consultation_fee: parseFloat(String(profileForm.consultationFee)) || 0,
+        consultationFee: parseFloat(String(profileForm.consultationFee)) || 0,
         followup_fee: parseFloat(String(profileForm.followupFee)) || 0,
+        followupFee: parseFloat(String(profileForm.followupFee)) || 0,
         bed_per_day_charge: parseFloat(String(profileForm.bedPerDayCharge)) || 0,
+        bedPerDayCharge: parseFloat(String(profileForm.bedPerDayCharge)) || 0,
         letterhead: profileForm.letterhead,
         photo_url: profileForm.photoUrl,
+        photoUrl: profileForm.photoUrl,
         show_diagnosis_on_print: !!profileForm.showDiagnosisOnPrint,
         show_investigations_on_print: !!profileForm.showInvestigationsOnPrint,
         show_vitals_on_print: !!profileForm.showVitalsOnPrint,
@@ -540,13 +549,37 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         print_margin_left_right: !isNaN(Number(profileForm.printMarginLeftRight)) ? Number(profileForm.printMarginLeftRight) : 18,
         print_font_size: !isNaN(Number(profileForm.printFontSize)) ? Number(profileForm.printFontSize) : 11,
       };
+
       const res = await apiClient.patch('/users/me/profile', payload);
-      const rawUpdated = res.data?.user || res.data;
-      const normalized = normalizeAuthUser({ ...(user || {}), ...rawUpdated, ...payload });
-      
+      const rawUpdated = res.data?.user || res.data || {};
+
+      const mergedUser = {
+        ...(user || {}),
+        ...rawUpdated,
+        name: profileForm.name,
+        phone: profileForm.phone,
+        specialization: profileForm.specialization,
+        licenseNumber: profileForm.licenseNumber,
+        qualification: profileForm.qualification,
+        registrationNumber: profileForm.registrationNumber,
+        consultationFee: payload.consultation_fee,
+        followupFee: payload.followup_fee,
+        bedPerDayCharge: payload.bed_per_day_charge,
+        letterhead: profileForm.letterhead,
+        photoUrl: profileForm.photoUrl,
+        showDiagnosisOnPrint: !!profileForm.showDiagnosisOnPrint,
+        showInvestigationsOnPrint: !!profileForm.showInvestigationsOnPrint,
+        showVitalsOnPrint: !!profileForm.showVitalsOnPrint,
+        printMarginTop: payload.print_margin_top,
+        printMarginBottom: payload.print_margin_bottom,
+        printMarginLeftRight: payload.print_margin_left_right,
+        printFontSize: payload.print_font_size,
+      };
+
+      const normalized = normalizeAuthUser(mergedUser);
       useAuthStore.setState({ user: normalized });
       localStorage.setItem('emr_user', JSON.stringify(normalized));
-      
+
       setProfileSuccess('Profile saved successfully.');
     } catch (err: any) {
       setProfileError(err?.response?.data?.error || err?.message || 'Failed to update profile.');
@@ -593,7 +626,9 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
       <div className="page-header">
         <div>
           <div className="page-title">Settings</div>
-          <div className="page-sub">Manage staff, system & preferences</div>
+          <div className="page-sub">
+            {isAdmin ? 'Manage staff, system & clinical preferences' : 'Manage your clinical profile, credentials & preferences'}
+          </div>
         </div>
       </div>
 
@@ -604,14 +639,14 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
             Staff Management
           </button>
         )}
+        <button className={`tab${activeTab==='system'?' active':''}`} onClick={()=>setActiveTab('system')}>
+          {user?.role === 'doctor' ? 'Practitioner Profile & Preferences' : (isAdmin ? 'System Preferences' : 'My Profile')}
+        </button>
         {(isAdmin || user?.role === 'doctor') && (
           <button className={`tab${activeTab==='medicines'?' active':''}`} onClick={()=>setActiveTab('medicines')}>
             Medicines Directory
           </button>
         )}
-        <button className={`tab${activeTab==='system'?' active':''}`} onClick={()=>setActiveTab('system')}>
-          System
-        </button>
       </div>
 
 
@@ -723,46 +758,21 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
         </>
       )}
 
-      {/* ── System tab ── */}
+      {/* ── System / Profile tab ── */}
       {activeTab === 'system' && (
         <>
-          {/* Profile */}
-          <div className="card">
-            <div className="card-header"><div className="card-title">My Profile</div></div>
-            <div className="card-body">
-              <div style={{display:'flex',alignItems:'center',gap:16}}>
-                <div style={{
-                  width:52,
-                  height:52,
-                  borderRadius:14,
-                  background:'var(--primary-grad)',
-                  color:'#fff',
-                  display:'flex',
-                  alignItems:'center',
-                  justifyContent:'center',
-                  fontSize:20,
-                  fontWeight:700,
-                  overflow: 'hidden'
-                }}>
-                  {user?.photoUrl ? (
-                    <img src={user.photoUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    user?.name ? user.name.trim().split(/\s+/).filter(Boolean).map((w: string) => (w || '').charAt(0)).join('').slice(0, 2).toUpperCase() : 'U'
-                  )}
-                </div>
-                <div>
-                  <div style={{fontSize:16,fontWeight:700}}>{user?.name}</div>
-                  <div style={{color:'var(--text-muted)',fontSize:13}}>{user?.email}</div>
-                  <div style={{marginTop:5}}><span className={`badge ${ROLE_COLORS[user?.role||'doctor']}`} style={{textTransform:'capitalize'}}>{ROLE_LABELS[user?.role||'doctor']}</span></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {user && (
             <div className="card">
-              <div className="card-header">
-                <div className="card-title">{user?.role === 'doctor' ? 'Practitioner Settings' : 'Profile Settings'}</div>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div className="card-title">{user?.role === 'doctor' ? 'Practitioner Profile & Credentials' : 'Profile Settings'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {user?.email} • <span style={{ textTransform: 'capitalize' }}>{user?.role || 'doctor'}</span>
+                  </div>
+                </div>
+                <span className={`badge ${ROLE_COLORS[user?.role || 'doctor']}`} style={{ textTransform: 'capitalize' }}>
+                  {ROLE_LABELS[user?.role || 'doctor']}
+                </span>
               </div>
               <form onSubmit={handleSaveProfile} className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {profileSuccess && <div className="alert alert-success">{profileSuccess}</div>}

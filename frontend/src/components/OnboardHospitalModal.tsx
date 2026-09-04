@@ -55,21 +55,17 @@ export default function OnboardHospitalModal({ onClose, onSuccess }: OnboardHosp
         {/* Header */}
         <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: '#0f766e',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"/>
-                <path d="M9 10h6"/><path d="M12 7v6"/><path d="M9 18h6"/>
-              </svg>
-            </div>
+            <img
+              src="/logo.jpg"
+              alt="Medbuilds"
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                objectFit: 'cover',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
+              }}
+            />
             <div>
               <h3 id="onboard-modal-title" style={{ fontSize: 16.5, fontWeight: 800, margin: 0, color: 'var(--text)' }}>
                 Onboard New Hospital Tenant

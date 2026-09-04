@@ -131,23 +131,18 @@ function Sidebar({ page, onNav, user, sidebarOpen, onClose }: any) {
       <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         {/* Brand Header */}
         <div className="sidebar-brand" style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)' }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: 'var(--primary)',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: '0 4px 10px rgba(0, 150, 136, 0.25)'
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/>
-              <path d="M8.5 12h7M12 8.5v7"/>
-            </svg>
-          </div>
+          <img
+            src="/logo.jpg"
+            alt="Medbuilds"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              objectFit: 'cover',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
+          />
           <div>
             <div className="sidebar-brand-name" style={{ fontWeight: 800, fontSize: 17, color: 'var(--text)', letterSpacing: '-0.4px', lineHeight: 1.1 }}>Medbuilds</div>
             <div className="sidebar-brand-sub" style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', marginTop: 3 }}>{roleSub}</div>

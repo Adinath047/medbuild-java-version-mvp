@@ -21,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -304,7 +307,7 @@ public class InviteService {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional
-    public InviteDTO.AcceptResponse acceptInvite(InviteDTO.AcceptRequest req) {
+    public InviteDTO.AcceptResponse acceptInvite(InviteDTO.AcceptRequest req, HttpServletResponse response) {
         if (req.getToken() == null || req.getToken().isBlank()) {
             throw new BadRequestException("Invite token is required.");
         }
@@ -333,6 +336,29 @@ public class InviteService {
 
         // Issue JWT for immediate login: (userId, email, role, hospitalId)
         String jwt = tokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+        String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail(), user.getRole(), user.getHospitalId());
+
+        if (response != null) {
+            boolean cookieSecure = "true".equalsIgnoreCase(System.getenv("COOKIE_SECURE")) || frontendUrl.startsWith("https");
+
+            ResponseCookie emrTokenCookie = ResponseCookie.from("emr_token", jwt)
+                    .httpOnly(true)
+                    .secure(cookieSecure)
+                    .path("/")
+                    .maxAge(900)
+                    .sameSite("Lax")
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, emrTokenCookie.toString());
+
+            ResponseCookie refreshTokenCookie = ResponseCookie.from("emr_refresh_token", refreshToken)
+                    .httpOnly(true)
+                    .secure(cookieSecure)
+                    .path("/api/auth")
+                    .maxAge(604800)
+                    .sameSite("Lax")
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
+        }
 
         // Build UserDTO for response
         AuthDTO.UserDTO userDTO = buildUserDTO(user);
@@ -344,6 +370,11 @@ public class InviteService {
         resp.setUser(userDTO);
         resp.setMessage("Account activated. Welcome to Medbuilds!");
         return resp;
+    }
+
+    @Transactional
+    public InviteDTO.AcceptResponse acceptInvite(InviteDTO.AcceptRequest req) {
+        return acceptInvite(req, null);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

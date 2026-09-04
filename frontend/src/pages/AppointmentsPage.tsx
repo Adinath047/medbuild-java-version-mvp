@@ -51,6 +51,28 @@ const formatDoctorName = (name: string) => {
   return name.toLowerCase().startsWith('dr.') ? name : `Dr. ${name}`;
 };
 
+const getCurrentTimeHHMM = () => {
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+const getInitialAppointmentSlot = (targetDate = today()) => {
+  if (targetDate !== today()) {
+    return '09:00';
+  }
+  const now = new Date();
+  const totalMinutes = now.getHours() * 60 + now.getMinutes() + 5;
+  const roundedMinutes = Math.ceil(totalMinutes / 15) * 15;
+  const h = Math.floor(roundedMinutes / 60);
+  const m = roundedMinutes % 60;
+  if (h >= 24) {
+    return '23:45';
+  }
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
 export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:string,d?:any)=>void; data?:any }) {
   const { user } = useAuthStore();
   const { syncCount } = useSync();
@@ -62,7 +84,13 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
   const [patients, setPatients] = useState<any[]>([]);
   const [showAdd, setShowAdd]   = useState(false);
   const [loading, setLoading]   = useState(true);
-  const [form, setForm] = useState({ patient_id:'', doctor_id:'', date:today(), time:'09:00', reason:'' });
+  const [form, setForm] = useState(() => ({
+    patient_id: '',
+    doctor_id: '',
+    date: today(),
+    time: getInitialAppointmentSlot(today()),
+    reason: ''
+  }));
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [newPatient, setNewPatient] = useState<{name:string; phone:string; sex:'Male'|'Female'|'Other'}>({ name: '', phone: '', sex: 'Male' });
   const [patientSearch, setPatientSearch] = useState('');
@@ -70,6 +98,20 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
   const [saving, setSaving] = useState(false);
   const [bookError, setBookError] = useState('');
   const set = (k:string, v:string) => setForm(f=>({...f,[k]:v}));
+
+  const openAddModal = () => {
+    const defaultDate = today();
+    setForm({
+      patient_id: '',
+      doctor_id: user?.role === 'doctor' ? user.id : '',
+      date: defaultDate,
+      time: getInitialAppointmentSlot(defaultDate),
+      reason: ''
+    });
+    setBookError('');
+    setIsNewPatient(false);
+    setShowAdd(true);
+  };
 
   const load = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -144,10 +186,17 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
 
   useEffect(() => {
     if (data?.showAdd) {
+      const defaultDate = today();
+      setForm(f => ({
+        ...f,
+        date: defaultDate,
+        time: getInitialAppointmentSlot(defaultDate),
+        patient_id: data.prefillPatient || f.patient_id,
+        doctor_id: data.prefillDoctor || f.doctor_id,
+        reason: data.reason || f.reason
+      }));
+      setBookError('');
       setShowAdd(true);
-      if (data?.prefillPatient) set('patient_id', data.prefillPatient);
-      if (data?.prefillDoctor) set('doctor_id', data.prefillDoctor);
-      if (data?.reason) set('reason', data.reason);
     }
   }, [data]);
 
@@ -173,6 +222,13 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
       return;
     }
     if (!form.time)      { setBookError('Time is required.'); return; }
+    if (form.date === today()) {
+      const nowHHMM = getCurrentTimeHHMM();
+      if (form.time < nowHHMM) {
+        setBookError(`Cannot book an appointment for a past time (${form.time}) today. Current time is ${nowHHMM}. Please select an upcoming slot.`);
+        return;
+      }
+    }
     // Prevent booking more than 1 year ahead
     const apptDate = new Date(form.date);
     const daysForward = (apptDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
@@ -410,8 +466,42 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                   </select>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                  <div className="form-group"><label className="form-label">Date</label><input className="input" type="date" min={today()} value={form.date} onChange={e=>set('date',e.target.value)} required /></div>
-                  <div className="form-group"><label className="form-label">Time</label><input className="input" type="time" value={form.time} onChange={e=>set('time',e.target.value)} required /></div>
+                  <div className="form-group">
+                    <label className="form-label">Date *</label>
+                    <input 
+                      className="input" 
+                      type="date" 
+                      min={today()} 
+                      value={form.date} 
+                      onChange={e => {
+                        const newDate = e.target.value;
+                        set('date', newDate);
+                        if (newDate === today()) {
+                          const nowHHMM = getCurrentTimeHHMM();
+                          if (form.time < nowHHMM) {
+                            set('time', getInitialAppointmentSlot(today()));
+                          }
+                        }
+                      }} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Time *</label>
+                    <input 
+                      className="input" 
+                      type="time" 
+                      min={form.date === today() ? getCurrentTimeHHMM() : undefined} 
+                      value={form.time} 
+                      onChange={e => set('time', e.target.value)} 
+                      required 
+                    />
+                    {form.date === today() && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                        Earliest slot today: {getCurrentTimeHHMM()}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="form-group"><label className="form-label">Reason</label><input className="input" placeholder="Reason for visit" value={form.reason} onChange={e=>set('reason',e.target.value)} /></div>
               </div>
@@ -465,7 +555,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
         <button 
           className="btn btn-primary" 
           style={{ background: 'var(--primary)', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} 
-          onClick={()=>setShowAdd(true)}
+          onClick={openAddModal}
         >
           <span>+ New Appointment</span>
         </button>
@@ -565,7 +655,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
                 <button 
                   className="btn btn-primary" 
                   style={{ marginTop: 16, background: 'var(--primary)', border: 'none', fontWeight: 600 }}
-                  onClick={() => setShowAdd(true)}
+                  onClick={openAddModal}
                 >
                   + Book New Appointment
                 </button>
