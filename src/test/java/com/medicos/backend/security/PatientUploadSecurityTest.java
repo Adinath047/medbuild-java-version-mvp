@@ -266,7 +266,7 @@ public class PatientUploadSecurityTest {
     }
 
     @Test
-    @DisplayName("PatientUpload: cross-tenant patient reference is blocked")
+    @DisplayName("PatientUpload: cross-tenant patient reference is blocked and logged as DENIED")
     void testUploadCrossTenantPatientBlocked() {
         TenantContext.setTenantId("hsp-001");
 
@@ -279,6 +279,19 @@ public class PatientUploadSecurityTest {
         assertThrows(ResourceNotFoundException.class, () ->
                 uploadService.uploadDocument(upload, doctorHsp1)
         );
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        AuditLog deniedLog = logs.stream()
+                .filter(l -> "UPLOAD_PATIENT_PHI_DOCUMENT".equals(l.getActionType()) && "DENIED".equals(l.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(deniedLog, "Expected DENIED audit log entry for cross-tenant upload attempt");
+        assertEquals("hsp-001", deniedLog.getHospitalId());
+        assertEquals(doctorHsp1.getId(), deniedLog.getUserId());
+        assertEquals("pat-up-hsp2", deniedLog.getPatientId());
+        assertEquals("UHID-UP-002", deniedLog.getPatientUhid());
+        assertTrue(deniedLog.getDetails().contains("Denied cross-tenant document upload"));
     }
 
     @Test
@@ -384,8 +397,8 @@ public class PatientUploadSecurityTest {
     }
 
     @Test
-    @DisplayName("HIPAA Audit: cross-tenant access is blocked and does not record successful PHI read")
-    void testCrossTenantPatientReadBlockedAndNotLogged() {
+    @DisplayName("HIPAA Audit: cross-tenant access is blocked and logged as DENIED")
+    void testCrossTenantPatientReadBlockedAndLoggedAsDenied() {
         TenantContext.setTenantId("hsp-002");
 
         assertThrows(ResourceNotFoundException.class, () ->
@@ -393,7 +406,19 @@ public class PatientUploadSecurityTest {
         );
 
         List<AuditLog> logs = auditLogRepository.findAll();
-        boolean hasPhiLog = logs.stream().anyMatch(l -> "READ_PATIENT_PHI".equals(l.getActionType()));
-        assertFalse(hasPhiLog, "No successful READ_PATIENT_PHI log should exist for unauthorized cross-tenant attempt");
+        boolean hasSuccessLog = logs.stream().anyMatch(l -> "READ_PATIENT_PHI".equals(l.getActionType()) && "SUCCESS".equals(l.getStatus()));
+        assertFalse(hasSuccessLog, "No successful READ_PATIENT_PHI log should exist for unauthorized cross-tenant attempt");
+
+        AuditLog deniedLog = logs.stream()
+                .filter(l -> "READ_PATIENT_PHI".equals(l.getActionType()) && "DENIED".equals(l.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(deniedLog, "Expected DENIED audit log entry for cross-tenant chart reconnaissance attempt");
+        assertEquals("hsp-002", deniedLog.getHospitalId());
+        assertEquals(doctorHsp2.getId(), deniedLog.getUserId());
+        assertEquals("pat-up-hsp1", deniedLog.getPatientId());
+        assertEquals("UHID-UP-001", deniedLog.getPatientUhid());
+        assertTrue(deniedLog.getDetails().contains("Denied cross-tenant chart access attempt"));
     }
 }

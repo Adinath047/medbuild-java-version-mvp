@@ -79,7 +79,34 @@ public class PatientService {
     }
 
     public Patient getPatientById(String id, User user) {
-        Patient p = getPatientById(id);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId == null || hospitalId.trim().isEmpty()) {
+            hospitalId = (user != null) ? user.getHospitalId() : null;
+        }
+
+        Patient p;
+        try {
+            p = getPatientById(id);
+        } catch (ResourceNotFoundException e) {
+            if (auditLogService != null && user != null) {
+                Patient crossTenant = patientRepository.findById(id).orElse(null);
+                if (crossTenant != null && hospitalId != null && !"GLOBAL".equalsIgnoreCase(hospitalId)
+                        && crossTenant.getHospitalId() != null && !hospitalId.equals(crossTenant.getHospitalId())) {
+                    auditLogService.record(
+                            hospitalId,
+                            "READ_PATIENT_PHI",
+                            "Denied cross-tenant chart access attempt for patient " + crossTenant.getName()
+                                    + " (" + crossTenant.getUhid() + ") belonging to hospital " + crossTenant.getHospitalId(),
+                            user,
+                            crossTenant.getId(),
+                            crossTenant.getUhid(),
+                            "DENIED"
+                    );
+                }
+            }
+            throw e;
+        }
+
         if (auditLogService != null && p != null) {
             auditLogService.record(
                     p.getHospitalId(),
@@ -116,7 +143,34 @@ public class PatientService {
     }
 
     public PatientDTO.PatientSummaryResponse getPatientSummary(String id, User user) {
-        PatientDTO.PatientSummaryResponse summary = getPatientSummary(id);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId == null || hospitalId.trim().isEmpty()) {
+            hospitalId = (user != null) ? user.getHospitalId() : null;
+        }
+
+        PatientDTO.PatientSummaryResponse summary;
+        try {
+            summary = getPatientSummary(id);
+        } catch (ResourceNotFoundException e) {
+            if (auditLogService != null && user != null) {
+                Patient crossTenant = patientRepository.findById(id).orElse(null);
+                if (crossTenant != null && hospitalId != null && !"GLOBAL".equalsIgnoreCase(hospitalId)
+                        && crossTenant.getHospitalId() != null && !hospitalId.equals(crossTenant.getHospitalId())) {
+                    auditLogService.record(
+                            hospitalId,
+                            "READ_PATIENT_SUMMARY",
+                            "Denied cross-tenant clinical summary access attempt for patient " + crossTenant.getName()
+                                    + " (" + crossTenant.getUhid() + ") belonging to hospital " + crossTenant.getHospitalId(),
+                            user,
+                            crossTenant.getId(),
+                            crossTenant.getUhid(),
+                            "DENIED"
+                    );
+                }
+            }
+            throw e;
+        }
+
         if (auditLogService != null && summary != null && summary.getPatient() != null) {
             Patient p = summary.getPatient();
             auditLogService.record(
@@ -140,7 +194,34 @@ public class PatientService {
     }
 
     public List<Vital> getVitalsHistory(String id, User user) {
-        List<Vital> history = getVitalsHistory(id);
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        if (hospitalId == null || hospitalId.trim().isEmpty()) {
+            hospitalId = (user != null) ? user.getHospitalId() : null;
+        }
+
+        List<Vital> history;
+        try {
+            history = getVitalsHistory(id);
+        } catch (ResourceNotFoundException e) {
+            if (auditLogService != null && user != null) {
+                Patient crossTenant = patientRepository.findById(id).orElse(null);
+                if (crossTenant != null && hospitalId != null && !"GLOBAL".equalsIgnoreCase(hospitalId)
+                        && crossTenant.getHospitalId() != null && !hospitalId.equals(crossTenant.getHospitalId())) {
+                    auditLogService.record(
+                            hospitalId,
+                            "READ_VITALS_HISTORY",
+                            "Denied cross-tenant vitals access attempt for patient " + crossTenant.getName()
+                                    + " (" + crossTenant.getUhid() + ") belonging to hospital " + crossTenant.getHospitalId(),
+                            user,
+                            crossTenant.getId(),
+                            crossTenant.getUhid(),
+                            "DENIED"
+                    );
+                }
+            }
+            throw e;
+        }
+
         if (auditLogService != null) {
             Patient p = patientRepository.findById(id).orElse(null);
             if (p != null) {
