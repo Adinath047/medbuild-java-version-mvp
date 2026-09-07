@@ -20,6 +20,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import com.medicos.backend.entity.Encounter;
+import com.medicos.backend.repository.EncounterRepository;
+
 @Service
 public class BillingService {
 
@@ -27,16 +30,19 @@ public class BillingService {
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
     private final BedAdmissionRepository admissionRepository;
+    private final EncounterRepository encounterRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public BillingService(BillingRepository billingRepository,
                           PatientRepository patientRepository,
                           UserRepository userRepository,
-                          BedAdmissionRepository admissionRepository) {
+                          BedAdmissionRepository admissionRepository,
+                          EncounterRepository encounterRepository) {
         this.billingRepository = billingRepository;
         this.patientRepository = patientRepository;
         this.userRepository = userRepository;
         this.admissionRepository = admissionRepository;
+        this.encounterRepository = encounterRepository;
     }
 
     private void populateBillingDetails(Billing b) {
@@ -121,10 +127,48 @@ public class BillingService {
             bill.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
+        String patientId = bill.getPatientId().trim();
+        com.medicos.backend.entity.Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + patientId));
+
+        if (!"GLOBAL".equalsIgnoreCase(bill.getHospitalId()) && patient.getHospitalId() != null && !bill.getHospitalId().equals(patient.getHospitalId())) {
+            throw new ResourceNotFoundException("Patient not found with ID: " + patientId);
+        }
+
         if (bill.getInvoiceNumber() == null || bill.getInvoiceNumber().isEmpty()) {
             String datePrefix = DateTimeFormatter.ofPattern("yyMMdd").format(LocalDateTime.now());
             String randomPart = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
             bill.setInvoiceNumber("INV-" + datePrefix + "-" + randomPart);
+        }
+
+        if (bill.getAdmissionId() != null && !bill.getAdmissionId().isBlank()) {
+            String admId = bill.getAdmissionId().trim();
+            BedAdmission adm = admissionRepository.findById(admId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Admission not found with ID: " + admId));
+            if (!"GLOBAL".equalsIgnoreCase(bill.getHospitalId()) && adm.getHospitalId() != null && !bill.getHospitalId().equals(adm.getHospitalId())) {
+                throw new ResourceNotFoundException("Admission not found with ID: " + admId);
+            }
+            bill.setAdmissionId(admId);
+        }
+
+        if (bill.getDoctorId() != null && !bill.getDoctorId().isBlank()) {
+            String docId = bill.getDoctorId().trim();
+            User doc = userRepository.findById(docId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + docId));
+            if (!"GLOBAL".equalsIgnoreCase(bill.getHospitalId()) && doc.getHospitalId() != null && !bill.getHospitalId().equals(doc.getHospitalId())) {
+                throw new ResourceNotFoundException("Doctor not found with ID: " + docId);
+            }
+            bill.setDoctorId(docId);
+        }
+
+        if (bill.getEncounterId() != null && !bill.getEncounterId().isBlank()) {
+            String encId = bill.getEncounterId().trim();
+            Encounter enc = encounterRepository.findById(encId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Encounter not found with ID: " + encId));
+            if (!"GLOBAL".equalsIgnoreCase(bill.getHospitalId()) && enc.getHospitalId() != null && !bill.getHospitalId().equals(enc.getHospitalId())) {
+                throw new ResourceNotFoundException("Encounter not found with ID: " + encId);
+            }
+            bill.setEncounterId(encId);
         }
 
         if (bill.getBilledBy() == null || bill.getBilledBy().isEmpty()) {

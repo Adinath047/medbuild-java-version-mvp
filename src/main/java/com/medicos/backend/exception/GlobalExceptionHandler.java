@@ -125,6 +125,27 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, "Access Denied: " + ex.getMessage(), request);
     }
 
+    /**
+     * Security invariant violation — e.g. a non-admin principal carrying a GLOBAL hospitalId,
+     * indicating a corrupted or replayed security context.
+     *
+     * Returns a generic 403 to the client (no internal detail leaked).
+     * Logs the full message server-side at ERROR severity so the event appears in logs/SIEM.
+     * A telemetry report is fired if available.
+     */
+    @ExceptionHandler(SecurityViolationException.class)
+    public ResponseEntity<ErrorResponseDTO> handleSecurityViolation(
+            SecurityViolationException ex, HttpServletRequest request) {
+        // Full detail logged for security operations — never sent to client
+        log.error("SECURITY VIOLATION on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+
+        if (telemetryReporter != null) {
+            telemetryReporter.reportRequestError(request, ex, HttpStatus.FORBIDDEN.value());
+        }
+
+        return build(HttpStatus.FORBIDDEN, "Access denied.", request);
+    }
+
     @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
     public ResponseEntity<ErrorResponseDTO> handleAuthentication(
             org.springframework.security.core.AuthenticationException ex, HttpServletRequest request) {

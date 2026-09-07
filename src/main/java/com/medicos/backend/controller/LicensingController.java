@@ -25,12 +25,14 @@ public class LicensingController {
 
     @GetMapping("/status")
     public ResponseEntity<?> getStatus(@RequestParam(value = "hospitalId", required = false) String paramHospitalId) {
-        String hospitalId = paramHospitalId != null && !paramHospitalId.trim().isEmpty() 
-                ? paramHospitalId 
-                : TenantContext.getTenantId();
-
-        if (hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) {
-            hospitalId = "hsp-001"; // default fallback for initial setup
+        String callerTenant = TenantContext.getTenantId();
+        String hospitalId = callerTenant;
+        if (callerTenant != null && !callerTenant.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(callerTenant)) {
+            if (paramHospitalId != null && !paramHospitalId.trim().isEmpty() && !callerTenant.equalsIgnoreCase(paramHospitalId.trim())) {
+                throw new com.medicos.backend.exception.UnauthorizedException("Access denied: cannot view licensing status for a different hospital.");
+            }
+        } else {
+            hospitalId = (paramHospitalId != null && !paramHospitalId.trim().isEmpty()) ? paramHospitalId.trim() : "hsp-001";
         }
 
         TenantSubscription sub = licenseService.getOrCreateSubscription(hospitalId);
@@ -55,12 +57,14 @@ public class LicensingController {
 
     @GetMapping("/export")
     public ResponseEntity<?> exportData(@RequestParam(value = "hospitalId", required = false) String paramHospitalId) {
-        String hospitalId = paramHospitalId != null && !paramHospitalId.trim().isEmpty() 
-                ? paramHospitalId 
-                : TenantContext.getTenantId();
-
-        if (hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) {
-            hospitalId = "hsp-001";
+        String callerTenant = TenantContext.getTenantId();
+        String hospitalId = callerTenant;
+        if (callerTenant != null && !callerTenant.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(callerTenant)) {
+            if (paramHospitalId != null && !paramHospitalId.trim().isEmpty() && !callerTenant.equalsIgnoreCase(paramHospitalId.trim())) {
+                throw new com.medicos.backend.exception.UnauthorizedException("Access denied: cannot export data for a different hospital.");
+            }
+        } else {
+            hospitalId = (paramHospitalId != null && !paramHospitalId.trim().isEmpty()) ? paramHospitalId.trim() : "hsp-001";
         }
 
         Map<String, Object> bundle = licenseService.exportHospitalData(hospitalId);
@@ -74,9 +78,15 @@ public class LicensingController {
 
     @PostMapping("/time-travel")
     public ResponseEntity<?> timeTravel(@RequestBody Map<String, Object> payload) {
-        String hospitalId = (String) payload.getOrDefault("hospitalId", TenantContext.getTenantId());
-        if (hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) {
-            hospitalId = "hsp-001";
+        String callerTenant = TenantContext.getTenantId();
+        String hospitalId = callerTenant;
+        String requestedHospital = (String) payload.get("hospitalId");
+        if (callerTenant != null && !callerTenant.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(callerTenant)) {
+            if (requestedHospital != null && !requestedHospital.trim().isEmpty() && !callerTenant.equalsIgnoreCase(requestedHospital.trim())) {
+                throw new com.medicos.backend.exception.UnauthorizedException("Access denied: cannot modify license for a different hospital.");
+            }
+        } else {
+            hospitalId = (requestedHospital != null && !requestedHospital.trim().isEmpty()) ? requestedHospital.trim() : "hsp-001";
         }
         
         int offsetDays = ((Number) payload.getOrDefault("offsetDays", -35)).intValue();

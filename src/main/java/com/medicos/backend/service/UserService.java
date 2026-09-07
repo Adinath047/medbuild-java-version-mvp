@@ -88,9 +88,17 @@ public class UserService {
 
     @Transactional
     public User updateStatus(String id, Map<String, Object> body) {
-        tenantSessionBinder.bindTenant("GLOBAL");
+        // Fetch the user first so we can bind to its actual hospital — never elevate
+        // to GLOBAL just to look up a single-tenant record.
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+
+        String hospitalId = user.getHospitalId();
+        if (hospitalId == null || hospitalId.isBlank()) {
+            throw new com.medicos.backend.exception.BadRequestException(
+                "Cannot update user status: user record carries no hospital context.");
+        }
+        tenantSessionBinder.bindTenant(hospitalId);
 
         Optional.ofNullable(body.get("is_active"))
                 .ifPresent(v -> {
@@ -107,7 +115,14 @@ public class UserService {
 
     @Transactional
     public User updateUserProfile(User user, Map<String, Object> body) {
-        tenantSessionBinder.bindTenant("GLOBAL");
+        // Bind to the authenticated caller's own hospital — GLOBAL elevation is
+        // unnecessary here because this operation is scoped to a single user record.
+        String callerHospitalId = user.getHospitalId();
+        if (callerHospitalId == null || callerHospitalId.isBlank()) {
+            throw new com.medicos.backend.exception.BadRequestException(
+                "Cannot update profile: authenticated user carries no hospital context.");
+        }
+        tenantSessionBinder.bindTenant(callerHospitalId);
         User target = userRepository.findById(user.getId()).orElse(user);
 
         if (body.containsKey("name") && body.get("name") != null) target.setName((String) body.get("name"));

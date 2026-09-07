@@ -121,22 +121,12 @@ public class PatientAppService {
         User doctor = userRepository.findById(req.getDoctorId().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + req.getDoctorId()));
 
-        String hospitalId = Optional.ofNullable(doctor.getHospitalId()).orElse("hsp-001");
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + patientId));
 
-        // Ensure patient record exists in the doctor's hospital
-        Patient patient = patientRepository.findById(patientId).orElse(null);
-        if (patient == null) {
-            patient = new Patient();
-            patient.setId(patientId);
-            patient.setUhid("UHID-" + (100000 + new Random().nextInt(900000)));
-            patient.setHospitalId(hospitalId);
-            patient.setName("Patient");
-            patient.setIsActive(1);
-            patientRepository.save(patient);
-        } else if (!hospitalId.equals(patient.getHospitalId())) {
-            // Patient is in a different hospital tenant — update to doctor's hospital
-            patient.setHospitalId(hospitalId);
-            patientRepository.save(patient);
+        String hospitalId = patient.getHospitalId() != null ? patient.getHospitalId() : "hsp-001";
+        if (doctor.getHospitalId() != null && !hospitalId.equals(doctor.getHospitalId())) {
+            throw new ResourceNotFoundException("Doctor not found with ID: " + req.getDoctorId());
         }
 
         Appointment appt = new Appointment();

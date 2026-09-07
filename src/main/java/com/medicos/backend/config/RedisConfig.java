@@ -17,7 +17,9 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.cache.interceptor.KeyGenerator;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import com.medicos.backend.security.TenantContext;
 
 import java.time.Duration;
 
@@ -29,6 +31,17 @@ public class RedisConfig implements CachingConfigurer {
 
     @Value("${spring.cache.redis.time-to-live:600000}")
     private long timeToLiveMs;
+
+    private final TenantAwareKeyGenerator tenantAwareKeyGenerator;
+
+    public RedisConfig(TenantAwareKeyGenerator tenantAwareKeyGenerator) {
+        this.tenantAwareKeyGenerator = tenantAwareKeyGenerator;
+    }
+
+    @Override
+    public KeyGenerator keyGenerator() {
+        return tenantAwareKeyGenerator;
+    }
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -45,6 +58,10 @@ public class RedisConfig implements CachingConfigurer {
         RedisCacheConfiguration cacheConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMillis(timeToLiveMs))
                 .disableCachingNullValues()
+                .computePrefixWith(cacheName -> {
+                    String tenant = TenantContext.getTenantId();
+                    return (tenant != null && !tenant.isBlank() ? tenant : "GLOBAL") + ":" + cacheName + ":";
+                })
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer));
 

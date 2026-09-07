@@ -126,6 +126,15 @@ public class User {
     @Column(name = "is_invited")
     private Boolean isInvited = false;
 
+    // ── Login Lockout (Brute-Force Protection) ──────────────────────────
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(name = "locked_until")
+    private java.time.OffsetDateTime lockedUntil;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -251,4 +260,11 @@ public class User {
 
     public Boolean getIsInvited() { return isInvited; }
     public void setIsInvited(Boolean isInvited) { this.isInvited = isInvited; }
+
+    // ── Login Lockout Accessors ─────────────────────────────────────────
+    public int getFailedLoginAttempts() { return failedLoginAttempts; }
+    public void setFailedLoginAttempts(int failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
+
+    public java.time.OffsetDateTime getLockedUntil() { return lockedUntil; }
+    public void setLockedUntil(java.time.OffsetDateTime lockedUntil) { this.lockedUntil = lockedUntil; }
 }

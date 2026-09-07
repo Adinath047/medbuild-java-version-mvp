@@ -142,11 +142,29 @@ public class MedicineService {
             medicine.setId("med-" + UUID.randomUUID().toString().substring(0, 8));
         }
 
+        boolean isSuperAdmin = user != null && ("SUPER_ADMIN".equalsIgnoreCase(user.getRole()) || "super_admin".equalsIgnoreCase(user.getRole()));
+
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
-        if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
+        if (hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) {
+            hospitalId = Optional.ofNullable(user).map(User::getHospitalId).orElse(null);
+        }
+
+        if (isSuperAdmin) {
+            // Platform Super Admin can publish into the shared global catalog ('GLOBAL' sentinel)
+            // or explicitly target a specific hospital if provisioning on behalf of a tenant.
+            String targetHospitalId = medicine.getHospitalId();
+            if (targetHospitalId != null && !targetHospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(targetHospitalId)) {
+                medicine.setHospitalId(targetHospitalId.trim());
+            } else {
+                medicine.setHospitalId("GLOBAL");
+            }
+        } else {
+            // Regular hospital staff (Doctor, Pharmacist, Hospital Admin) CANNOT write to the global tier.
+            // All custom additions are strictly forced to their own hospital tenant.
+            if (hospitalId == null || hospitalId.trim().isEmpty() || "GLOBAL".equalsIgnoreCase(hospitalId)) {
+                throw new com.medicos.backend.exception.UnauthorizedException("Access Denied: Only platform SUPER_ADMIN can create global formulary entries.");
+            }
             medicine.setHospitalId(hospitalId);
-        } else if (medicine.getHospitalId() == null || medicine.getHospitalId().isEmpty()) {
-            medicine.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
         return medicineRepository.save(medicine);

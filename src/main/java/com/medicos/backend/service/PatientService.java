@@ -21,6 +21,7 @@ public class PatientService {
     private final VitalRepository vitalRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final AppointmentRepository appointmentRepository;
+    private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
     public PatientService(PatientRepository patientRepository,
@@ -28,12 +29,14 @@ public class PatientService {
                           VitalRepository vitalRepository,
                           PrescriptionRepository prescriptionRepository,
                           AppointmentRepository appointmentRepository,
+                          UserRepository userRepository,
                           AuditLogService auditLogService) {
         this.patientRepository = patientRepository;
         this.encounterRepository = encounterRepository;
         this.vitalRepository = vitalRepository;
         this.prescriptionRepository = prescriptionRepository;
         this.appointmentRepository = appointmentRepository;
+        this.userRepository = userRepository;
         this.auditLogService = auditLogService;
     }
 
@@ -78,8 +81,7 @@ public class PatientService {
     @Cacheable(value = "patient_summary", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
     @Transactional(readOnly = true)
     public PatientDTO.PatientSummaryResponse getPatientSummary(String id) {
-        Patient patient = patientRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
+        Patient patient = getPatientById(id);
 
         List<Encounter> encounters = encounterRepository.findByPatientIdOrderByCreatedAtDesc(id);
         Optional<Vital> latestVitalOpt = vitalRepository.findFirstByPatientIdOrderByRecordedAtDesc(id);
@@ -99,8 +101,7 @@ public class PatientService {
 
     @Transactional(readOnly = true)
     public List<Vital> getVitalsHistory(String id) {
-        patientRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + id));
+        getPatientById(id);
 
         return vitalRepository.findByPatientIdOrderByRecordedAtDesc(id);
     }
@@ -137,6 +138,16 @@ public class PatientService {
         }
         if (Boolean.TRUE.equals(patient.getConsentGiven()) && patient.getConsentGivenAt() == null) {
             patient.setConsentGivenAt(java.time.LocalDateTime.now());
+        }
+
+        if (patient.getPrimaryDoctorId() != null && !patient.getPrimaryDoctorId().trim().isEmpty()) {
+            String docId = patient.getPrimaryDoctorId().trim();
+            User doctor = userRepository.findById(docId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + docId));
+            if (!"GLOBAL".equalsIgnoreCase(patient.getHospitalId()) && doctor.getHospitalId() != null && !patient.getHospitalId().equals(doctor.getHospitalId())) {
+                throw new ResourceNotFoundException("Doctor not found with ID: " + docId);
+            }
+            patient.setPrimaryDoctorId(docId);
         }
 
         Optional.ofNullable(currentUser).ifPresent(u -> patient.setRegisteredBy(u.getId()));
@@ -181,8 +192,19 @@ public class PatientService {
         Optional.ofNullable(updated.getEmail()).ifPresent(p::setEmail);
         Optional.ofNullable(updated.getAddress()).ifPresent(p::setAddress);
         Optional.ofNullable(updated.getAllergies()).ifPresent(p::setAllergies);
-        Optional.ofNullable(updated.getChronicConditions()).ifPresent(p::setChronicConditions);
-        Optional.ofNullable(updated.getPrimaryDoctorId()).ifPresent(p::setPrimaryDoctorId);
+        if (updated.getPrimaryDoctorId() != null) {
+            String docId = updated.getPrimaryDoctorId().trim();
+            if (!docId.isEmpty()) {
+                User doctor = userRepository.findById(docId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + docId));
+                if (!"GLOBAL".equalsIgnoreCase(p.getHospitalId()) && doctor.getHospitalId() != null && !p.getHospitalId().equals(doctor.getHospitalId())) {
+                    throw new ResourceNotFoundException("Doctor not found with ID: " + docId);
+                }
+                p.setPrimaryDoctorId(docId);
+            } else {
+                p.setPrimaryDoctorId(null);
+            }
+        }
 
         Patient saved = patientRepository.save(p);
 

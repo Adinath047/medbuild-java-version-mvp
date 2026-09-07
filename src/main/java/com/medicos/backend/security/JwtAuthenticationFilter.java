@@ -41,12 +41,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // ── Blacklist check ──────────────────────────────────────────
                 // Reject tokens that have been explicitly revoked (e.g. via logout).
+                // Log the detail server-side; return a generic 401 to avoid leaking
+                // whether the issue is revocation vs deactivation vs bad credentials.
                 try {
                     if (tokenProvider.isTokenBlacklisted(jwt)) {
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        response.setContentType("application/json");
-                        response.getWriter().write(
-                            "{\"error\":\"Unauthorized\",\"message\":\"Token has been revoked. Please log in again.\"}");
+                        logger.info("Rejected blacklisted token [path=" + request.getRequestURI() + "]");
+                        sendUnauthorized(response);
                         return;
                     }
                 } catch (Exception e) {
@@ -67,9 +67,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (userOptional.isPresent()) {
                     User user = userOptional.get();
                     if (user.getIsActive() != null && user.getIsActive() == 0) {
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        response.setContentType("application/json");
-                        response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Account has been deactivated. Access revoked.\"}");
+                        logger.info("Rejected deactivated user [userId=" + userId + " path=" + request.getRequestURI() + "]");
+                        sendUnauthorized(response);
                         return;
                     }
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase());
@@ -86,9 +85,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     if (patientOptional.isPresent()) {
                         Patient patient = patientOptional.get();
                         if (patient.getIsActive() != null && patient.getIsActive() == 0) {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Patient account is inactive. Access revoked.\"}");
+                            logger.info("Rejected inactive patient [patientId=" + userId + " path=" + request.getRequestURI() + "]");
+                            sendUnauthorized(response);
                             return;
                         }
                         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_PATIENT");
@@ -127,5 +125,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+
+    /**
+     * Writes a generic 401 response. All authentication rejection paths funnel through
+     * here so the response body is identical regardless of the underlying reason
+     * (revoked token, deactivated account, missing tenant, etc.). Differentiating
+     * these in the response body is an enumeration risk — the detail is logged
+     * server-side only.
+     */
+    private void sendUnauthorized(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required.\"}");
     }
 }

@@ -87,6 +87,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS is_invited         BOOLEAN DEFAULT FA
 -- Fast token lookup index
 CREATE INDEX IF NOT EXISTS idx_users_invite_token_hash ON users(invite_token_hash);
 
+-- ── LOGIN LOCKOUT COLUMNS (Brute-Force Protection) ─────────────────────
+-- failed_login_attempts: incremented on each bad-password attempt, reset on success.
+-- locked_until: non-null when the account is temporarily locked; checked before password verify.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE;
+
 -- ── 3. PATIENTS ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
   id                      VARCHAR(64) PRIMARY KEY,
@@ -486,8 +492,8 @@ ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medicines FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_policy ON medicines;
 CREATE POLICY tenant_isolation_policy ON medicines
-  USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true))
-  WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true));
+  USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true) OR hospital_id = 'GLOBAL')
+  WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR (hospital_id = current_setting('app.current_hospital_id', true) AND hospital_id != 'GLOBAL'));
 
 -- Notifications Table
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;

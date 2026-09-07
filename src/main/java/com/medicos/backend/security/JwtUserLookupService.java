@@ -45,14 +45,19 @@ public class JwtUserLookupService {
     /**
      * Looks up a staff/doctor User by ID within a transaction that first binds the RLS
      * tenant context using hospitalId extracted directly from the validated JWT claims.
+     *
+     * Security invariant: if the JWT contains no hospitalId (null or blank), we must NOT
+     * fall back to GLOBAL — that would silently grant cross-tenant read access to every
+     * table guarded by RLS. Return Optional.empty() instead so the calling filter leaves
+     * SecurityContextHolder empty and the request proceeds as unauthenticated (→ 401).
      */
     @Transactional(readOnly = true)
     public Optional<User> findUserByIdWithTenant(String userId, String hospitalId) {
-        if (hospitalId != null && !hospitalId.isBlank()) {
-            tenantSessionBinder.bindTenant(hospitalId);
-        } else {
-            tenantSessionBinder.bindTenant("GLOBAL");
+        if (hospitalId == null || hospitalId.isBlank()) {
+            // Unknown tenant must never resolve to "all tenants".
+            return Optional.empty();
         }
+        tenantSessionBinder.bindTenant(hospitalId);
         return userRepository.findById(userId);
     }
 
@@ -60,12 +65,16 @@ public class JwtUserLookupService {
      * Looks up a Patient by ID within a transaction that first binds the RLS tenant context.
      * Patient JWTs include hospitalId at generation time (PatientAuthService.verifyOtp),
      * so the same pattern applies as for staff tokens.
+     *
+     * Security invariant: missing hospitalId in token → reject (return empty, → 401).
      */
     @Transactional(readOnly = true)
     public Optional<Patient> findPatientByIdWithTenant(String patientId, String hospitalId) {
-        if (hospitalId != null && !hospitalId.isBlank()) {
-            tenantSessionBinder.bindTenant(hospitalId);
+        if (hospitalId == null || hospitalId.isBlank()) {
+            // Unknown tenant must never resolve to "all tenants".
+            return Optional.empty();
         }
+        tenantSessionBinder.bindTenant(hospitalId);
         return patientRepository.findById(patientId);
     }
 }

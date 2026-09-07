@@ -188,7 +188,12 @@ public class InviteService {
             throw new BadRequestException("Role is required.");
         }
 
-        String hospitalId = req.getHospitalId() != null ? req.getHospitalId() : (admin != null ? admin.getHospitalId() : "hsp-001");
+        String hospitalId;
+        if (admin != null && !"super_admin".equalsIgnoreCase(admin.getRole())) {
+            hospitalId = admin.getHospitalId();
+        } else {
+            hospitalId = req.getHospitalId() != null ? req.getHospitalId() : (admin != null ? admin.getHospitalId() : "hsp-001");
+        }
         if (hospitalId == null) {
             throw new BadRequestException("Hospital context is required.");
         }
@@ -213,7 +218,13 @@ public class InviteService {
                 throw new BadRequestException(
                     "'" + email + "' is already an active staff member at this hospital.");
             }
-            // If active at a DIFFERENT hospital → allow transfer.
+            if (hasPassword && isActive && !sameHospital) {
+                // Only platform super_admin can transfer an active staff member across organizations
+                if (admin == null || !"super_admin".equalsIgnoreCase(admin.getRole())) {
+                    throw new BadRequestException("'" + email + "' is already registered with another organization.");
+                }
+            }
+            // If active at a DIFFERENT hospital and caller is super_admin → allow transfer.
             // We re-assign their hospital, reset the invite token, and set
             // is_invited=true so they go through account activation again.
             // Their old hospital access is revoked when hospital_id changes.

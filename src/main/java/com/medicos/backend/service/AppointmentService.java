@@ -207,39 +207,46 @@ public class AppointmentService {
                 .filter(t -> !t.isEmpty())
                 .orElseThrow(() -> new BadRequestException("time is required."));
 
+        // Determine tenant context
+        String tenantHospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        String targetHospitalId;
+        if (tenantHospitalId != null && !tenantHospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(tenantHospitalId)) {
+            targetHospitalId = tenantHospitalId;
+        } else {
+            targetHospitalId = Optional.ofNullable(user).map(User::getHospitalId).orElse(null);
+        }
+
         // Doctor tenant lookup to enforce multi-tenant isolation
-        User doctor = userRepository.findById(appt.getDoctorId())
+        User doctor = userRepository.findById(appt.getDoctorId().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + appt.getDoctorId()));
 
-        String targetHospitalId = Optional.ofNullable(doctor.getHospitalId())
-                .filter(h -> !h.isEmpty())
-                .orElseGet(() -> Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
+        if (targetHospitalId != null && !targetHospitalId.isEmpty()) {
+            if (doctor.getHospitalId() != null && !targetHospitalId.equals(doctor.getHospitalId())) {
+                throw new ResourceNotFoundException("Doctor not found with ID: " + appt.getDoctorId());
+            }
+        } else {
+            targetHospitalId = Optional.ofNullable(doctor.getHospitalId()).orElse("hsp-001");
+        }
 
         appt.setHospitalId(targetHospitalId);
 
         String patientId = appt.getPatientId();
-        if (patientId == null || patientId.isEmpty()) {
-            if (user != null && user.getId() != null) {
+        if (patientId == null || patientId.trim().isEmpty()) {
+            if (user != null && user.getId() != null && "patient".equalsIgnoreCase(user.getRole())) {
                 patientId = user.getId();
             } else {
                 throw new BadRequestException("patient_id is required.");
             }
         }
+        patientId = patientId.trim();
 
-        // Verify or auto-provision patient record within the target hospital tenant
-        boolean patientExists = patientRepository.findById(patientId)
-                .map(p -> targetHospitalId.equals(p.getHospitalId()))
-                .orElse(false);
+        // Verify patient record exists within the target hospital tenant (no auto-provisioning)
+        final String finalPatientId = patientId;
+        Patient patient = patientRepository.findById(finalPatientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + finalPatientId));
 
-        if (!patientExists) {
-            Patient newPatient = new Patient();
-            newPatient.setId(patientId);
-            newPatient.setUhid("UHID-" + (100000 + new Random().nextInt(900000)));
-            newPatient.setHospitalId(targetHospitalId);
-            newPatient.setName(user != null && user.getName() != null ? user.getName() : "Patient User");
-            newPatient.setPhone(user != null ? user.getPhone() : "");
-            newPatient.setIsActive(1);
-            patientRepository.save(newPatient);
+        if (!"GLOBAL".equalsIgnoreCase(targetHospitalId) && patient.getHospitalId() != null && !targetHospitalId.equals(patient.getHospitalId())) {
+            throw new ResourceNotFoundException("Patient not found with ID: " + finalPatientId);
         }
 
         appt.setPatientId(patientId);

@@ -15,9 +15,15 @@ import java.util.*;
 public class EncounterService {
 
     private final EncounterRepository encounterRepository;
+    private final com.medicos.backend.repository.PatientRepository patientRepository;
+    private final com.medicos.backend.repository.UserRepository userRepository;
 
-    public EncounterService(EncounterRepository encounterRepository) {
+    public EncounterService(EncounterRepository encounterRepository,
+                            com.medicos.backend.repository.PatientRepository patientRepository,
+                            com.medicos.backend.repository.UserRepository userRepository) {
         this.encounterRepository = encounterRepository;
+        this.patientRepository = patientRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -75,8 +81,24 @@ public class EncounterService {
             encounter.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
-        if (encounter.getDoctorId() == null || encounter.getDoctorId().isEmpty()) {
+        String patientId = encounter.getPatientId().trim();
+        com.medicos.backend.entity.Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + patientId));
+
+        if (!"GLOBAL".equalsIgnoreCase(encounter.getHospitalId()) && patient.getHospitalId() != null && !encounter.getHospitalId().equals(patient.getHospitalId())) {
+            throw new ResourceNotFoundException("Patient not found with ID: " + patientId);
+        }
+
+        if (encounter.getDoctorId() == null || encounter.getDoctorId().trim().isEmpty()) {
             encounter.setDoctorId(Optional.ofNullable(user).map(User::getId).orElse("usr-doc-001"));
+        } else {
+            String doctorId = encounter.getDoctorId().trim();
+            User doctor = userRepository.findById(doctorId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + doctorId));
+            if (!"GLOBAL".equalsIgnoreCase(encounter.getHospitalId()) && doctor.getHospitalId() != null && !encounter.getHospitalId().equals(doctor.getHospitalId())) {
+                throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
+            }
+            encounter.setDoctorId(doctorId);
         }
 
         if (encounter.getCreatedAt() == null) encounter.setCreatedAt(LocalDateTime.now());

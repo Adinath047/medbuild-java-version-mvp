@@ -30,6 +30,10 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
+    // Dummy BCrypt hash used for constant-time evaluation across all rejection paths
+    // (non-existent user, wrong hospital, locked account) to eliminate timing side-channels.
+    private static final String DUMMY_BCRYPT_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
     private final UserRepository userRepository;
     private final HospitalRepository hospitalRepository;
     private final PasswordEncoder passwordEncoder;
@@ -39,6 +43,14 @@ public class AuthService {
 
     @org.springframework.beans.factory.annotation.Value("${jwt.cookie-secure:false}")
     private boolean cookieSecure;
+
+    /** Maximum consecutive failed logins before the account is temporarily locked. */
+    @org.springframework.beans.factory.annotation.Value("${security.login.max-attempts:5}")
+    private int loginMaxAttempts;
+
+    /** Duration in minutes for which a locked account is blocked. */
+    @org.springframework.beans.factory.annotation.Value("${security.login.lockout-minutes:15}")
+    private int loginLockoutMinutes;
 
     public AuthService(UserRepository userRepository,
                        HospitalRepository hospitalRepository,
@@ -67,24 +79,48 @@ public class AuthService {
         tenantSessionBinder.bindTenant(hospitalId);
 
         // --- Look up the user: staffId (UUID from picker) preferred, email as fallback ---
-        User user;
+        User user = null;
         String staffId = request.getStaffId();
         if (staffId != null && !staffId.trim().isEmpty()) {
             // Primary path: picker sends the staff UUID — no email leaves the server
-            user = userRepository.findById(staffId.trim())
-                    .orElseThrow(() -> new UnauthorizedException("Invalid staff ID or password."));
+            user = userRepository.findById(staffId.trim()).orElse(null);
         } else {
             // Fallback path: direct API callers (e.g. password reset, curl) may still send email
             String email = Optional.ofNullable(request.getEmail())
                     .filter(e -> !e.trim().isEmpty())
                     .orElseThrow(() -> new BadRequestException("Either staffId or email is required."));
-            user = userRepository.findByEmail(email.toLowerCase().trim())
-                    .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
+            user = userRepository.findByEmail(email.toLowerCase().trim()).orElse(null);
+        }
+
+        // Constant-time execution: if user is not found, execute dummy BCrypt hash verification
+        // before throwing UnauthorizedException to prevent username/staffId enumeration via timing.
+        if (user == null) {
+            passwordEncoder.matches(rawPassword, DUMMY_BCRYPT_HASH);
+            throw new UnauthorizedException("Invalid credentials or account temporarily unavailable.");
         }
 
         // Validate hospital ownership (defence-in-depth; RLS already scopes the lookup)
         if (user.getHospitalId() == null || !user.getHospitalId().equalsIgnoreCase(hospitalId)) {
-            throw new UnauthorizedException("Access Denied: Account does not belong to hospital code '" + hospitalId + "'.");
+            passwordEncoder.matches(rawPassword, DUMMY_BCRYPT_HASH);
+            throw new UnauthorizedException("Invalid credentials or account temporarily unavailable.");
+        }
+
+        // ── Per-account lockout check ────────────────────────────────────────────
+        // Constant-time execution: execute dummy BCrypt verification on locked accounts
+        // so timing matches standard password verification, preventing timing enumeration
+        // of locked vs unlocked accounts.
+        if (user.getLockedUntil() != null
+                && java.time.OffsetDateTime.now().isBefore(user.getLockedUntil())) {
+            log.warn("LOGIN_BLOCKED account_locked [userId={} hospital={}]", user.getId(), hospitalId);
+            passwordEncoder.matches(rawPassword, DUMMY_BCRYPT_HASH);
+            // Opaque message — do not reveal remaining lock duration or that this specific
+            // account exists and is locked (that's account enumeration).
+            throw new UnauthorizedException("Invalid credentials or account temporarily unavailable.");
+        }
+        // If a stale lock has expired, clear it so subsequent failed attempts start from 0
+        if (user.getLockedUntil() != null) {
+            user.setLockedUntil(null);
+            user.setFailedLoginAttempts(0);
         }
 
         // Validate password with BCrypt, with legacy plaintext & seed hash migration
@@ -97,12 +133,32 @@ public class AuthService {
                 user.setPassword(passwordEncoder.encode(rawPassword));
                 userRepository.save(user);
             } else {
-                throw new UnauthorizedException("Invalid email or password.");
+                // ── Increment failure counter ────────────────────────────────────
+                int attempts = user.getFailedLoginAttempts() + 1;
+                user.setFailedLoginAttempts(attempts);
+                if (attempts >= loginMaxAttempts) {
+                    user.setLockedUntil(java.time.OffsetDateTime.now().plusMinutes(loginLockoutMinutes));
+                    userRepository.save(user);
+                    log.warn("LOGIN_LOCKED account_locked_after_{}_attempts [userId={} hospital={}]",
+                            attempts, user.getId(), hospitalId);
+                    // Still return the same opaque error — do not confirm that locking occurred
+                } else {
+                    userRepository.save(user);
+                }
+                throw new UnauthorizedException("Invalid credentials or account temporarily unavailable.");
             }
         }
 
         if (user.getIsActive() != null && user.getIsActive() == 0) {
-            throw new UnauthorizedException("Account deactivated.");
+            log.warn("LOGIN_REJECTED account_deactivated [userId={} hospital={}]", user.getId(), hospitalId);
+            throw new UnauthorizedException("Invalid credentials or account temporarily unavailable.");
+        }
+
+        // ── Successful login: reset failure counter ──────────────────────────────
+        if (user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+            userRepository.save(user);
         }
 
         // Short-lived Access Token (15 minutes) + Long-lived Refresh Token (7 days)

@@ -13,22 +13,57 @@ import java.util.*;
 public class PatientUploadService {
 
     private final PatientUploadRepository uploadRepository;
+    private final com.medicos.backend.repository.PatientRepository patientRepository;
+    private final AuditLogService auditLogService;
 
-    public PatientUploadService(PatientUploadRepository uploadRepository) {
+    public PatientUploadService(PatientUploadRepository uploadRepository,
+                                com.medicos.backend.repository.PatientRepository patientRepository,
+                                AuditLogService auditLogService) {
         this.uploadRepository = uploadRepository;
+        this.patientRepository = patientRepository;
+        this.auditLogService = auditLogService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PatientUpload> getUploadsByPatientId(String patientId, User user) {
+        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
+
+        com.medicos.backend.entity.Patient p = patientRepository.findById(patientId != null ? patientId.trim() : "")
+                .orElseThrow(() -> new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId));
+
+        if (isTenantScoped && p.getHospitalId() != null && !hospitalId.equals(p.getHospitalId())) {
+            throw new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId);
+        }
+
+        List<PatientUpload> list = uploadRepository.findByPatientIdOrderByUploadedAtDesc(patientId);
+        List<PatientUpload> result = isTenantScoped
+                ? list.stream().filter(u -> hospitalId.equals(u.getHospitalId())).toList()
+                : list;
+
+        if (auditLogService != null) {
+            auditLogService.record(
+                    p.getHospitalId(),
+                    "READ_PATIENT_PHI_DOCUMENTS",
+                    "Retrieved " + result.size() + " clinical upload(s) for patient " + p.getName(),
+                    user,
+                    p.getId(),
+                    p.getUhid(),
+                    "SUCCESS"
+            );
+        }
+
+        return result;
     }
 
     @Transactional(readOnly = true)
     public List<PatientUpload> getUploadsByPatientId(String patientId) {
-        String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
-        boolean isTenantScoped = hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId);
-
-        List<PatientUpload> list = uploadRepository.findByPatientIdOrderByUploadedAtDesc(patientId);
-        if (isTenantScoped) {
-            return list.stream().filter(u -> hospitalId.equals(u.getHospitalId())).toList();
-        }
-        return list;
+        return getUploadsByPatientId(patientId, null);
     }
+
+    public static final int MAX_FILE_PAYLOAD_CHARS = 7 * 1024 * 1024; // ~5MB raw payload in base64 (~7.34M characters)
+    public static final int MAX_TITLE_LENGTH = 255;
+    public static final int MAX_NOTES_LENGTH = 5000;
 
     @Transactional
     public PatientUpload uploadDocument(PatientUpload upload, User user) {
@@ -36,13 +71,41 @@ public class PatientUploadService {
                 .filter(id -> !id.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("patient_id is required."));
 
-        Optional.ofNullable(upload.getFileUrl())
-                .filter(url -> !url.trim().isEmpty())
+        String rawFileUrl = Optional.ofNullable(upload.getFileUrl())
+                .map(String::trim)
+                .filter(url -> !url.isEmpty())
                 .orElseThrow(() -> new BadRequestException("file_url is required."));
 
-        Optional.ofNullable(upload.getTitle())
-                .filter(t -> !t.trim().isEmpty())
+        if (rawFileUrl.length() > MAX_FILE_PAYLOAD_CHARS) {
+            throw new BadRequestException("Upload payload exceeds maximum allowed size of 5MB.");
+        }
+
+        if (rawFileUrl.startsWith("data:")) {
+            if (!rawFileUrl.contains(";base64,")) {
+                throw new BadRequestException("Invalid Data URI: Must contain ';base64,' encoding specification.");
+            }
+        } else if (!rawFileUrl.startsWith("http://") && !rawFileUrl.startsWith("https://")) {
+            throw new BadRequestException("Invalid file_url: Must be a base64 Data URI or HTTP/HTTPS reference.");
+        }
+        upload.setFileUrl(rawFileUrl);
+
+        String title = Optional.ofNullable(upload.getTitle())
+                .map(String::trim)
+                .filter(t -> !t.isEmpty())
                 .orElseThrow(() -> new BadRequestException("title is required."));
+
+        if (title.length() > MAX_TITLE_LENGTH) {
+            throw new BadRequestException("Title exceeds maximum allowed length of " + MAX_TITLE_LENGTH + " characters.");
+        }
+        upload.setTitle(title);
+
+        if (upload.getNotes() != null) {
+            String trimmedNotes = upload.getNotes().trim();
+            if (trimmedNotes.length() > MAX_NOTES_LENGTH) {
+                throw new BadRequestException("Notes exceed maximum allowed length of " + MAX_NOTES_LENGTH + " characters.");
+            }
+            upload.setNotes(trimmedNotes.isEmpty() ? null : trimmedNotes);
+        }
 
         if (upload.getId() == null || upload.getId().isEmpty()) {
             upload.setId("up-" + UUID.randomUUID().toString().substring(0, 8));
@@ -55,7 +118,29 @@ public class PatientUploadService {
             upload.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
-        return uploadRepository.save(upload);
+        String patientId = upload.getPatientId().trim();
+        com.medicos.backend.entity.Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId));
+
+        if (!"GLOBAL".equalsIgnoreCase(upload.getHospitalId()) && patient.getHospitalId() != null && !upload.getHospitalId().equals(patient.getHospitalId())) {
+            throw new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId);
+        }
+
+        PatientUpload saved = uploadRepository.save(upload);
+
+        if (auditLogService != null) {
+            auditLogService.record(
+                    patient.getHospitalId(),
+                    "UPLOAD_PATIENT_PHI_DOCUMENT",
+                    "Uploaded clinical document: " + saved.getTitle() + " (type: " + saved.getFileType() + ")",
+                    user,
+                    patient.getId(),
+                    patient.getUhid(),
+                    "SUCCESS"
+            );
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -75,5 +160,17 @@ public class PatientUploadService {
         }
 
         uploadRepository.delete(upload);
+
+        if (auditLogService != null) {
+            auditLogService.record(
+                    upload.getHospitalId(),
+                    "DELETE_PATIENT_PHI_DOCUMENT",
+                    "Deleted clinical document: " + upload.getTitle(),
+                    user,
+                    upload.getPatientId(),
+                    null,
+                    "SUCCESS"
+            );
+        }
     }
 }

@@ -4,7 +4,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -12,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -27,9 +33,12 @@ import java.util.regex.Pattern;
  *  - Reduced general limit: 300 req/min (down from 2000)
  *  - Adds Retry-After response header so clients know when to retry
  *  - Periodic bucket cleanup to prevent memory growth under sustained load
+ *  - Auth and OTP counters are Redis-backed so they're shared across all instances
  */
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
     @Value("${rate-limiting.enabled:true}")
     private boolean enabled;
@@ -52,10 +61,36 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private static final Pattern IP_PATTERN = Pattern.compile(
         "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]{2,39}$");
 
+    /**
+     * When true, auth/OTP endpoints fail-closed (HTTP 503) if Redis is unavailable.
+     * Defaults to true for HIPAA/DPDP security posture on sensitive authentication endpoints.
+     */
+    @Value("${rate-limiting.auth.fail-closed-on-redis-outage:true}")
+    private boolean failClosedOnRedisOutage;
+
+    /** Emergency local limit for auth endpoints during Redis outage (per minute per IP). */
+    @Value("${rate-limiting.auth.emergency-throttle-limit:5}")
+    private int emergencyAuthLimit;
+
+    /** Emergency local limit for OTP endpoints during Redis outage (per minute per IP). */
+    @Value("${rate-limiting.otp.emergency-throttle-limit:2}")
+    private int emergencyOtpLimit;
+
+    // JVM-local buckets — general API traffic + fallback when Redis is unavailable
     private final Map<String, RequestBucket> generalBuckets     = new ConcurrentHashMap<>();
     private final Map<String, RequestBucket> authBuckets        = new ConcurrentHashMap<>();
     private final Map<String, RequestBucket> otpBuckets         = new ConcurrentHashMap<>();
     private final Map<String, RequestBucket> trialSignupBuckets = new ConcurrentHashMap<>();
+
+    /**
+     * Redis template for shared, cross-instance rate limiting on auth and OTP endpoints.
+     * Optional — if Redis is unreachable the filter falls back or emergency throttles.
+     */
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired(required = false)
+    private com.medicos.backend.telemetry.TelemetryReporter telemetryReporter;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -72,28 +107,37 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         String clientIp = resolveClientIp(request);
 
         // Determine which bucket applies (most specific first)
-        RequestBucket bucket;
-        int limit;
+        boolean limited;
         String errorMessage = "Rate limit exceeded. Please try again in 60 seconds.";
         String retryAfter = "60";
 
         if ("/api/trial/signup".equals(path)) {
-            bucket = trialSignupBuckets.computeIfAbsent(clientIp, k -> new RequestBucket(ONE_HOUR_IN_MS));
-            limit  = MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR;
+            RequestBucket bucket = trialSignupBuckets.computeIfAbsent(clientIp, k -> new RequestBucket(ONE_HOUR_IN_MS));
+            limited = !bucket.allowRequest(MAX_TRIAL_SIGNUP_REQUESTS_PER_HOUR);
             errorMessage = "Trial signup rate limit exceeded. Please try again in an hour.";
             retryAfter = "3600";
         } else if (isOtpEndpoint(path)) {
-            bucket = otpBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
-            limit  = MAX_OTP_REQUESTS_PER_MINUTE;
+            RateLimitResult result = checkRedisOrFallback(request, "rl:otp:" + clientIp,
+                    MAX_OTP_REQUESTS_PER_MINUTE, emergencyOtpLimit, 60, otpBuckets, clientIp);
+            if (result.isOutageFailClosed()) {
+                sendServiceUnavailable(response, "OTP service temporarily degraded. Rate limiter unavailable.");
+                return;
+            }
+            limited = !result.isAllowed();
         } else if (isAuthEndpoint(path)) {
-            bucket = authBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
-            limit  = maxAuthRequestsPerMinute;
+            RateLimitResult result = checkRedisOrFallback(request, "rl:auth:" + clientIp,
+                    maxAuthRequestsPerMinute, emergencyAuthLimit, 60, authBuckets, clientIp);
+            if (result.isOutageFailClosed()) {
+                sendServiceUnavailable(response, "Authentication service temporarily degraded. Rate limiter unavailable.");
+                return;
+            }
+            limited = !result.isAllowed();
         } else {
-            bucket = generalBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
-            limit  = MAX_GENERAL_REQUESTS_PER_MINUTE;
+            RequestBucket bucket = generalBuckets.computeIfAbsent(clientIp, k -> new RequestBucket());
+            limited = !bucket.allowRequest(MAX_GENERAL_REQUESTS_PER_MINUTE);
         }
 
-        if (!bucket.allowRequest(limit)) {
+        if (limited) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.setHeader("Retry-After", retryAfter);
@@ -104,6 +148,13 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendServiceUnavailable(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.setContentType("application/json");
+        response.setHeader("Retry-After", "30");
+        response.getWriter().write("{\"error\":\"Service Unavailable\",\"message\":\"" + message + "\"}");
     }
 
     private boolean isExemptPath(String path) {
@@ -151,6 +202,63 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private boolean isValidIp(String ip) {
         return ip != null && !ip.isBlank() && IP_PATTERN.matcher(ip).matches();
+    }
+
+    // ─── Redis-backed rate limit helper ──────────────────────────────────────
+
+    /**
+     * Checks rate limit via Redis INCR + EXPIRE (atomic, shared across all instances).
+     *
+     * Security resilience & failover:
+     *   1. If Redis fails, a SECURITY ALERT is logged at ERROR severity and incident
+     *      telemetry is dispatched to the monitoring hub immediately.
+     *   2. If failClosedOnRedisOutage is enabled, the request is rejected with HTTP 503.
+     *   3. Otherwise, the request degrades to emergency local throttling (clamping limits
+     *      to emergencyAuthLimit / emergencyOtpLimit) to prevent multi-instance amplification.
+     */
+    private RateLimitResult checkRedisOrFallback(HttpServletRequest request, String redisKey,
+                                                 int normalLimit, int emergencyLimit, int windowSecs,
+                                                 Map<String, RequestBucket> jvmBuckets, String clientIp) {
+        if (redisTemplate != null) {
+            try {
+                Long count = redisTemplate.opsForValue().increment(redisKey);
+                if (count != null && count == 1) {
+                    // First hit in this window — set the expiry
+                    redisTemplate.expire(redisKey, windowSecs, TimeUnit.SECONDS);
+                }
+                return new RateLimitResult(count != null && count <= normalLimit, false);
+            } catch (Exception ex) {
+                log.error("SECURITY ALERT: Redis rate limiter unavailable for key '{}' [path={}]. Security control degrading to fallback mode.",
+                        redisKey, request != null ? request.getRequestURI() : "unknown", ex);
+                if (telemetryReporter != null && request != null) {
+                    telemetryReporter.reportRequestError(request, ex, HttpStatus.SERVICE_UNAVAILABLE.value());
+                }
+                if (failClosedOnRedisOutage) {
+                    return new RateLimitResult(false, true);
+                }
+            }
+        } else if (failClosedOnRedisOutage) {
+            log.error("SECURITY ALERT: Redis template not available for sensitive rate limiting key '{}'. Failing closed.", redisKey);
+            return new RateLimitResult(false, true);
+        }
+
+        // Degradation path: heavily throttled emergency local limit (e.g. 5 req/min auth, 2 req/min OTP)
+        // instead of permissive full limit to prevent multi-instance bypass.
+        RequestBucket bucket = jvmBuckets.computeIfAbsent(clientIp, k -> new RequestBucket(windowSecs * 1000L));
+        return new RateLimitResult(bucket.allowRequest(emergencyLimit), false);
+    }
+
+    private static class RateLimitResult {
+        private final boolean allowed;
+        private final boolean outageFailClosed;
+
+        public RateLimitResult(boolean allowed, boolean outageFailClosed) {
+            this.allowed = allowed;
+            this.outageFailClosed = outageFailClosed;
+        }
+
+        public boolean isAllowed() { return allowed; }
+        public boolean isOutageFailClosed() { return outageFailClosed; }
     }
 
     // ─── Sliding-window rate bucket ───────────────────────────────────────────

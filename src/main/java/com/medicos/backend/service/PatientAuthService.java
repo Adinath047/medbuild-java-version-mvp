@@ -101,7 +101,11 @@ public class PatientAuthService {
         String cleanPhone = phone.trim();
         String storedOtp = getStoredOtp(cleanPhone);
 
-        if (storedOtp == null || !storedOtp.equals(otp.trim())) {
+        byte[] candidateBytes = otp.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] targetBytes = (storedOtp != null ? storedOtp : "000000").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        boolean otpMatches = java.security.MessageDigest.isEqual(targetBytes, candidateBytes);
+
+        if (storedOtp == null || !otpMatches) {
             throw new UnauthorizedException("Invalid or expired OTP.");
         }
 

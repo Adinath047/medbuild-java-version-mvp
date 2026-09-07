@@ -177,12 +177,12 @@ public class LicenseService {
         export.put("hospital_id", hospitalId);
         export.put("exported_at", Instant.now().toString());
         export.put("schema_version", "2.0-clinical-export");
-        export.put("patients", patientRepository.findAll());
-        export.put("encounters", encounterRepository.findAll());
-        export.put("vitals", vitalRepository.findAll());
-        export.put("prescriptions", prescriptionRepository.findAll());
-        export.put("billing", billingRepository.findAll());
-        export.put("beds", bedRepository.findAll());
+        export.put("patients", patientRepository.findByHospitalId(hospitalId));
+        export.put("encounters", encounterRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId));
+        export.put("vitals", vitalRepository.findByHospitalIdOrderByRecordedAtDesc(hospitalId));
+        export.put("prescriptions", prescriptionRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId));
+        export.put("billing", billingRepository.findByHospitalIdOrderByCreatedAtDesc(hospitalId));
+        export.put("beds", bedRepository.findByHospitalId(hospitalId));
         return export;
     }
 

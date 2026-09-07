@@ -87,6 +87,25 @@ public class PrescriptionService {
         if (patientId == null || patientId.trim().isEmpty()) {
             throw new BadRequestException("patient_id is required.");
         }
+        final String trimmedPatientId = patientId.trim();
+
+        String tenantHospitalId = com.medicos.backend.security.TenantContext.getTenantId();
+        String hospitalId;
+        if (tenantHospitalId != null && !tenantHospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(tenantHospitalId)) {
+            hospitalId = tenantHospitalId;
+        } else {
+            hospitalId = getString(body, "hospital_id", "hospitalId");
+            if (hospitalId == null || hospitalId.trim().isEmpty()) {
+                hospitalId = Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001");
+            }
+        }
+
+        Patient patient = patientRepository.findById(trimmedPatientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + trimmedPatientId));
+
+        if (!"GLOBAL".equalsIgnoreCase(hospitalId) && patient.getHospitalId() != null && !hospitalId.equals(patient.getHospitalId())) {
+            throw new ResourceNotFoundException("Patient not found with ID: " + trimmedPatientId);
+        }
 
         Prescription rx = new Prescription();
         String id = getString(body, "id");
@@ -94,22 +113,33 @@ public class PrescriptionService {
             id = "rx-" + UUID.randomUUID().toString().substring(0, 8);
         }
         rx.setId(id);
-
-        String hospitalId = getString(body, "hospital_id", "hospitalId");
-        if (hospitalId == null || hospitalId.trim().isEmpty()) {
-            hospitalId = Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001");
-        }
         rx.setHospitalId(hospitalId);
-
         rx.setPatientId(patientId);
 
         String doctorId = getString(body, "doctor_id", "doctorId");
         if (doctorId == null || doctorId.trim().isEmpty()) {
             doctorId = Optional.ofNullable(user).map(User::getId).orElse("usr-doc-001");
+        } else {
+            doctorId = doctorId.trim();
         }
-        rx.setDoctorId(doctorId);
+        final String finalDocId = doctorId;
+        User doctor = userRepository.findById(finalDocId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + finalDocId));
+        if (!"GLOBAL".equalsIgnoreCase(hospitalId) && doctor.getHospitalId() != null && !hospitalId.equals(doctor.getHospitalId())) {
+            throw new ResourceNotFoundException("Doctor not found with ID: " + finalDocId);
+        }
+        rx.setDoctorId(finalDocId);
 
-        rx.setEncounterId(getString(body, "encounter_id", "encounterId"));
+        String encounterId = getString(body, "encounter_id", "encounterId");
+        if (encounterId != null && !encounterId.trim().isEmpty()) {
+            final String finalEncId = encounterId.trim();
+            Encounter enc = encounterRepository.findById(finalEncId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Encounter not found with ID: " + finalEncId));
+            if (!"GLOBAL".equalsIgnoreCase(hospitalId) && enc.getHospitalId() != null && !hospitalId.equals(enc.getHospitalId())) {
+                throw new ResourceNotFoundException("Encounter not found with ID: " + finalEncId);
+            }
+            rx.setEncounterId(finalEncId);
+        }
 
         // Medicines parsing
         Object medsObj = body.get("medicines");

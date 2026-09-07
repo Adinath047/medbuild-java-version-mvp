@@ -14,9 +14,12 @@ import java.util.*;
 public class VitalService {
 
     private final VitalRepository vitalRepository;
+    private final com.medicos.backend.repository.PatientRepository patientRepository;
 
-    public VitalService(VitalRepository vitalRepository) {
+    public VitalService(VitalRepository vitalRepository,
+                        com.medicos.backend.repository.PatientRepository patientRepository) {
         this.vitalRepository = vitalRepository;
+        this.patientRepository = patientRepository;
     }
 
     @Transactional(readOnly = true)
@@ -70,9 +73,19 @@ public class VitalService {
             vital.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
         }
 
-        if (vital.getRecordedBy() == null || vital.getRecordedBy().isEmpty()) {
-            vital.setRecordedBy(Optional.ofNullable(user).map(User::getId).orElse("usr-admin-001"));
+        String patientId = vital.getPatientId().trim();
+        com.medicos.backend.entity.Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId));
+
+        if (!"GLOBAL".equalsIgnoreCase(vital.getHospitalId()) && patient.getHospitalId() != null && !vital.getHospitalId().equals(patient.getHospitalId())) {
+            throw new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId);
         }
+
+        vital.setRecordedBy(Optional.ofNullable(user).map(User::getId).orElse(
+                (vital.getRecordedBy() != null && !vital.getRecordedBy().trim().isEmpty())
+                        ? vital.getRecordedBy().trim()
+                        : "usr-admin-001"
+        ));
 
         if (vital.getRecordedAt() == null) {
             vital.setRecordedAt(LocalDateTime.now());

@@ -20,12 +20,14 @@ public class PatientUpload {
     @Column(nullable = false)
     private String title;
 
+    @Convert(converter = com.medicos.backend.security.CryptoConverter.class)
     @Column(name = "file_url", columnDefinition = "TEXT", nullable = false)
     private String fileUrl;
 
     @Column(name = "file_type")
     private String fileType;
 
+    @Convert(converter = com.medicos.backend.security.CryptoConverter.class)
     @Column(columnDefinition = "TEXT")
     private String notes;
 

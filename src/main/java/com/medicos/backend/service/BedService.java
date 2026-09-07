@@ -2,6 +2,7 @@ package com.medicos.backend.service;
 
 import com.medicos.backend.entity.Bed;
 import com.medicos.backend.entity.BedAdmission;
+import com.medicos.backend.entity.Patient;
 import com.medicos.backend.entity.User;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
@@ -169,11 +170,28 @@ public class BedService {
                 .filter(p -> !p.trim().isEmpty())
                 .orElseThrow(() -> new BadRequestException("patient_id is required."));
 
+        Patient patient = patientRepository.findById(patientId.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + patientId));
+        if (bed.getHospitalId() != null && patient.getHospitalId() != null && !bed.getHospitalId().equals(patient.getHospitalId())) {
+            throw new ResourceNotFoundException("Patient not found with ID: " + patientId);
+        }
+
         String doctorId = body.get("doctor_id");
+        if (doctorId != null && !doctorId.trim().isEmpty()) {
+            String docId = doctorId.trim();
+            User doctor = userRepository.findById(docId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with ID: " + docId));
+            if (!"GLOBAL".equalsIgnoreCase(bed.getHospitalId()) && doctor.getHospitalId() != null && !bed.getHospitalId().equals(doctor.getHospitalId())) {
+                throw new ResourceNotFoundException("Doctor not found with ID: " + docId);
+            }
+            doctorId = docId;
+        } else {
+            doctorId = null;
+        }
 
         bed.setStatus("Occupied");
         bed.setPatientId(patientId.trim());
-        bed.setDoctorId(doctorId != null ? doctorId.trim() : null);
+        bed.setDoctorId(doctorId);
         bed.setAdmittedAt(LocalDateTime.now());
         bedRepository.save(bed);
         populateBedDetails(bed);

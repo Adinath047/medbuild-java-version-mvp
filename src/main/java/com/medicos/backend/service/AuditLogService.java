@@ -30,12 +30,12 @@ public class AuditLogService {
     /**
      * Records an audit log entry scoped to the current hospital tenant.
      */
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AuditLog record(String actionType, String details, User user, String patientId, String patientUhid, String status) {
         return record(null, actionType, details, user, patientId, patientUhid, status);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AuditLog record(String targetHospitalId, String actionType, String details, User user, String patientId, String patientUhid, String status) {
         try {
             String hospitalId = targetHospitalId;

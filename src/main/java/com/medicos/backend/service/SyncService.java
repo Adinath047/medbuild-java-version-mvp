@@ -219,84 +219,159 @@ public class SyncService {
 
     private void processPatientRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) throws Exception {
         if ("delete".equals(op)) {
-            patientRepository.findById(id).ifPresent(p -> { p.setIsActive(0); patientRepository.save(p); });
+            patientRepository.findById(id).ifPresent(p -> {
+                if (defaultHospitalId.equals(p.getHospitalId())) {
+                    p.setIsActive(0);
+                    patientRepository.save(p);
+                }
+            });
             return;
+        }
+        Patient existing = (id != null) ? patientRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate patient belonging to a different hospital.");
         }
         Patient p = objectMapper.convertValue(map, Patient.class);
         if (p.getId() == null) p.setId(id != null ? id : "pat-" + UUID.randomUUID().toString().substring(0, 8));
-        if (p.getHospitalId() == null) p.setHospitalId(defaultHospitalId);
+        p.setHospitalId(defaultHospitalId);
         patientRepository.save(p);
     }
 
     private void processEncounterRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            encounterRepository.deleteById(id);
+            encounterRepository.findById(id).ifPresent(enc -> {
+                if (defaultHospitalId.equals(enc.getHospitalId())) {
+                    encounterRepository.delete(enc);
+                }
+            });
             return;
+        }
+        Encounter existing = (id != null) ? encounterRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate encounter belonging to a different hospital.");
         }
         Encounter enc = objectMapper.convertValue(map, Encounter.class);
         if (enc.getId() == null) enc.setId(id != null ? id : "enc-" + UUID.randomUUID().toString().substring(0, 8));
-        if (enc.getHospitalId() == null) enc.setHospitalId(defaultHospitalId);
+        enc.setHospitalId(defaultHospitalId);
+        validatePatientTenant(enc.getPatientId(), defaultHospitalId);
         encounterRepository.save(enc);
     }
 
     private void processVitalRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            vitalRepository.deleteById(id);
+            vitalRepository.findById(id).ifPresent(v -> {
+                if (defaultHospitalId.equals(v.getHospitalId())) {
+                    vitalRepository.delete(v);
+                }
+            });
             return;
+        }
+        Vital existing = (id != null) ? vitalRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate vital belonging to a different hospital.");
         }
         Vital v = objectMapper.convertValue(map, Vital.class);
         if (v.getId() == null) v.setId(id != null ? id : "vit-" + UUID.randomUUID().toString().substring(0, 8));
-        if (v.getHospitalId() == null) v.setHospitalId(defaultHospitalId);
+        v.setHospitalId(defaultHospitalId);
         if (v.getPatientId() == null && map.containsKey("patient_id")) v.setPatientId(String.valueOf(map.get("patient_id")));
         if (v.getPatientId() == null) v.setPatientId("pat-001");
         if (v.getRecordedBy() == null && map.containsKey("recorded_by")) v.setRecordedBy(String.valueOf(map.get("recorded_by")));
         if (v.getRecordedBy() == null) v.setRecordedBy("system");
         if (v.getRecordedAt() == null) v.setRecordedAt(LocalDateTime.now());
+        validatePatientTenant(v.getPatientId(), defaultHospitalId);
         vitalRepository.save(v);
     }
 
     private void processPrescriptionRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            prescriptionRepository.deleteById(id);
+            prescriptionRepository.findById(id).ifPresent(rx -> {
+                if (defaultHospitalId.equals(rx.getHospitalId())) {
+                    prescriptionRepository.delete(rx);
+                }
+            });
             return;
+        }
+        Prescription existing = (id != null) ? prescriptionRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate prescription belonging to a different hospital.");
         }
         Prescription rx = objectMapper.convertValue(map, Prescription.class);
         if (rx.getId() == null) rx.setId(id != null ? id : "rx-" + UUID.randomUUID().toString().substring(0, 8));
-        if (rx.getHospitalId() == null) rx.setHospitalId(defaultHospitalId);
+        rx.setHospitalId(defaultHospitalId);
         if (rx.getCreatedAt() == null) rx.setCreatedAt(LocalDateTime.now());
+        validatePatientTenant(rx.getPatientId(), defaultHospitalId);
         prescriptionRepository.save(rx);
     }
 
     private void processAppointmentRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            appointmentRepository.deleteById(id);
+            appointmentRepository.findById(id).ifPresent(appt -> {
+                if (defaultHospitalId.equals(appt.getHospitalId())) {
+                    appointmentRepository.delete(appt);
+                }
+            });
             return;
+        }
+        Appointment existing = (id != null) ? appointmentRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate appointment belonging to a different hospital.");
         }
         Appointment appt = objectMapper.convertValue(map, Appointment.class);
         if (appt.getId() == null) appt.setId(id != null ? id : "apt-" + UUID.randomUUID().toString().substring(0, 8));
-        if (appt.getHospitalId() == null) appt.setHospitalId(defaultHospitalId);
+        appt.setHospitalId(defaultHospitalId);
+        validatePatientTenant(appt.getPatientId(), defaultHospitalId);
         appointmentRepository.save(appt);
     }
 
     private void processBillingRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            billingRepository.deleteById(id);
+            billingRepository.findById(id).ifPresent(b -> {
+                if (defaultHospitalId.equals(b.getHospitalId())) {
+                    billingRepository.delete(b);
+                }
+            });
             return;
+        }
+        Billing existing = (id != null) ? billingRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate billing belonging to a different hospital.");
         }
         Billing b = objectMapper.convertValue(map, Billing.class);
         if (b.getId() == null) b.setId(id != null ? id : "bil-" + UUID.randomUUID().toString().substring(0, 8));
-        if (b.getHospitalId() == null) b.setHospitalId(defaultHospitalId);
+        b.setHospitalId(defaultHospitalId);
+        validatePatientTenant(b.getPatientId(), defaultHospitalId);
         billingRepository.save(b);
     }
 
     private void processMedicineRecord(String id, String op, Map<String, Object> map, String defaultHospitalId) {
         if ("delete".equals(op)) {
-            medicineRepository.deleteById(id);
+            medicineRepository.findById(id).ifPresent(m -> {
+                if (defaultHospitalId.equals(m.getHospitalId())) {
+                    medicineRepository.delete(m);
+                }
+            });
             return;
+        }
+        Medicine existing = (id != null) ? medicineRepository.findById(id).orElse(null) : null;
+        if (existing != null && existing.getHospitalId() != null && !defaultHospitalId.equals(existing.getHospitalId())) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate medicine belonging to a different hospital.");
+        }
+        if (existing != null && (existing.getHospitalId() == null || "GLOBAL".equalsIgnoreCase(existing.getHospitalId()))) {
+            throw new com.medicos.backend.exception.BadRequestException("Cannot mutate a global formulary medicine.");
         }
         Medicine m = objectMapper.convertValue(map, Medicine.class);
         if (m.getId() == null) m.setId(id != null ? id : "med-" + UUID.randomUUID().toString().substring(0, 8));
-        if (m.getHospitalId() == null) m.setHospitalId(defaultHospitalId);
+        m.setHospitalId(defaultHospitalId);
         medicineRepository.save(m);
+    }
+
+    private void validatePatientTenant(String patientId, String hospitalId) {
+        if (patientId != null && !patientId.trim().isEmpty()) {
+            patientRepository.findById(patientId.trim()).ifPresent(p -> {
+                if (p.getHospitalId() != null && !hospitalId.equals(p.getHospitalId())) {
+                    throw new com.medicos.backend.exception.BadRequestException("Referenced patient belongs to a different hospital.");
+                }
+            });
+        }
     }
 }

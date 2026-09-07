@@ -41,7 +41,7 @@ public class MedicineController {
     }
 
     @PostMapping
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'PHARMACIST', 'DOCTOR')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'PHARMACIST', 'DOCTOR', 'SUPER_ADMIN')")
     public ResponseEntity<?> createMedicine(@RequestBody Medicine medicine, @AuthenticationPrincipal User user) {
         Medicine saved = medicineService.createMedicine(medicine, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);

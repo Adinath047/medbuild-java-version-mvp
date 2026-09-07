@@ -68,7 +68,7 @@ class JwtAccountDeactivationTest {
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
         verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        assertTrue(responseBody.toString().contains("Account has been deactivated. Access revoked."));
+        assertTrue(responseBody.toString().contains("Authentication required."));
         verify(filterChain, never()).doFilter(request, response);
     }
 }

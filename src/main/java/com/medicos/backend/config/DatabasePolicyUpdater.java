@@ -52,9 +52,15 @@ public class DatabasePolicyUpdater implements CommandLineRunner {
                     stmt.execute("ALTER TABLE " + table + " ENABLE ROW LEVEL SECURITY;");
                     stmt.execute("ALTER TABLE " + table + " FORCE ROW LEVEL SECURITY;");
                     stmt.execute("DROP POLICY IF EXISTS tenant_isolation_policy ON " + table + ";");
-                    stmt.execute("CREATE POLICY tenant_isolation_policy ON " + table + " " +
-                            "USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true)) " +
-                            "WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true));");
+                    if ("medicines".equalsIgnoreCase(table)) {
+                        stmt.execute("CREATE POLICY tenant_isolation_policy ON medicines " +
+                                "USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true) OR hospital_id = 'GLOBAL') " +
+                                "WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR (hospital_id = current_setting('app.current_hospital_id', true) AND hospital_id != 'GLOBAL'));");
+                    } else {
+                        stmt.execute("CREATE POLICY tenant_isolation_policy ON " + table + " " +
+                                "USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true)) " +
+                                "WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true));");
+                    }
                     log.info("[DatabasePolicyUpdater] ✅ Synchronized RLS policy on table '{}'", table);
                 } catch (Exception ex) {
                     log.warn("[DatabasePolicyUpdater] Could not update policy on table '{}': {}", table, ex.getMessage());

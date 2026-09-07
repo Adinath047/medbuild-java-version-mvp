@@ -13,8 +13,10 @@ public class JpaConfig {
 
     @Bean
     @Primary
-    public PlatformTransactionManager transactionManager(EntityManagerFactory emf, DataSource dataSource) {
-        RlsAwareJpaTransactionManager tm = new RlsAwareJpaTransactionManager();
+    public PlatformTransactionManager transactionManager(EntityManagerFactory emf,
+                                                         DataSource dataSource,
+                                                         TenantSessionBinder tenantSessionBinder) {
+        RlsAwareJpaTransactionManager tm = new RlsAwareJpaTransactionManager(tenantSessionBinder);
         tm.setEntityManagerFactory(emf);
         tm.setDataSource(dataSource);
         return tm;

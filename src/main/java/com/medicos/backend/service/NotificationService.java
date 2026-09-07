@@ -14,9 +14,12 @@ import java.util.*;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final com.medicos.backend.repository.PatientRepository patientRepository;
 
-    public NotificationService(NotificationRepository notificationRepository) {
+    public NotificationService(NotificationRepository notificationRepository,
+                               com.medicos.backend.repository.PatientRepository patientRepository) {
         this.notificationRepository = notificationRepository;
+        this.patientRepository = patientRepository;
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +55,16 @@ public class NotificationService {
             notification.setHospitalId(hospitalId);
         } else if (notification.getHospitalId() == null || notification.getHospitalId().isEmpty()) {
             notification.setHospitalId(Optional.ofNullable(user).map(User::getHospitalId).orElse("hsp-001"));
+        }
+
+        if (notification.getPatientId() != null && !notification.getPatientId().trim().isEmpty()) {
+            String patientId = notification.getPatientId().trim();
+            com.medicos.backend.entity.Patient p = patientRepository.findById(patientId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + patientId));
+            if (!"GLOBAL".equalsIgnoreCase(notification.getHospitalId()) && p.getHospitalId() != null && !notification.getHospitalId().equals(p.getHospitalId())) {
+                throw new ResourceNotFoundException("Patient not found with ID: " + patientId);
+            }
+            notification.setPatientId(patientId);
         }
 
         return notificationRepository.save(notification);

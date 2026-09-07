@@ -21,8 +21,9 @@ public class PatientUploadController {
     }
 
     @GetMapping("/{patientId}")
-    public ResponseEntity<?> getUploadsByPatientId(@PathVariable("patientId") String patientId) {
-        List<PatientUpload> uploads = patientUploadService.getUploadsByPatientId(patientId);
+    public ResponseEntity<?> getUploadsByPatientId(@PathVariable("patientId") String patientId,
+                                                   @AuthenticationPrincipal User user) {
+        List<PatientUpload> uploads = patientUploadService.getUploadsByPatientId(patientId, user);
         return ResponseEntity.ok(uploads);
     }
 
