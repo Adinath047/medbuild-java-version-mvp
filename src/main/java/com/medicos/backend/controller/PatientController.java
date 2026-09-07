@@ -32,20 +32,23 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getPatientById(@PathVariable("id") String id) {
-        Patient patient = patientService.getPatientById(id);
+    public ResponseEntity<?> getPatientById(@PathVariable("id") String id,
+                                            @AuthenticationPrincipal User user) {
+        Patient patient = patientService.getPatientById(id, user);
         return ResponseEntity.ok(patient);
     }
 
     @GetMapping("/{id}/summary")
-    public ResponseEntity<?> getPatientSummary(@PathVariable("id") String id) {
-        PatientDTO.PatientSummaryResponse summary = patientService.getPatientSummary(id);
+    public ResponseEntity<?> getPatientSummary(@PathVariable("id") String id,
+                                               @AuthenticationPrincipal User user) {
+        PatientDTO.PatientSummaryResponse summary = patientService.getPatientSummary(id, user);
         return ResponseEntity.ok(summary);
     }
 
     @GetMapping("/{id}/vitals-history")
-    public ResponseEntity<?> getVitalsHistory(@PathVariable("id") String id) {
-        List<Vital> history = patientService.getVitalsHistory(id);
+    public ResponseEntity<?> getVitalsHistory(@PathVariable("id") String id,
+                                              @AuthenticationPrincipal User user) {
+        List<Vital> history = patientService.getVitalsHistory(id, user);
         return ResponseEntity.ok(history);
     }
 

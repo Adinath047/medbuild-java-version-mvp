@@ -78,6 +78,22 @@ public class PatientService {
         return p;
     }
 
+    public Patient getPatientById(String id, User user) {
+        Patient p = getPatientById(id);
+        if (auditLogService != null && p != null) {
+            auditLogService.record(
+                    p.getHospitalId(),
+                    "READ_PATIENT_PHI",
+                    "Viewed patient medical chart: " + p.getName() + " (" + p.getUhid() + ")",
+                    user,
+                    p.getId(),
+                    p.getUhid(),
+                    "SUCCESS"
+            );
+        }
+        return p;
+    }
+
     @Cacheable(value = "patient_summary", key = "(T(com.medicos.backend.security.TenantContext).getTenantId() != null ? T(com.medicos.backend.security.TenantContext).getTenantId() : 'GLOBAL') + '_' + #id")
     @Transactional(readOnly = true)
     public PatientDTO.PatientSummaryResponse getPatientSummary(String id) {
@@ -99,11 +115,47 @@ public class PatientService {
         return summary;
     }
 
+    public PatientDTO.PatientSummaryResponse getPatientSummary(String id, User user) {
+        PatientDTO.PatientSummaryResponse summary = getPatientSummary(id);
+        if (auditLogService != null && summary != null && summary.getPatient() != null) {
+            Patient p = summary.getPatient();
+            auditLogService.record(
+                    p.getHospitalId(),
+                    "READ_PATIENT_SUMMARY",
+                    "Viewed clinical summary for " + p.getName() + " (" + p.getUhid() + ")",
+                    user,
+                    p.getId(),
+                    p.getUhid(),
+                    "SUCCESS"
+            );
+        }
+        return summary;
+    }
+
     @Transactional(readOnly = true)
     public List<Vital> getVitalsHistory(String id) {
         getPatientById(id);
 
         return vitalRepository.findByPatientIdOrderByRecordedAtDesc(id);
+    }
+
+    public List<Vital> getVitalsHistory(String id, User user) {
+        List<Vital> history = getVitalsHistory(id);
+        if (auditLogService != null) {
+            Patient p = patientRepository.findById(id).orElse(null);
+            if (p != null) {
+                auditLogService.record(
+                        p.getHospitalId(),
+                        "READ_VITALS_HISTORY",
+                        "Retrieved " + history.size() + " vitals measurement(s) for patient " + p.getName(),
+                        user,
+                        p.getId(),
+                        p.getUhid(),
+                        "SUCCESS"
+                );
+            }
+        }
+        return history;
     }
 
     @CacheEvict(value = "patients", allEntries = true)
