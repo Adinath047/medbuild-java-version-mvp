@@ -52,7 +52,7 @@ public class MedbuildsCapabilityStatementProvider extends ServerCapabilityStatem
         cs.setTitle("Medbuilds EMR FHIR R4 API");
         cs.setPublisher("Medbuilds");
         cs.setDescription(
-            "FHIR R4 read-only Patient API for Medbuilds EMR. " +
+            "FHIR R4 read-only Patient API for Medbuilds EMR conforming to ABDM / NRCeS specifications. " +
             "Phase 1: Patient resource. Requires SMART App Launch authentication.");
         cs.setStatus(Enumerations.PublicationStatus.ACTIVE);
         cs.setSoftware(new CapabilityStatement.CapabilityStatementSoftwareComponent()

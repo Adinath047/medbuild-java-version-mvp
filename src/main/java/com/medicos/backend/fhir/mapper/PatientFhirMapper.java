@@ -15,8 +15,10 @@ import java.util.List;
  *
  * <p>Standard conformance:
  * <ul>
- *   <li>Complies with HL7 FHIR R4 base specification and US Core v3.1.1 Patient Profile.</li>
- *   <li>Includes standard US Core must-support extensions (race, ethnicity, birthsex) and communication.</li>
+ *   <li>Complies with HL7 FHIR R4 and ABDM (Ayushman Bharat Digital Mission) / NRCeS Patient Profile
+ *       ({@code https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient}).</li>
+ *   <li>Conforms to India's DPDP Act 2023 data minimization principles by strictly omitting
+ *       US-specific census reporting extensions (race, ethnicity, birthsex).</li>
  * </ul>
  * </p>
  *
@@ -32,18 +34,14 @@ import java.util.List;
 @Component
 public class PatientFhirMapper {
 
-    private static final String US_CORE_PATIENT_PROFILE =
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient";
-    private static final String US_CORE_RACE_URL =
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race";
-    private static final String US_CORE_ETHNICITY_URL =
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity";
-    private static final String US_CORE_BIRTHSEX_URL =
-        "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex";
+    private static final String ABDM_PATIENT_PROFILE =
+        "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient";
 
-    private static final String SYSTEM_UHID        = "https://medbuilds.com/fhir/identifier/uhid";
-    private static final String SYSTEM_ABHA        = "https://abha.abdm.gov.in/identifier";
-    private static final String SYSTEM_BLOOD_GROUP = "http://terminology.hl7.org/CodeSystem/v3-BloodGroup";
+    private static final String SYSTEM_UHID                 = "https://medbuilds.com/fhir/identifier/uhid";
+    private static final String SYSTEM_ABHA                 = "https://healthid.ndhm.gov.in";
+    private static final String SYSTEM_HL7_V2_0203          = "http://terminology.hl7.org/CodeSystem/v2-0203";
+    private static final String SYSTEM_NDHM_IDENTIFIER_TYPE = "https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code";
+    private static final String SYSTEM_BLOOD_GROUP          = "http://terminology.hl7.org/CodeSystem/v3-BloodGroup";
 
     /**
      * Converts a JPA {@link Patient} to a FHIR R4 {@link org.hl7.fhir.r4.model.Patient}.
@@ -59,16 +57,35 @@ public class PatientFhirMapper {
         fhir.getMeta()
             .setVersionId("1")
             .setLastUpdated(new Date())
-            .addProfile(US_CORE_PATIENT_PROFILE);
+            .addProfile(ABDM_PATIENT_PROFILE);
 
-        // ── Identifiers ────────────────────────────────────────────────────────
+        // ── Identifiers (ABDM requires 1..*, type bound to NDHM Identifier Type Code ValueSet) ──
+        // 1. Primary Hospital Identifier: UHID (Medical Record Number)
+        String uhidVal = (p.getUhid() != null && !p.getUhid().isBlank()) ? p.getUhid() : p.getId();
+        CodeableConcept uhidType = new CodeableConcept();
+        uhidType.addCoding()
+            .setSystem(SYSTEM_HL7_V2_0203)
+            .setCode("MR")
+            .setDisplay("Medical record number");
+        uhidType.setText("Medical Record Number");
+
         fhir.addIdentifier()
+            .setType(uhidType)
             .setSystem(SYSTEM_UHID)
-            .setValue(p.getUhid())
+            .setValue(uhidVal)
             .setUse(Identifier.IdentifierUse.OFFICIAL);
 
+        // 2. ABDM National Health Identifier: ABHA Number / Health ID (if present)
         if (p.getAbhaNumber() != null && !p.getAbhaNumber().isBlank()) {
+            CodeableConcept abhaType = new CodeableConcept();
+            abhaType.addCoding()
+                .setSystem(SYSTEM_NDHM_IDENTIFIER_TYPE)
+                .setCode("ABHA")
+                .setDisplay("Ayushman Bharat Health Account (ABHA) ID");
+            abhaType.setText("ABHA");
+
             fhir.addIdentifier()
+                .setType(abhaType)
                 .setSystem(SYSTEM_ABHA)
                 .setValue(p.getAbhaNumber())
                 .setUse(Identifier.IdentifierUse.OFFICIAL);
@@ -77,12 +94,13 @@ public class PatientFhirMapper {
         // ── Active status ──────────────────────────────────────────────────────
         fhir.setActive(p.getIsActive() != null && p.getIsActive() == 1);
 
-        // ── Name ───────────────────────────────────────────────────────────────
+        // ── Name (ABDM requires name.text as 1..1) ─────────────────────────────
         if (p.getName() != null && !p.getName().isBlank()) {
+            String trimmedName = p.getName().trim();
             HumanName name = new HumanName()
                 .setUse(HumanName.NameUse.OFFICIAL)
-                .setText(p.getName().trim());
-            String[] parts = p.getName().trim().split("\\s+", 2);
+                .setText(trimmedName);
+            String[] parts = trimmedName.split("\\s+", 2);
             if (parts.length == 2) {
                 name.setFamily(parts[1]);
                 name.addGiven(parts[0]);
@@ -145,24 +163,6 @@ public class PatientFhirMapper {
         fhir.addCommunication()
             .setLanguage(new CodeableConcept().addCoding(
                 new Coding("urn:ietf:bcp:47", "en", "English")));
-
-        // ── US Core standard extensions (Must-Support) ─────────────────────────
-        // 1. Race
-        Extension raceExt = new Extension(US_CORE_RACE_URL);
-        raceExt.addExtension("ombCategory", new Coding("urn:oid:2.16.840.1.113883.6.238", "2106-3", "White"));
-        raceExt.addExtension("text", new StringType("White"));
-        fhir.addExtension(raceExt);
-
-        // 2. Ethnicity
-        Extension ethnicityExt = new Extension(US_CORE_ETHNICITY_URL);
-        ethnicityExt.addExtension("ombCategory", new Coding("urn:oid:2.16.840.1.113883.6.238", "2186-5", "Not Hispanic or Latino"));
-        ethnicityExt.addExtension("text", new StringType("Not Hispanic or Latino"));
-        fhir.addExtension(ethnicityExt);
-
-        // 3. Birth Sex
-        String birthSexCode = (gender == Enumerations.AdministrativeGender.MALE) ? "M" :
-                              (gender == Enumerations.AdministrativeGender.FEMALE) ? "F" : "UNK";
-        fhir.addExtension(new Extension(US_CORE_BIRTHSEX_URL, new CodeType(birthSexCode)));
 
         // ── Emergency contact (next of kin) ───────────────────────────────────
         if (p.getEcName() != null && !p.getEcName().isBlank()) {

@@ -13,6 +13,7 @@ import com.medicos.backend.repository.PatientRepository;
 import com.medicos.backend.repository.UserRepository;
 import com.medicos.backend.security.JwtTokenProvider;
 import com.medicos.backend.security.TenantContext;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -163,6 +164,11 @@ class FhirPatientResourceTest {
         assertThat(fhirPatient.getIdPart()).isEqualTo("pat-fhir-hsp1");
         assertThat(fhirPatient.getNameFirstRep().getText()).isEqualTo("Alice FHIR");
         assertThat(fhirPatient.getGender().toCode()).isEqualTo("female");
+
+        // Assert ABDM Patient Profile conformance
+        assertThat(fhirPatient.getMeta().getProfile())
+            .extracting(CanonicalType::getValue)
+            .contains("https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient");
     }
 
     // ── 3. HAPI schema validation passes ─────────────────────────────────────
@@ -251,19 +257,26 @@ class FhirPatientResourceTest {
         assertThat(body).doesNotContain("\"password\"");
     }
 
-    // ── 7. UHID identifier present ────────────────────────────────────────────
+    // ── 7. UHID identifier conforms to ABDM / NRCeS specification ───────────
 
     @Test
     @Order(7)
-    void patientRead_includesUhidIdentifier() {
+    void patientRead_includesUhidIdentifierConformingToAbdm() {
         HttpHeaders headers = bearerHeaders(tokenHsp1);
         ResponseEntity<String> response = restTemplate.exchange(
             baseUrl + "/fhir/r4/Patient/pat-fhir-hsp1",
             HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("UHID-FHIR-001");
-        assertThat(response.getBody()).contains("medbuilds.com/fhir/identifier/uhid");
+        org.hl7.fhir.r4.model.Patient fhirPatient =
+            jsonParser.parseResource(org.hl7.fhir.r4.model.Patient.class, response.getBody());
+
+        assertThat(fhirPatient.getIdentifier()).isNotEmpty();
+        Identifier uhid = fhirPatient.getIdentifierFirstRep();
+        assertThat(uhid.getSystem()).isEqualTo("https://medbuilds.com/fhir/identifier/uhid");
+        assertThat(uhid.getValue()).isEqualTo("UHID-FHIR-001");
+        assertThat(uhid.getType().getCodingFirstRep().getSystem()).isEqualTo("http://terminology.hl7.org/CodeSystem/v2-0203");
+        assertThat(uhid.getType().getCodingFirstRep().getCode()).isEqualTo("MR");
     }
 
     // ── 8. PatientFhirMapper unit test: gender mapping ────────────────────────
@@ -279,6 +292,56 @@ class FhirPatientResourceTest {
 
         Patient other = makePatient("test-o", "Other");
         assertThat(mapper.toFhir(other).getGender().toCode()).isEqualTo("other");
+    }
+
+    // ── 9. ABHA identifier mapped per ABDM ValueSet binding ──────────────────
+
+    @Test
+    @Order(9)
+    void patientRead_withAbhaNumber_mapsAbhaIdentifierPerAbdmSpec() {
+        patientHsp1.setAbhaNumber("14-9876-5432-1098");
+        patientRepository.save(patientHsp1);
+
+        HttpHeaders headers = bearerHeaders(tokenHsp1);
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl + "/fhir/r4/Patient/pat-fhir-hsp1",
+            HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        org.hl7.fhir.r4.model.Patient fhirPatient =
+            jsonParser.parseResource(org.hl7.fhir.r4.model.Patient.class, response.getBody());
+
+        Identifier abhaId = fhirPatient.getIdentifier().stream()
+            .filter(id -> "https://healthid.ndhm.gov.in".equals(id.getSystem()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("ABHA identifier missing from ABDM Patient resource"));
+
+        assertThat(abhaId.getValue()).isEqualTo("14-9876-5432-1098");
+        assertThat(abhaId.getType().getCodingFirstRep().getSystem())
+            .isEqualTo("https://nrces.in/ndhm/fhir/r4/CodeSystem/ndhm-identifier-type-code");
+        assertThat(abhaId.getType().getCodingFirstRep().getCode()).isEqualTo("ABHA");
+    }
+
+    // ── 10. DPDP Act compliance: Zero US Core census extensions ──────────────
+
+    @Test
+    @Order(10)
+    void patientRead_omitsUsCoreCensusExtensions_dpdpCompliance() {
+        HttpHeaders headers = bearerHeaders(tokenHsp1);
+        ResponseEntity<String> response = restTemplate.exchange(
+            baseUrl + "/fhir/r4/Patient/pat-fhir-hsp1",
+            HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        org.hl7.fhir.r4.model.Patient fhirPatient =
+            jsonParser.parseResource(org.hl7.fhir.r4.model.Patient.class, response.getBody());
+
+        // Strictly verify zero US Core OMB race, ethnicity, or birthsex extensions
+        for (Extension ext : fhirPatient.getExtension()) {
+            assertThat(ext.getUrl())
+                .as("Patient resource must not contain US Core extensions")
+                .doesNotContain("us-core");
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -81,6 +81,7 @@ public class FhirStagingDataInitializer implements ApplicationRunner {
             p.setEmail("john.smith@example.com");
             p.setAddress("100 Healthcare Ave, Medical District");
             p.setBloodGroup("O+");
+            p.setAbhaNumber("14-9876-5432-1098");
             p.setIsActive(1);
             patientRepository.save(p);
             log.info("[FhirStagingDataInitializer] Provisioned staging patient pat-fhir-001 (John Smith)");
