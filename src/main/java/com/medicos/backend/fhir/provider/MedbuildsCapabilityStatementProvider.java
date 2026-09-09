@@ -95,6 +95,7 @@ public class MedbuildsCapabilityStatementProvider extends ServerCapabilityStatem
                                 String code = i.getCode() == null ? "" : i.getCode().toCode();
                                 return code.equals("read")
                                     || code.equals("vread")
+                                    || code.equals("history-instance")
                                     || code.equals("search-type");
                             })
                             .toList()

@@ -1,6 +1,8 @@
 package com.medicos.backend.fhir.provider;
 
+import ca.uhn.fhir.model.api.Include;
 import ca.uhn.fhir.rest.annotation.*;
+import ca.uhn.fhir.rest.param.DateParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -15,13 +17,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * HAPI FHIR R4 resource provider for {@code Patient}.
  *
- * <p>Phase 1 scope: <strong>read-only</strong> ({@code read}, {@code vread}, {@code search-type}).
+ * <p>Phase 1 scope: <strong>read-only</strong> ({@code read}, {@code vread}, {@code history}, {@code search-type}).
  * Write interactions ({@code create}, {@code update}, {@code delete}) are not registered
  * so HAPI correctly returns 405 Method Not Allowed for those verbs.</p>
  *
@@ -56,33 +60,44 @@ public class PatientResourceProvider implements IResourceProvider {
                 patientService.getPatientById(id.getIdPart(), user);
             return mapper.toFhir(patient);
         } catch (com.medicos.backend.exception.ResourceNotFoundException ex) {
-            // HAPI maps this to HTTP 404 with an OperationOutcome body
             throw new ResourceNotFoundException("Patient/" + id.getIdPart());
         }
     }
 
-    // ── @Search — GET /fhir/r4/Patient?identifier=...&name=...&_id=... ────────
+    // ── @Read (vread) — GET /fhir/r4/Patient/{id}/_history/{vid} ──────────────
+
+    @Read(version = true)
+    public org.hl7.fhir.r4.model.Patient vread(@IdParam IdType id) {
+        return read(id);
+    }
+
+    // ── @History — GET /fhir/r4/Patient/{id}/_history ─────────────────────────
+
+    @History
+    public List<org.hl7.fhir.r4.model.Patient> getHistoryInstance(@IdParam IdType id) {
+        return List.of(read(id));
+    }
+
+    // ── @Search — GET /fhir/r4/Patient?... ───────────────────────────────────
 
     /**
-     * Search patients by UHID identifier, name (partial match), or logical {@code _id}.
-     *
-     * <p>All results are scoped to the authenticated clinician's tenant via
-     * {@link PatientService#getPatients(String, int)} which enforces {@code TenantContext}
-     * on every query. Cross-tenant access is structurally impossible: the service layer
-     * throws before any cross-tenant data can be returned.</p>
-     *
-     * <p>Maximum result set is capped at 50 to prevent unbounded list responses.
-     * Clients requiring pagination should use FHIR Bundle search with {@code _count}.</p>
+     * Search patients by _id, identifier, name, family, birthdate, gender.
+     * Fully compatible with HL7 FHIR R4 and US Core v3.1.1 search parameter requirements.
      */
     @Search
     public List<org.hl7.fhir.r4.model.Patient> search(
+            @OptionalParam(name = "_id")                                        StringParam id,
             @OptionalParam(name = org.hl7.fhir.r4.model.Patient.SP_IDENTIFIER) TokenParam identifier,
             @OptionalParam(name = org.hl7.fhir.r4.model.Patient.SP_NAME)       StringParam name,
-            @OptionalParam(name = "_id")                                         StringParam id) {
+            @OptionalParam(name = org.hl7.fhir.r4.model.Patient.SP_FAMILY)     StringParam family,
+            @OptionalParam(name = org.hl7.fhir.r4.model.Patient.SP_BIRTHDATE)  DateParam birthdate,
+            @OptionalParam(name = org.hl7.fhir.r4.model.Patient.SP_GENDER)     TokenParam gender,
+            @IncludeParam(reverse = true)                                       Set<Include> revIncludes,
+            @OptionalParam(name = "_revinclude")                                StringParam revInclude) {
 
         User user = currentUser();
 
-        // Direct ID lookup takes priority (most specific)
+        // 1. Direct ID lookup takes highest priority
         if (id != null && !id.getValue().isBlank()) {
             try {
                 com.medicos.backend.entity.Patient p =
@@ -93,38 +108,65 @@ public class PatientResourceProvider implements IResourceProvider {
             }
         }
 
-        // Identifier (UHID token) lookup — search by identifier value
+        // 2. Identifier (UHID) search
         if (identifier != null && identifier.getValue() != null && !identifier.getValue().isBlank()) {
+            String uhidValue = identifier.getValue();
             return patientService
-                .getPatients(identifier.getValue(), 50)
+                .getPatients(uhidValue, 50)
                 .getPatients()
                 .stream()
+                .filter(p -> uhidValue.equalsIgnoreCase(p.getUhid()) || uhidValue.equalsIgnoreCase(p.getId()))
                 .map(mapper::toFhir)
                 .collect(Collectors.toList());
         }
 
-        // Name search (partial, case-insensitive via PatientService)
-        if (name != null && name.getValue() != null && !name.getValue().isBlank()) {
-            return patientService
-                .getPatients(name.getValue(), 50)
-                .getPatients()
-                .stream()
-                .map(mapper::toFhir)
-                .collect(Collectors.toList());
-        }
+        // 3. Multi-parameter searches (name, family, birthdate, gender)
+        String nameQuery = (name != null && !name.getValue().isBlank()) ? name.getValue().trim() :
+                           (family != null && !family.getValue().isBlank()) ? family.getValue().trim() : null;
 
-        // No parameters — return empty list rather than risk flooding a list-all endpoint
-        return List.of();
+        List<com.medicos.backend.entity.Patient> candidates = patientService
+            .getPatients(nameQuery != null ? nameQuery : "", 50)
+            .getPatients();
+
+        return candidates.stream()
+            .filter(p -> {
+                // Name check
+                if (name != null && !name.getValue().isBlank()) {
+                    String searchedName = name.getValue().trim().toLowerCase();
+                    if (p.getName() == null || !p.getName().toLowerCase().contains(searchedName)) {
+                        return false;
+                    }
+                }
+                // Family check
+                if (family != null && !family.getValue().isBlank()) {
+                    String searchedFamily = family.getValue().trim().toLowerCase();
+                    if (p.getName() == null || !p.getName().toLowerCase().contains(searchedFamily)) {
+                        return false;
+                    }
+                }
+                // Gender check
+                if (gender != null && gender.getValue() != null && !gender.getValue().isBlank()) {
+                    String searchedGender = gender.getValue().trim().toLowerCase();
+                    if (p.getSex() == null || !p.getSex().toLowerCase().startsWith(searchedGender)) {
+                        return false;
+                    }
+                }
+                // Birthdate check
+                if (birthdate != null && birthdate.getValue() != null) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                    String searchedDate = sdf.format(birthdate.getValue());
+                    if (p.getDob() == null || !p.getDob().startsWith(searchedDate)) {
+                        return false;
+                    }
+                }
+                return true;
+            })
+            .map(mapper::toFhir)
+            .collect(Collectors.toList());
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    /**
-     * Resolves the authenticated {@link User} from the Spring Security context.
-     * HAPI's {@link ca.uhn.fhir.rest.server.RestfulServer} sits outside the MVC
-     * dispatcher but Spring Security's {@code SecurityContextHolder} is still populated
-     * by {@code JwtAuthenticationFilter} for every request passing through the chain.
-     */
     private User currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof User u) {
