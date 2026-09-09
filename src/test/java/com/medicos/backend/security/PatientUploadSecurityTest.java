@@ -1,13 +1,18 @@
 package com.medicos.backend.security;
 
+import com.medicos.backend.dto.PatientDTO;
+import com.medicos.backend.entity.AuditLog;
 import com.medicos.backend.entity.Patient;
 import com.medicos.backend.entity.PatientUpload;
 import com.medicos.backend.entity.User;
+import com.medicos.backend.entity.Vital;
 import com.medicos.backend.exception.BadRequestException;
 import com.medicos.backend.exception.ResourceNotFoundException;
 import com.medicos.backend.repository.PatientRepository;
 import com.medicos.backend.repository.PatientUploadRepository;
 import com.medicos.backend.repository.UserRepository;
+import com.medicos.backend.repository.VitalRepository;
+import com.medicos.backend.service.PatientService;
 import com.medicos.backend.service.PatientUploadService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +22,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +51,15 @@ public class PatientUploadSecurityTest {
 
     @Autowired
     private com.medicos.backend.repository.AuditLogRepository auditLogRepository;
+
+    @Autowired
+    private PatientService patientService;
+
+    @Autowired
+    private VitalRepository vitalRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -94,6 +113,7 @@ public class PatientUploadSecurityTest {
         TenantContext.clear();
         uploadRepository.deleteAll();
         auditLogRepository.deleteAll();
+        vitalRepository.deleteAll();
         patientRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -246,7 +266,7 @@ public class PatientUploadSecurityTest {
     }
 
     @Test
-    @DisplayName("PatientUpload: cross-tenant patient reference is blocked")
+    @DisplayName("PatientUpload: cross-tenant patient reference is blocked and logged as DENIED")
     void testUploadCrossTenantPatientBlocked() {
         TenantContext.setTenantId("hsp-001");
 
@@ -259,5 +279,146 @@ public class PatientUploadSecurityTest {
         assertThrows(ResourceNotFoundException.class, () ->
                 uploadService.uploadDocument(upload, doctorHsp1)
         );
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        AuditLog deniedLog = logs.stream()
+                .filter(l -> "UPLOAD_PATIENT_PHI_DOCUMENT".equals(l.getActionType()) && "DENIED".equals(l.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(deniedLog, "Expected DENIED audit log entry for cross-tenant upload attempt");
+        assertEquals("hsp-001", deniedLog.getHospitalId());
+        assertEquals(doctorHsp1.getId(), deniedLog.getUserId());
+        assertEquals("pat-up-hsp2", deniedLog.getPatientId());
+        assertEquals("UHID-UP-002", deniedLog.getPatientUhid());
+        assertTrue(deniedLog.getDetails().contains("Denied cross-tenant document upload"));
+    }
+
+    @Test
+    @DisplayName("HIPAA Audit: getPatientById records READ_PATIENT_PHI with clinician attribution")
+    void testPatientGetByIdAuditLogging() {
+        TenantContext.setTenantId("hsp-001");
+
+        Patient retrieved = patientService.getPatientById("pat-up-hsp1", doctorHsp1);
+        assertNotNull(retrieved);
+        assertEquals("Patient HSP1", retrieved.getName());
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        AuditLog phiLog = logs.stream()
+                .filter(l -> "READ_PATIENT_PHI".equals(l.getActionType()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(phiLog, "Expected READ_PATIENT_PHI audit log entry");
+        assertEquals("hsp-001", phiLog.getHospitalId());
+        assertEquals(doctorHsp1.getId(), phiLog.getUserId());
+        assertEquals("pat-up-hsp1", phiLog.getPatientId());
+        assertEquals("UHID-UP-001", phiLog.getPatientUhid());
+        assertEquals("SUCCESS", phiLog.getStatus());
+        assertTrue(phiLog.getDetails().contains("Viewed patient medical chart: Patient HSP1"));
+    }
+
+    @Test
+    @DisplayName("HIPAA Audit: getPatientSummary records READ_PATIENT_SUMMARY audit trail")
+    void testPatientGetSummaryAuditLogging() {
+        TenantContext.setTenantId("hsp-001");
+
+        PatientDTO.PatientSummaryResponse summary = patientService.getPatientSummary("pat-up-hsp1", doctorHsp1);
+        assertNotNull(summary);
+        assertEquals("Patient HSP1", summary.getPatient().getName());
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        AuditLog summaryLog = logs.stream()
+                .filter(l -> "READ_PATIENT_SUMMARY".equals(l.getActionType()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(summaryLog, "Expected READ_PATIENT_SUMMARY audit log entry");
+        assertEquals("hsp-001", summaryLog.getHospitalId());
+        assertEquals(doctorHsp1.getId(), summaryLog.getUserId());
+        assertEquals("pat-up-hsp1", summaryLog.getPatientId());
+        assertEquals("UHID-UP-001", summaryLog.getPatientUhid());
+    }
+
+    @Test
+    @DisplayName("HIPAA Audit: getVitalsHistory records READ_VITALS_HISTORY with measurement count")
+    void testVitalsHistoryAuditLogging() {
+        TenantContext.setTenantId("hsp-001");
+
+        Vital vital = new Vital();
+        vital.setId("vit-audit-001");
+        vital.setPatientId("pat-up-hsp1");
+        vital.setHospitalId("hsp-001");
+        vital.setBpSystolic(120);
+        vital.setBpDiastolic(80);
+        vital.setRecordedBy("usr-doc-up-hsp1");
+        vital.setRecordedAt(LocalDateTime.now());
+        vitalRepository.save(vital);
+
+        List<Vital> history = patientService.getVitalsHistory("pat-up-hsp1", doctorHsp1);
+        assertEquals(1, history.size());
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        AuditLog vitalsLog = logs.stream()
+                .filter(l -> "READ_VITALS_HISTORY".equals(l.getActionType()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(vitalsLog, "Expected READ_VITALS_HISTORY audit log entry");
+        assertEquals("hsp-001", vitalsLog.getHospitalId());
+        assertEquals(doctorHsp1.getId(), vitalsLog.getUserId());
+        assertEquals("pat-up-hsp1", vitalsLog.getPatientId());
+        assertTrue(vitalsLog.getDetails().contains("Retrieved 1 vitals measurement(s)"));
+    }
+
+    @Test
+    @DisplayName("HIPAA Audit: audit log successfully writes even inside readOnly = true transaction via REQUIRES_NEW")
+    void testReadPathAuditPersistsInsideReadOnlyTransaction() {
+        TenantContext.setTenantId("hsp-001");
+
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setName("ReadOnlyTxTest");
+        def.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        def.setReadOnly(true);
+
+        TransactionTemplate txTemplate = new TransactionTemplate(transactionManager, def);
+
+        // Execute patient read from inside a read-only transaction boundary
+        txTemplate.execute(status -> {
+            Patient p = patientService.getPatientById("pat-up-hsp1", doctorHsp1);
+            assertNotNull(p);
+            return null;
+        });
+
+        // Verify REQUIRES_NEW successfully committed the audit log in its own independent transaction
+        List<AuditLog> logs = auditLogRepository.findAll();
+        boolean hasPhiLog = logs.stream().anyMatch(l -> "READ_PATIENT_PHI".equals(l.getActionType()));
+        assertTrue(hasPhiLog, "Audit log must persist despite outer transaction being read-only");
+    }
+
+    @Test
+    @DisplayName("HIPAA Audit: cross-tenant access is blocked and logged as DENIED")
+    void testCrossTenantPatientReadBlockedAndLoggedAsDenied() {
+        TenantContext.setTenantId("hsp-002");
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                patientService.getPatientById("pat-up-hsp1", doctorHsp2)
+        );
+
+        List<AuditLog> logs = auditLogRepository.findAll();
+        boolean hasSuccessLog = logs.stream().anyMatch(l -> "READ_PATIENT_PHI".equals(l.getActionType()) && "SUCCESS".equals(l.getStatus()));
+        assertFalse(hasSuccessLog, "No successful READ_PATIENT_PHI log should exist for unauthorized cross-tenant attempt");
+
+        AuditLog deniedLog = logs.stream()
+                .filter(l -> "READ_PATIENT_PHI".equals(l.getActionType()) && "DENIED".equals(l.getStatus()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(deniedLog, "Expected DENIED audit log entry for cross-tenant chart reconnaissance attempt");
+        assertEquals("hsp-002", deniedLog.getHospitalId());
+        assertEquals(doctorHsp2.getId(), deniedLog.getUserId());
+        assertEquals("pat-up-hsp1", deniedLog.getPatientId());
+        assertEquals("UHID-UP-001", deniedLog.getPatientUhid());
+        assertTrue(deniedLog.getDetails().contains("Denied cross-tenant chart access attempt"));
     }
 }

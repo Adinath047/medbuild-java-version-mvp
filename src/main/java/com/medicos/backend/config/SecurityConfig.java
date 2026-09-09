@@ -75,7 +75,8 @@ public class SecurityConfig {
                 .ignoringRequestMatchers(
                     "/api/auth/**",
                     "/api/trial/signup",
-                    "/api/mobile/**"
+                    "/api/mobile/**",
+                    "/fhir/r4/**"
                 )
                 .ignoringRequestMatchers(request -> {
                     String authHeader = request.getHeader("Authorization");
@@ -175,6 +176,15 @@ public class SecurityConfig {
                     // ── Patient app public endpoints ──────────────────────────
                     .requestMatchers("/api/mobile/doctors", "/api/mobile/doctors/**").permitAll()
                     .requestMatchers("/api/mobile/health-tips").permitAll()
+
+                    // ── FHIR R4 Endpoint ──────────────────────────────────────
+                    // /metadata is unauthenticated: SMART App Launch spec requires
+                    // clients to discover authorization URIs before they have a token.
+                    // /api/auth/introspect is unauthenticated: RFC 7662 §2.1.
+                    // Everything else under /fhir/r4/** requires a valid Bearer token.
+                    .requestMatchers("/fhir/r4/metadata").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/introspect").permitAll()
+                    .requestMatchers("/fhir/r4/**").authenticated()
 
                     // ── Swagger / OpenAPI (disabled in production via env var) ─
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html")

@@ -123,6 +123,18 @@ public class PatientUploadService {
                 .orElseThrow(() -> new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId));
 
         if (!"GLOBAL".equalsIgnoreCase(upload.getHospitalId()) && patient.getHospitalId() != null && !upload.getHospitalId().equals(patient.getHospitalId())) {
+            if (auditLogService != null) {
+                auditLogService.record(
+                        upload.getHospitalId(),
+                        "UPLOAD_PATIENT_PHI_DOCUMENT",
+                        "Denied cross-tenant document upload attempt for patient " + patient.getUhid()
+                                + " belonging to hospital " + patient.getHospitalId(),
+                        user,
+                        patient.getId(),
+                        patient.getUhid(),
+                        "DENIED"
+                );
+            }
             throw new com.medicos.backend.exception.ResourceNotFoundException("Patient not found with ID: " + patientId);
         }
 
@@ -151,11 +163,34 @@ public class PatientUploadService {
         String hospitalId = com.medicos.backend.security.TenantContext.getTenantId();
         if (hospitalId != null && !hospitalId.trim().isEmpty() && !"GLOBAL".equalsIgnoreCase(hospitalId)) {
             if (upload.getHospitalId() != null && !hospitalId.equals(upload.getHospitalId())) {
+                if (auditLogService != null) {
+                    auditLogService.record(
+                            hospitalId,
+                            "DELETE_PATIENT_PHI_DOCUMENT",
+                            "Denied cross-tenant document deletion attempt for upload ID: " + id
+                                    + " belonging to hospital " + upload.getHospitalId(),
+                            user,
+                            upload.getPatientId(),
+                            null,
+                            "DENIED"
+                    );
+                }
                 throw new com.medicos.backend.exception.ResourceNotFoundException("Upload not found with ID: " + id);
             }
         }
 
         if (user != null && "patient".equalsIgnoreCase(user.getRole()) && !user.getId().equals(upload.getPatientId())) {
+            if (auditLogService != null) {
+                auditLogService.record(
+                        upload.getHospitalId(),
+                        "DELETE_PATIENT_PHI_DOCUMENT",
+                        "Denied unauthorized patient document deletion attempt for upload ID: " + id,
+                        user,
+                        upload.getPatientId(),
+                        null,
+                        "DENIED"
+                );
+            }
             throw new com.medicos.backend.exception.UnauthorizedException("Access Denied: You can only delete your own uploads.");
         }
 
