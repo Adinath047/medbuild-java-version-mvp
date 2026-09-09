@@ -19,6 +19,7 @@
         <netty.version>4.1.137.Final</netty.version>
         <jjwt.version>0.12.6</jjwt.version>
         <springdoc.version>2.8.9</springdoc.version>
+        <hapi-fhir.version>7.4.0</hapi-fhir.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
         <cloud-sql-connector.version>1.21.0</cloud-sql-connector.version>
         <node.version>v20.11.1</node.version>
@@ -168,7 +169,42 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- ── HAPI FHIR R4 ──────────────────────────────────────────────────────
+             hapi-fhir-base       : core context, parsers, type system
+             hapi-fhir-structures-r4 : typed R4 resource classes (Patient, etc.)
+             hapi-fhir-server     : IResourceProvider, RestfulServer servlet
+             hapi-fhir-validation : FhirValidator + schema validation (test only)
+             Version 7.x required for Jakarta EE namespace (Spring Boot 3.x).  -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-base</artifactId>
+            <version>${hapi-fhir.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-r4</artifactId>
+            <version>${hapi-fhir.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-server</artifactId>
+            <version>${hapi-fhir.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-validation</artifactId>
+            <version>${hapi-fhir.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-validation-resources-r4</artifactId>
+            <version>${hapi-fhir.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
 
     <!-- Force patched versions of vulnerable transitive dependencies -->
     <dependencyManagement>
