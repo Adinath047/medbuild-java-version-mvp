@@ -95,11 +95,11 @@
             <version>1.0.10</version>
         </dependency>
 
-        <!-- JSoup HTML Cleaner (CVE-2022-36033 fixed in 1.18.1+) -->
+        <!-- JSoup HTML Cleaner (CVE-2024-43634 fixed in 1.23.1) -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.18.3</version>
+            <version>1.23.1</version>
         </dependency>
 
         <!-- Springdoc OpenAPI UI (Swagger Docs) -->
