@@ -94,22 +94,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: processed.length,
         isLoading: false
       });
-
-      // Auto-trigger active print modal for Receptionist/Staff if new print_request arrives
-      if (['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(userRole || '')) {
-        const firstUnreadPrint = printRequestsOnly[0];
-        if (firstUnreadPrint && firstUnreadPrint.parsedPayload) {
-          const currentModal = get().activePrintModalData;
-          if (!currentModal || currentModal.notificationId !== firstUnreadPrint.id) {
-            set({
-              activePrintModalData: {
-                notificationId: firstUnreadPrint.id,
-                ...firstUnreadPrint.parsedPayload
-              }
-            });
-          }
-        }
-      }
     } catch (err) {
       console.warn('[NotificationStore] Fetch failed:', err);
       set({ isLoading: false });
