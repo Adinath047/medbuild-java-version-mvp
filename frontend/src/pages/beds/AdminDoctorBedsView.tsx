@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useSync } from '../../sync/useSync';
 import { v4 as uuid } from 'uuid';
 import { triggerSyncBroadcast } from '../../sync/syncManager';
+import { toast } from '../../store/toastStore';
 
 // ── SVG Icon Components (Strictly NO Emojis) ───────────────────────────
 function PlusIcon() {
@@ -496,7 +497,7 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
     setError('');
     try {
       const res = await apiClient.get('/beds');
-      setBeds(res.data || []);
+      setBeds(Array.isArray(res.data) ? res.data : (res.data?.beds || []));
     } catch {
       setBeds([]);
     } finally {
@@ -520,7 +521,7 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
     setLoadingVitalsLog(true);
     try {
       const res = await apiClient.get('/vitals', { params: { patient_id: bed.patient_id, limit: 20 } });
-      setVitalsLogList(res.data || []);
+      setVitalsLogList(Array.isArray(res.data) ? res.data : (res.data?.vitals || []));
     } catch {
       setVitalsLogList([]);
     } finally {
@@ -533,16 +534,17 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
   };
 
   // Dynamically compute stats from actual data
-  const totalBeds = beds.length;
-  const occupiedBeds = beds.filter(b => b.status === 'Occupied').length;
+  const safeBeds = Array.isArray(beds) ? beds : [];
+  const totalBeds = safeBeds.length;
+  const occupiedBeds = safeBeds.filter(b => b.status === 'Occupied').length;
 
   const wardStats = useMemo(() => {
     const defaultWards = ['General', 'ICU', 'Emergency', 'Maternity'];
-    const dynamicWards = Array.from(new Set(beds.map(b => b.ward).filter(Boolean)));
+    const dynamicWards = Array.from(new Set(safeBeds.map(b => b.ward).filter(Boolean)));
     const allWards = Array.from(new Set([...defaultWards, ...dynamicWards]));
 
     return allWards.map(w => {
-      const wardBeds = beds.filter(b => (b.ward || '').toLowerCase() === w.toLowerCase());
+      const wardBeds = safeBeds.filter(b => (b.ward || '').toLowerCase() === w.toLowerCase());
       const occ = wardBeds.filter(b => b.status === 'Occupied').length;
       return {
         ward: w,
@@ -550,7 +552,7 @@ export default function AdminDoctorBedsView({ onNavigate, isReceptionistOnly }: 
         occupied: occ
       };
     });
-  }, [beds]);
+  }, [safeBeds]);
 
   const availableWardsList = useMemo(() => {
     return ['All', 'ICU', 'General', 'Emergency', 'Maternity'];
@@ -994,9 +996,12 @@ function AddBedModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         type: form.type.trim(),
         status: 'Available'
       });
+      toast.success('Bed Added!', `Room ${form.room.trim()} Bed ${form.bed_number.trim()} created in ${form.ward.trim()}`);
       onDone();
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Failed to create bed.');
+      const msg = err?.response?.data?.error || 'Failed to create bed.';
+      setError(msg);
+      toast.error('Failed to Create Bed', msg);
       setSubmitting(false);
     }
   }
@@ -1264,14 +1269,18 @@ function AllocateBedModal({ bed, onClose, onDone }: { bed: Bed; onClose: () => v
     setSubmitting(true);
     setError('');
 
+    const allocatedPat = patients.find(p => p.id === selectedPatientId);
     try {
       await apiClient.post(`/beds/${bed.id}/allocate`, {
         patient_id: selectedPatientId,
         doctor_id: selectedDoctorId || user?.id
       });
+      toast.success('Patient Admitted to Bed!', `${allocatedPat?.name || 'Patient'} assigned to Room ${bed.room} (${bed.bed_number})`);
       onDone();
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Failed to allocate bed.');
+      const errMsg = err?.response?.data?.error || 'Failed to allocate bed.';
+      setError(errMsg);
+      toast.error('Admission Failed', errMsg);
       setSubmitting(false);
     }
   }
@@ -1807,9 +1816,11 @@ function VacateBedBillModal({ bed, onClose, onDone }: {
           await db.billing.put(invoiceData as any);
         }
         triggerSyncBroadcast();
+        toast.info('Patient Discharged', `Room ${bed.room} (${bed.bed_number}) released and is now available.`);
         onDone(true, bed.patient_id);
       } else {
         triggerSyncBroadcast();
+        toast.info('Patient Discharged', `Room ${bed.room} (${bed.bed_number}) released and is now available.`);
         onDone(false);
       }
     } catch (err: any) {

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import { printPharmacyBill } from '../utils/printTemplates';
+import { toast } from '../store/toastStore';
 
 const PAY_MODES = ['Cash','Card','UPI','Insurance','Online'];
 const STATUS_COLOR: Record<string,string> = {
@@ -76,9 +77,15 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!patientId) { alert('Scan an Rx token or set patient first'); return; }
+    if (!patientId) {
+      toast.warning('Patient Required', 'Please scan an Rx token or select a patient first.');
+      return;
+    }
     const validMeds = meds.filter(m => m.name.trim() && m.unit_price > 0);
-    if (!validMeds.length) { alert('Add at least one medicine with a price'); return; }
+    if (!validMeds.length) {
+      toast.warning('Medicines Required', 'Please add at least one medicine with a valid price.');
+      return;
+    }
     setSaving(true);
     const payload = {
       patient_id: patientId,
@@ -92,9 +99,11 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
     try {
       const r = await apiClient.post('/pharmacy', payload);
       setBills(b => [r.data, ...b]);
+      toast.success('Pharmacy Bill Saved!', `Dispensed ${validMeds.length} items for ${patientName || 'Patient'}`);
       resetForm();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Failed to save. Is the server running?');
+      const msg = err?.response?.data?.error || 'Failed to save pharmacy bill. Is the server running?';
+      toast.error('Pharmacy Billing Error', msg);
     } finally { setSaving(false); }
   }
 

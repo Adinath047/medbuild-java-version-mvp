@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { triggerSyncBroadcast } from '../sync/syncManager';
 import { v4 as uuid } from 'uuid';
 import { getSpecialtyCode, SPECIALTY_THEMES } from '../utils/specialtyUtils';
+import { toast } from '../store/toastStore';
 
 const ENC_TYPES = ['OPD','Emergency','Follow-up','IPD','Tele'];
 
@@ -97,12 +98,15 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
     try {
       const res = await apiClient.post('/encounters', payload);
       await db.encounters.put({ ...res.data, _syncStatus: 'synced' });
-      setSuccess('Encounter saved to server ✓');
+      setSuccess('Encounter saved to server');
       triggerSyncBroadcast();
+      const pat = patients.find(p => p.id === patientId);
+      toast.success('Encounter Saved!', `Clinical encounter recorded for ${pat?.name || 'Patient'}`);
     } catch {
       await markPending(db.encounters, 'create', payload);
-      setSuccess('Saved locally — will sync when online ✓');
+      setSuccess('Saved locally — will sync when online');
       triggerSyncBroadcast();
+      toast.info('Saved Offline', 'Encounter notes recorded locally (queued for sync)');
     } finally { setSaving(false); }
   }
 

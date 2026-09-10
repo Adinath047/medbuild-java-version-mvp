@@ -3,6 +3,7 @@ import apiClient from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
 import { triggerSyncBroadcast } from '../../sync/syncManager';
+import { toast } from '../../store/toastStore';
 
 export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
@@ -28,10 +29,10 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
         type: 'emergency',
         message: alertMessage.trim(),
       });
-      alert('Emergency alert broadcasted to all doctors.');
+      toast.warning('Emergency Alert Broadcasted!', 'Clinical emergency alert sent to all on-duty doctors.');
       setShowEmergencyModal(false);
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Emergency alert notification broadcasted.');
+      toast.info('Emergency Alert Dispatched', err?.response?.data?.error || 'Emergency alert notification broadcasted.');
       setShowEmergencyModal(false);
     } finally {
       setSubmittingAlert(false);
@@ -65,7 +66,10 @@ export default function ReceptionDashboard({ onNavigate }: { onNavigate: (p: str
 
   const loadDashboardData = useCallback(async () => {
     const token = localStorage.getItem('emr_token');
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const [apptsRes, bedsRes, billsRes, patRes, docRes] = await Promise.allSettled([

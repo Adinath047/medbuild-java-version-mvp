@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
+import { toast } from '../../store/toastStore';
 
 export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
@@ -74,7 +75,7 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
   async function handleRecordVitals(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedPatientId) {
-      alert('Please select a patient.');
+      toast.warning('Patient Required', 'Please select a patient before recording vitals.');
       return;
     }
 
@@ -114,9 +115,9 @@ export default function NurseDashboard({ onNavigate }: { onNavigate: (p: string,
 
       setVitalsList(prev => [newRecord, ...prev]);
       setShowVitalsModal(false);
-      alert(`✓ Vitals recorded for ${pat?.name || 'Patient'} and synced to Doctor EHR!`);
+      toast.success('Vitals Saved!', `Observations recorded for ${pat?.name || 'Patient'} and synced to Doctor EHR`);
     } catch (err) {
-      alert('Failed to record vitals.');
+      toast.error('Vitals Recording Failed', 'Failed to record vitals observations. Please try again.');
     }
   }
 

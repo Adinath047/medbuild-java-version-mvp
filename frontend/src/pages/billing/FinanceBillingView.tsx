@@ -7,6 +7,7 @@ import { useSync } from '../../sync/useSync';
 import { triggerSyncBroadcast } from '../../sync/syncManager';
 import { v4 as uuid } from 'uuid';
 import { printInvoice, downloadInvoicePDF, exportBillingToCSV } from '../../utils/printTemplates';
+import { toast } from '../../store/toastStore';
 
 const PAY_MODES = ['Cash', 'Card', 'UPI', 'Insurance', 'Online', 'Bank Transfer'];
 
@@ -229,19 +230,19 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       : Math.max(0, net - currentPaid);
     
     if (dueAmount <= 0) {
-      alert('This invoice is already fully settled.');
+      toast.info('Invoice Settled', 'This invoice is already fully settled.');
       setRecordPaymentBill(null);
       return;
     }
 
     const amt = parseFloat(newPaidAmount || '0');
     if (isNaN(amt) || amt <= 0) {
-      alert('Please enter a valid payment amount greater than ₹0.');
+      toast.warning('Invalid Amount', 'Please enter a valid payment amount greater than ₹0.');
       return;
     }
 
     if (amt > dueAmount) {
-      alert(`Payment amount (${formatINR(amt)}) cannot exceed the outstanding balance due (${formatINR(dueAmount)}).`);
+      toast.warning('Payment Exceeds Balance', `Payment amount (${formatINR(amt)}) cannot exceed the outstanding balance due (${formatINR(dueAmount)}).`);
       return;
     }
     
@@ -270,11 +271,13 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
       setBills(prev => prev.map(b => b.id === recordPaymentBill.id ? updated : b));
       await db.billing.put(updated);
+      toast.success('Payment Recorded!', `Payment of ${formatINR(amt)} received for ${recordPaymentBill.patient_name || 'Patient'}`);
       setRecordPaymentBill(null);
       setPaymentRemarks('');
       triggerSyncBroadcast();
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Failed to record payment.');
+      const errMsg = err?.response?.data?.error || 'Failed to record payment.';
+      toast.error('Payment Error', errMsg);
     } finally {
       setSubmittingPayment(false);
       fetchBills();
@@ -388,9 +391,15 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
 
   async function handleCreateBill(e: React.FormEvent) {
     e.preventDefault();
-    if (!patientId) return alert('Please search and select a patient first.');
+    if (!patientId) {
+      toast.warning('Patient Required', 'Please search and select a patient first.');
+      return;
+    }
     const validItems = items.filter(i => i.description.trim() && i.amount > 0);
-    if (validItems.length === 0) return alert('Please add at least one valid billing item with a description and amount.');
+    if (validItems.length === 0) {
+      toast.warning('Items Required', 'Please add at least one valid billing item with a description and amount.');
+      return;
+    }
     setSaving(true);
     const pat = patients.find(p => p.id === patientId);
 
@@ -425,10 +434,12 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
       const savedBill = res.data || b;
       setBills(x => [savedBill, ...x]);
       await db.billing.put(savedBill);
+      toast.success('Invoice Generated!', `Invoice created for ${pat?.name || 'Patient'} (${formatINR(netPayable)})`);
     } catch {
       await db.billing.put({ ...b, _syncStatus: 'pending' } as any);
       await markPending(db.billing, 'create', b as any);
       setBills(x => [b, ...x]);
+      toast.info('Saved Offline', `Invoice for ${pat?.name || 'Patient'} saved locally (queued for sync)`);
     } finally {
       setSaving(false);
       setShowAdd(false);

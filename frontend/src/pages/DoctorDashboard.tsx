@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useSync } from '../sync/useSync';
 
 import { getLocalDateStr } from '../utils/dateUtils';
+import { toast } from '../store/toastStore';
 
 interface DoctorDashboardProps {
   onNavigate: (page: string, data?: any) => void;
@@ -39,8 +40,11 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
         gender: intakeForm.gender,
         notes: intakeForm.chief_complaint ? `Chief Complaint: ${intakeForm.chief_complaint}` : 'Direct Intake via CLI-001 2-Member Clinic'
       });
+      const registeredName = intakeForm.name;
+      const assignedUhid = res.data?.uhid || 'UHID-NEW';
       setShowQuickIntakeModal(false);
       setIntakeForm({ name: '', phone: '', age: '', gender: 'Male', chief_complaint: '' });
+      toast.success('Patient Registered!', `UHID ${assignedUhid} generated for ${registeredName}`);
       if (res.data?.id) {
         onNavigate('new_encounter', { patientId: res.data.id });
       } else {
@@ -48,7 +52,7 @@ export default function DoctorDashboard({ onNavigate }: DoctorDashboardProps) {
       }
     } catch (err) {
       console.error('Failed to register patient:', err);
-      alert('Patient registered locally in 2-Member Direct Mode');
+      toast.info('Direct Intake Mode', `Patient ${intakeForm.name} registered locally in 2-Member Mode`);
       setShowQuickIntakeModal(false);
     } finally {
       setIntakeSaving(false);

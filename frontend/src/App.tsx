@@ -27,6 +27,7 @@ import PrintRequestModal, { PrintModalData } from './components/PrintRequestModa
 import { useNotificationStore } from './store/notificationStore';
 import { EmergencyBanner, NotificationBell } from './components/NotificationUI';
 import TrialBanner from './components/TrialBanner';
+import ToastContainer from './components/ToastContainer';
 
 
 // ── SVG Icons (Matching ClinicalHub Screenshots) ─────────────────────
@@ -727,6 +728,9 @@ export default function App() {
         data={activePrintModalData} 
         onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
       />
+
+      {/* Global Clinical Toast Notification System */}
+      <ToastContainer />
 
     </div>
   );

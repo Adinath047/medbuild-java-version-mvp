@@ -7,8 +7,8 @@ import { v4 as uuid } from 'uuid';
 import { validatePhone, validateRequired, isValidPhone, extractServerError } from '../utils/validation';
 import { useSync } from '../sync/useSync';
 import { triggerSyncBroadcast } from '../sync/syncManager';
-
 import { getLocalDateStr } from '../utils/dateUtils';
+import { toast } from '../store/toastStore';
 
 const STATUS_FLOW: Record<string,string> = { 'Scheduled':'Confirmed','Confirmed':'Checked-In','Checked-In':'Completed' };
 const STATUS_COLOR: Record<string,string> = { 'Scheduled':'badge-info','Confirmed':'badge-success','Checked-In':'badge-purple','Completed':'badge-neutral','Cancelled':'badge-danger','No-Show':'badge-warning','Pending':'badge-warning' };
@@ -243,6 +243,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
         await db.patients.put({ ...pRes.data, _syncStatus: 'synced' });
         finalPatientId = pRes.data.id;
         setPatients(p => [...p, pRes.data]);
+        toast.success('Patient Registered!', `UHID ${pRes.data.uhid || ''} created for ${newPatient.name}`);
       } catch (err) {
         const status = (err as any)?.response?.status;
         if (status === 422 || status === 400) {
@@ -256,6 +257,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
         await db.patients.put(payload);
         finalPatientId = pId;
         setPatients(p => [...p, payload]);
+        toast.info('Patient Queued', `Patient ${newPatient.name} saved locally for auto-sync`);
       }
     }
 
@@ -282,6 +284,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
       await db.appointments.put({ ...r.data, _syncStatus: 'synced' });
       setAppts(a=>[...a,r.data]);
       triggerSyncBroadcast();
+      toast.success('Appointment Scheduled!', `Booked for ${payload.patient_name} with ${payload.doctor_name}`);
       setShowAdd(false); setIsNewPatient(false);
     } catch (err) {
       const status = (err as any)?.response?.status;
