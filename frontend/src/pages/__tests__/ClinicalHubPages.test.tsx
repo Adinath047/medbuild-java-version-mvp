@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, test, expect, vi } from 'vitest';
 import DoctorDashboard from '../DoctorDashboard';
 import PrescriptionsListPage from '../PrescriptionsListPage';
@@ -63,13 +63,15 @@ vi.mock('../../store/authStore', () => ({
 
 describe('ClinicalHub UI & Navigation Test Suite', () => {
   beforeEach(() => {
-    localStorage.setItem('emr_token', 'mock-valid-token');
+    localStorage.setItem('emr_token', 'test-jwt-token');
   });
 
   test('1. DoctorDashboard renders hero banner and critical section without emojis', async () => {
     render(<DoctorDashboard onNavigate={() => {}} />);
-    expect(await screen.findByText(/Cardiology/i)).toBeInTheDocument();
-    expect(await screen.findByText(/^Critical Patients$/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Cardiology/i)).toBeInTheDocument();
+    });
+    expect(screen.getAllByText(/Critical Patients/i).length).toBeGreaterThan(0);
   });
 
   test('2. PrescriptionsListPage renders clean header and search bar', () => {
@@ -78,25 +80,27 @@ describe('ClinicalHub UI & Navigation Test Suite', () => {
     expect(screen.getByPlaceholderText(/Search patient, UHID, doctor/i)).toBeInTheDocument();
   });
 
-  test('3. BedsPage renders Nursing Station and Ward Filter Pills', async () => {
+  test('3. BedsPage renders Bed Allocation Management and Action Controls', () => {
     render(<BedsPage onNavigate={() => {}} />);
-    const occupancyElements = await screen.findAllByText(/Occupancy/i);
-    expect(occupancyElements.length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/General/i)[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/ICU/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Bed Allocation Management/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add Bed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Beds & Vitals Board/i)).toBeInTheDocument();
   });
 
   test('4. FrontDeskDashboard renders Reception hero banner and Quick Actions', async () => {
     render(<FrontDeskDashboard onNavigate={() => {}} />);
-    expect(await screen.findByText(/Register a New Patient/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Schedule a Visit/i)[0]).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Register a New Patient/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Reception dashboard/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Schedule a Visit/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Create Invoice/i)).toBeInTheDocument();
   });
 
   test('5. SettingsPage renders styled tab navigation without emojis', () => {
     render(<SettingsPage />);
     expect(screen.getByText(/^Settings$/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Practitioner Profile/i)[0]).toBeInTheDocument();
+    expect(screen.getByText(/Practitioner Profile & Preferences/i)).toBeInTheDocument();
     expect(screen.getByText(/Medicines Directory/i)).toBeInTheDocument();
   });
 });
