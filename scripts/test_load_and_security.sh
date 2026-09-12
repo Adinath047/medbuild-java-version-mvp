@@ -1,14 +1,12 @@
 #!/bin/bash
-# =====================================================================
-#  🩺 MEDICOS HOSPITAL EMR — LOAD & SECURITY AUDIT TESTING SUITE
-# =====================================================================
+
 
 TARGET_URL="${1:-http://localhost:8080}"
 CONCURRENCY=50
 TOTAL_REQUESTS=200
 
 echo "======================================================================"
-echo "🩺 STARTING MEDICOS EMR LOAD & SECURITY TEST SUITE"
+echo " STARTING MEDICOS EMR LOAD & SECURITY TEST SUITE"
 echo "Target URL  : $TARGET_URL"
 echo "Concurrency : $CONCURRENCY parallel clients"
 echo "Total Calls : $TOTAL_REQUESTS calls"
@@ -16,18 +14,18 @@ echo "======================================================================"
 
 # ── 1. SECURITY TEST: UNAUTHORIZED API ACCESS ───────────────────────
 echo ""
-echo "🔒 1. TESTING SECURITY: UNAUTHORIZED ENDPOINT ACCESS..."
+echo "1. TESTING SECURITY: UNAUTHORIZED ENDPOINT ACCESS..."
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$TARGET_URL/api/patients")
 
 if [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 403 ]; then
-  echo "  ✅ PASSED: Unauthorized request properly blocked with HTTP $HTTP_STATUS"
+  echo " PASSED: Unauthorized request properly blocked with HTTP $HTTP_STATUS"
 else
-  echo "  ⚠️ WARNING: Endpoint returned HTTP $HTTP_STATUS (Expected 401/403 for unauthorized access)"
+  echo " WARNING: Endpoint returned HTTP $HTTP_STATUS (Expected 401/403 for unauthorized access)"
 fi
 
 # ── 2. SECURITY TEST: PUBLIC HEALTH & SYSTEM STATUS ────────────────
 echo ""
-echo "🛡️ 2. TESTING PUBLIC SYSTEM ENDPOINTS & CORS HEADERS..."
+echo " 2. TESTING PUBLIC SYSTEM ENDPOINTS & CORS HEADERS..."
 CORS_HEADER=$(curl -s -I "$TARGET_URL/api/health" | grep -i "Access-Control-Allow-Origin")
 echo "  CORS Header Response: ${CORS_HEADER:-'Default CORS Allowed'}"
 
@@ -51,7 +49,7 @@ echo "  Warm Cache Latency   : ${WARM_LATENCY} ms"
 
 # ── 4. CONCURRENT LOAD BALANCING TEST ──────────────────────────────
 echo ""
-echo "🔥 4. RUNNING $CONCURRENCY CONCURRENT LOAD TEST WORKERS..."
+echo " 4. RUNNING $CONCURRENCY CONCURRENT LOAD TEST WORKERS..."
 
 SUCCESS_COUNT=0
 FAIL_COUNT=0
@@ -79,6 +77,6 @@ echo "  Completed $CONCURRENCY parallel requests in ${ELAPSED_MS} ms"
 echo "  Average throughput: $(( (CONCURRENCY * 1000) / ELAPSED_MS )) req/sec"
 
 echo ""
-echo "======================================================================"
-echo "🎉 ALL TESTS EXECUTED CLEANLY FOR MEDICOS EMR SYSTEM!"
-echo "======================================================================"
+echo 
+echo "ALL TESTS EXECUTED CLEANLY FOR MEDICOS EMR SYSTEM!"
+echo
