@@ -19,6 +19,7 @@
     "axios": "^1.18.0",
     "dexie": "^3.2.7",
     "dexie-react-hooks": "^1.1.7",
+    "dompurify": "^3.4.15",
     "jspdf": "^4.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -30,6 +31,7 @@
     "@playwright/test": "^1.45.3",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
+    "@types/dompurify": "^3.0.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.5",
@@ -40,7 +42,6 @@
     "vitest": "^5.0.0"
   },
   "overrides": {
-    "dompurify": "^3.4.14",
     "form-data": "^4.0.6",
     "fast-uri": "^3.1.7",
     "browserslist": "^4.28.9",

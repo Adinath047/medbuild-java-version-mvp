@@ -44,7 +44,7 @@ public class SecurityConfig {
     @Value("${swagger.enabled:true}")
     private boolean swaggerEnabled;
 
-    @Value("${jwt.cookie-secure:false}")
+    @Value("${jwt.cookie-secure:true}")
     private boolean cookieSecure;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,

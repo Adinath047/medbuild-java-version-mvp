@@ -2,6 +2,7 @@
 // Shared print helpers — open a styled popup window and trigger browser print
 import { useAuthStore } from '../store/authStore';
 import { jsPDF } from 'jspdf';
+import DOMPurify from 'dompurify';
 
 const BRAND = {
   name:    'Medbuilds Hospital',
@@ -45,7 +46,12 @@ function openPrintWindow(html: string) {
   };
 
   document.body.appendChild(iframe);
-  iframe.srcdoc = html;
+  const cleanHtml = DOMPurify.sanitize(html, {
+    WHOLE_DOCUMENT: true,
+    ADD_TAGS: ['style', 'iframe', 'link'],
+    ADD_ATTR: ['target', 'rel', 'href', 'media'],
+  });
+  iframe.srcdoc = cleanHtml;
 }
 
 // ─────────────────────────────────────────────────────────────

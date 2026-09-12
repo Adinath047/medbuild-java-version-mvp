@@ -41,7 +41,7 @@ public class AuthService {
     private final TenantSessionBinder tenantSessionBinder;
     private final AuditLogService auditLogService;
 
-    @org.springframework.beans.factory.annotation.Value("${jwt.cookie-secure:false}")
+    @org.springframework.beans.factory.annotation.Value("${jwt.cookie-secure:true}")
     private boolean cookieSecure;
 
     /** Maximum consecutive failed logins before the account is temporarily locked. */
