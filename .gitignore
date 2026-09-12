@@ -44,3 +44,7 @@ GEMINI.md
 .geminiignore
 .agents/
 .antigravity/
+
+# Local binaries
+cloud-sql-proxy
+
