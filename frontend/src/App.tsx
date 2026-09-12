@@ -1,5 +1,5 @@
 // client/src/App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useRealtimeStore } from './store/realtimeStore';
 
@@ -23,10 +23,12 @@ import AcceptInvitePage from './pages/AcceptInvitePage';
 import BedsPage from './pages/BedsPage';
 import { apiClient } from './api/client';
 import { db } from './db/localDB';
-import PrintRequestModal, { PrintModalData } from './components/PrintRequestModal';
+import { printPrescriptionSlip } from './utils/printTemplates';
+import { toast } from './store/toastStore';
 import { useNotificationStore } from './store/notificationStore';
 import { EmergencyBanner, NotificationBell } from './components/NotificationUI';
 import TrialBanner from './components/TrialBanner';
+import ToastContainer from './components/ToastContainer';
 
 
 // ── SVG Icons (Matching ClinicalHub Screenshots) ─────────────────────
@@ -269,8 +271,7 @@ export default function App() {
   const { user, isLoading, logout } = useAuthStore();
   const { 
     fetchNotifications, 
-    activePrintModalData, 
-    setActivePrintModalData, 
+    printRequests,
     dismissPrintRequest 
   } = useNotificationStore();
 
@@ -281,6 +282,65 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const alertedPrintTokens = useRef<Set<string>>(new Set());
+
+  const handleIncomingPrintRequest = useCallback((payload: any, notificationId?: string) => {
+    if (!payload) return;
+    const tokenKey = `${payload.slip_token || payload.uhid || ''}_${notificationId || ''}`;
+    if (alertedPrintTokens.current.has(tokenKey)) return;
+    alertedPrintTokens.current.add(tokenKey);
+
+    const patientName = payload.patient_name || 'Patient';
+    const docName = payload.doctor_name || 'Attending Doctor';
+    const slipToken = payload.slip_token || 'RX-SLIP';
+
+    toast.info(
+      'Prescription Print Request',
+      `${docName} sent Rx ${slipToken} for ${patientName}`,
+      {
+        duration: 9000,
+        action: {
+          label: 'Print Rx',
+          onClick: () => {
+            printPrescriptionSlip({
+              doctor: {
+                name: docName,
+                role: payload.doctor_role || 'Doctor',
+                qualification: payload.doctor_qualification || undefined,
+                regNo: payload.doctor_reg || undefined
+              },
+              patient: {
+                name: patientName,
+                uhid: payload.uhid || '—',
+                age: typeof payload.age === 'number' ? payload.age : (payload.age ? parseInt(String(payload.age)) : undefined),
+                sex: payload.sex,
+                blood_group: payload.blood_group
+              },
+              medicines: (payload.medicines || []).map((m: any) => ({
+                name: m.name || '',
+                strength: m.strength || '',
+                dose: m.dose || m.dosage || '1 tablet',
+                frequency: m.frequency || 'Once daily',
+                duration: m.duration || '5 days',
+                instructions: m.instructions || ''
+              })),
+              advice: payload.advice,
+              followUp: payload.follow_up,
+              weight: payload.weight,
+              slipToken: slipToken,
+              prePrinted: payload.prePrinted ?? false,
+              vitals: payload.vitals,
+              diagnosis: payload.diagnosis
+            });
+            if (notificationId) {
+              dismissPrintRequest(notificationId);
+            }
+          }
+        }
+      }
+    );
+  }, [dismissPrintRequest]);
 
   // 🔔 Centralized Notification Store polling & real-time synchronization
   useEffect(() => {
@@ -293,7 +353,7 @@ export default function App() {
       channel.onmessage = (event) => {
         if (event.data?.type === 'PRINT_REQUEST' && event.data?.payload) {
           if (['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(user.role)) {
-            setActivePrintModalData(event.data.payload);
+            handleIncomingPrintRequest(event.data.payload);
           }
         }
       };
@@ -301,7 +361,7 @@ export default function App() {
 
     const handleCustomEvent = (e: any) => {
       if (e.detail && ['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(user.role)) {
-        setActivePrintModalData(e.detail);
+        handleIncomingPrintRequest(e.detail);
       }
     };
     window.addEventListener('emr:print-request', handleCustomEvent);
@@ -311,7 +371,17 @@ export default function App() {
       if (channel) channel.close();
       window.removeEventListener('emr:print-request', handleCustomEvent);
     };
-  }, [user, fetchNotifications, setActivePrintModalData]);
+  }, [user, fetchNotifications, handleIncomingPrintRequest]);
+
+  // Sync polled print_request notifications to toast for receptionist
+  useEffect(() => {
+    if (!user || !['receptionist', 'admin', 'staff', 'nurse', 'billing'].includes(user.role)) return;
+    printRequests.forEach(req => {
+      if (!req.isRead && req.parsedPayload) {
+        handleIncomingPrintRequest(req.parsedPayload, req.id);
+      }
+    });
+  }, [printRequests, user, handleIncomingPrintRequest]);
 
   async function handleSearchChange(query: string) {
     setSearchQuery(query);
@@ -722,11 +792,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Large Print Request Modal Pop-Up for Receptionist */}
-      <PrintRequestModal 
-        data={activePrintModalData} 
-        onClose={() => dismissPrintRequest(activePrintModalData?.notificationId)} 
-      />
+      {/* Global Clinical Toast Notification System */}
+      <ToastContainer />
 
     </div>
   );

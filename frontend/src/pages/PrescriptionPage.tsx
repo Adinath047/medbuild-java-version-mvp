@@ -10,6 +10,7 @@ import { sendPrintRequestToReceptionist } from '../utils/printRequest';
 import { searchMedicines, findMedicineByName, MEDICINES, type Medicine } from '../utils/medicines';
 import { jsPDF } from 'jspdf';
 import { getSpecialtyCode, SPECIALTY_THEMES, SPECIALTY_TEMPLATES, getMedicineSpecialty } from '../utils/specialtyUtils';
+import { toast } from '../store/toastStore';
 
 // ── Allergy cross-check ───────────────────────────────────────────────
 /**
@@ -1312,7 +1313,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech recognition is not supported by your current browser. Please use Google Chrome, Edge, or Safari.");
+      toast.warning("Speech Recognition Unavailable", "Speech recognition is not supported by your current browser. Please use Chrome, Edge, or Safari.");
       return;
     }
 
@@ -1322,7 +1323,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       }
     } catch (err: any) {
       console.warn("Microphone access error:", err);
-      alert("Microphone permission was denied. Please allow microphone access in your browser settings to use voice dictation.");
+      toast.warning("Microphone Permission Required", "Microphone access was denied. Please allow microphone access in your browser settings.");
       setListening(false);
       return;
     }
@@ -1351,7 +1352,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
         console.error("Speech Recognition Error:", e);
         setListening(false);
         if (e.error === 'not-allowed') {
-          alert("Microphone access denied. Please click the camera/mic icon in your address bar to enable microphone access.");
+          toast.error("Microphone Access Denied", "Please click the camera/microphone icon in your browser address bar to enable access.");
         }
       };
 
@@ -1488,6 +1489,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       await db.prescriptions.put({ ...res.data, _syncStatus: 'synced' });
       setSuccess(res.data);
       triggerSyncBroadcast();
+      toast.success('Prescription Saved!', `Rx token ${slipToken} generated for ${selectedPatient?.name || 'Patient'}`);
       
       // Generate PDF
       const pdfBase64 = generatePrescriptionPDF({
@@ -1605,6 +1607,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       await db.prescriptions.put(payload);
       setSuccess(payload);
       triggerSyncBroadcast();
+      toast.info('Saved Offline', `Prescription for ${selectedPatient?.name || 'Patient'} saved locally (will sync when online)`);
 
       if (printAfterSaveRef.current) {
         const hNum = parseFloat(height);
@@ -1770,7 +1773,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     const patient = patients.find((p: any) => p.id === patientId) || selectedPatient;
     const targetPatient = selectedPatient || patient;
     if (!targetPatient) {
-      alert('Please select a patient first.');
+      toast.warning('Patient Required', 'Please select a patient before dispatching a print request.');
       return;
     }
     const hNum = parseFloat(height);
@@ -1782,28 +1785,17 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
     await sendPrintRequestToReceptionist({
       patient_name: targetPatient?.name || '—',
       uhid: targetPatient?.uhid || '—',
-      age: targetPatient?.age,
-      sex: targetPatient?.sex,
-      blood_group: targetPatient?.blood_group,
       doctor_name: docName,
-      doctor_role: user?.role || 'Doctor',
-      doctor_qualification: user?.qualification || undefined,
-      doctor_reg: user?.registrationNumber || undefined,
       slip_token: success?.slip_token || (targetPatient ? 'RX-' + targetPatient.uhid : 'RX-SLIP'),
-      medicines: meds.map(m => ({
+      medicines: meds.filter(m => m.name && m.name.trim()).map(m => ({
         name: m.name.trim(),
-        strength: m.strength || '',
-        dose: m.dose || '',
-        frequency: m.frequency || '',
-        duration: m.duration || '',
-        instructions: m.instructions || ''
+        dose: m.dose,
+        frequency: m.frequency,
+        duration: m.duration,
+        instructions: m.instructions
       })),
-      advice: advice || undefined,
-      follow_up: followUp || undefined,
-      weight: patientWeight || undefined,
-      diagnosis: diagnosis || undefined,
-      prePrinted: prePrintedLetterhead,
-      requested_at: new Date().toISOString(),
+      advice,
+      follow_up: followUp,
       vitals: (systolic || diastolic || pulse || height || patientWeight) ? {
         bp: systolic && diastolic ? `${systolic}/${diastolic}` : undefined,
         pulse: pulse || undefined,
@@ -1813,6 +1805,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
       } : undefined
     });
 
+    toast.success('Print Request Dispatched!', `Print request for ${targetPatient?.name || 'Patient'} sent to Reception desk.`);
     setAlertSent(true);
     setTimeout(() => setAlertSent(false), 4000);
   }

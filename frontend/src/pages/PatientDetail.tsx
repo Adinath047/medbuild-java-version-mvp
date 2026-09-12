@@ -7,6 +7,7 @@ import { useSync } from '../sync/useSync';
 import { triggerSyncBroadcast } from '../sync/syncManager';
 import { printPrescriptionSlip, printInvoice, downloadInvoicePDF } from '../utils/printTemplates';
 import { getSpecialtyCode, SPECIALTY_THEMES } from '../utils/specialtyUtils';
+import { toast } from '../store/toastStore';
 import {
   validateRequired, validateEmail, validatePhone, validateNotFutureDate,
   collectErrors, isValid, extractServerError, type FieldErrors,
@@ -117,7 +118,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
       });
     } catch (err) {
       console.error('Failed to load prescription for printing:', err);
-      alert('Failed to load prescription details for printing.');
+      toast.error('Print Error', 'Failed to load prescription details for printing.');
     }
   }
 

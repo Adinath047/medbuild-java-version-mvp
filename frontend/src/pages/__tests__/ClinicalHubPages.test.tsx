@@ -21,20 +21,28 @@ vi.mock('../../db/localDB', () => ({
 }));
 
 // Mock API Client
-vi.mock('../../api/client', () => ({
-  apiClient: {
+vi.mock('../../api/client', () => {
+  const client = {
     get: vi.fn().mockImplementation((url: string) => {
       if (url.includes('/patients')) return Promise.resolve({ data: { patients: [] } });
       if (url.includes('/users')) return Promise.resolve({ data: { users: [] } });
       if (url.includes('/prescriptions')) return Promise.resolve({ data: [] });
+      if (url.includes('/appointments')) return Promise.resolve({ data: [] });
+      if (url.includes('/billing')) return Promise.resolve({ data: [] });
+      if (url.includes('/beds')) return Promise.resolve({ data: [] });
       if (url.includes('/system-health')) return Promise.resolve({ data: { status: 'UP' } });
-      return Promise.resolve({ data: {} });
+      return Promise.resolve({ data: [] });
     }),
     post: vi.fn().mockResolvedValue({ data: { id: 'test-123', slip_token: 'TEST001' } }),
+    put: vi.fn().mockResolvedValue({ data: {} }),
     patch: vi.fn().mockResolvedValue({ data: {} }),
     delete: vi.fn().mockResolvedValue({ data: {} })
-  }
-}));
+  };
+  return {
+    apiClient: client,
+    default: client
+  };
+});
 
 // Mock Auth Store
 vi.mock('../../store/authStore', () => ({

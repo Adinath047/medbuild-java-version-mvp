@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../../api/client';
 import { db } from '../../db/localDB';
 import { useAuthStore } from '../../store/authStore';
+import { toast } from '../../store/toastStore';
 
 export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p: string, d?: any) => void }) {
   const { user } = useAuthStore();
@@ -95,7 +96,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
   async function handleSaveLabResults(e: React.FormEvent) {
     e.preventDefault();
     if (!labForm.patient_id && !selectedLabOrder) {
-      alert('Please select a patient.');
+      toast.warning('Patient Required', 'Please select a patient before recording lab results.');
       return;
     }
     setSyncingLab(true);
@@ -163,13 +164,14 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
       }));
 
       setLabSuccessMsg(`✓ Lab Results for ${targetPat?.name || 'Patient'} saved & synced in real-time with attending doctors!`);
+      toast.success('Lab Results Saved!', `Results for ${targetPat?.name || 'Patient'} saved and synced to EHR`);
       setTimeout(() => {
         setShowLabResultModal(false);
         setLabSuccessMsg('');
         setSelectedLabOrder(null);
       }, 1800);
     } catch (err: any) {
-      alert('Failed to sync lab report.');
+      toast.error('Lab Sync Failed', 'Failed to sync lab report.');
     } finally {
       setSyncingLab(false);
     }
@@ -781,7 +783,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
             <div className="modal-footer" style={{ padding: '12px 20px' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setShowSampleModal(false)}>Cancel</button>
               <button type="button" className="btn btn-primary" onClick={() => {
-                alert('Sample logged & barcoded successfully!');
+                toast.success('Sample Logged!', 'Specimen sample registered and barcoded successfully.');
                 setShowSampleModal(false);
               }}>Log Sample Collection</button>
             </div>
@@ -878,9 +880,9 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
                     type: 'emergency',
                     message: alertMsg || 'Critical Lab Alert Broadcasted'
                   });
-                  alert('Critical lab alert broadcasted to attending doctors!');
+                  toast.warning('Critical Alert Sent!', 'Critical lab alert broadcasted to attending doctors.');
                 } catch {
-                  alert('Alert notification sent.');
+                  toast.info('Alert Sent', 'Alert notification sent.');
                 }
                 setShowAlertModal(false);
               }}>Broadcast Alert</button>

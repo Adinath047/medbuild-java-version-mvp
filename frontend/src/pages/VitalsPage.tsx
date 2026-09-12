@@ -9,6 +9,7 @@ import { triggerSyncBroadcast } from '../sync/syncManager';
 
 const SUGAR_TYPES = ['Fasting','Random','Post-meal','HbA1c'];
 import { getSpecialtyCode, SPECIALTY_THEMES } from '../utils/specialtyUtils';
+import { toast } from '../store/toastStore';
 
 const FLAG_COLOR = (val:number|undefined, low:number, high:number) =>
   !val ? 'var(--text)' : val > high ? 'var(--danger)' : val < low ? 'var(--info)' : 'var(--success)';
@@ -104,11 +105,13 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
                        form.hba1c, form.tsh].some(v => v !== '');
     if (!anyFilled) {
       setError('Please enter at least one vital measurement.');
+      toast.warning('Measurements Required', 'Please enter at least one vital measurement.');
       return;
     }
     setSaving(true); setError('');
     const now = new Date().toISOString();
     const id  = uuid();
+    const patientObj = patients.find(p => p.id === patientId);
     const payload: any = {
       id, patient_id: patientId, hospital_id: user?.hospitalId || 'hsp-001',
       bp_systolic: form.bp_s ? parseInt(form.bp_s) : null,
@@ -135,21 +138,25 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
     try {
       const res = await apiClient.post('/vitals', payload);
       await db.vitals.put({ ...res.data, _syncStatus: 'synced' });
-      setSuccess('Vitals recorded ✓');
+      setSuccess('Vitals recorded');
       setHistory(h => [...h, res.data]);
       triggerSyncBroadcast();
+      toast.success('Vitals Saved!', `Recorded for ${patientObj?.name || 'Patient'} and synced to EHR`);
     } catch (err) {
       const status = (err as any)?.response?.status;
       if (status === 422) {
-        setError(extractServerError(err));
+        const msg = extractServerError(err);
+        setError(msg);
+        toast.error('Validation Error', msg);
         setSaving(false);
         return;
       }
       await markPending(db.vitals, 'create', payload);
-      setSuccess('Saved locally — will sync when online ✓');
+      setSuccess('Saved locally — will sync when online');
       await db.vitals.put(payload);
       setHistory(h => [...h, payload]);
       triggerSyncBroadcast();
+      toast.info('Saved Locally', `Vitals for ${patientObj?.name || 'Patient'} saved locally (will sync when online)`);
     } finally { setSaving(false); }
   }
 
