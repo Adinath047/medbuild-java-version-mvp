@@ -18,14 +18,17 @@ jobs:
   # -----------------------------------------------------------------------
   # Job 1: OWASP Dependency Check - Software Composition Analysis (SCA)
   #
-  # CVE database freshness:
-  #   On scheduled runs the Maven local cache (~/.m2) is NOT restored, so the
-  #   OWASP NVD data-feed cache that lives inside ~/.m2 is always cold on
-  #   cron triggers. On PR/push runs the maven cache IS restored (cache: maven)
-  #   which may carry a stale NVD cache. We force a fresh pull on both paths
-  #   by passing -DautoUpdate=true (enabled by default) and setting
-  #   -DdataDirectory to a job-scoped temp path that is never cached, ensuring
-  #   the NVD feed is re-downloaded on every run regardless of trigger type.
+  # Governance Gate:
+  #   Pre-validates .github/owasp-suppressions.xml using mechanical Python linter.
+  #   Blocks CI if any suppression lacks 'until' date, is expired, exceeds
+  #   90 days, or lacks required issue reference / dual reviewer handles.
+  #
+  # Rate-Limiting & Freshness:
+  #   Uses a rolling 24-hour cache key (date +'%Y-%m-%d') so concurrent PRs
+  #   share NVD feed updates within the day, avoiding NVD free-tier 403/429
+  #   rate limiting. Daily rollover guarantees fresh CVE definitions every day
+  #   (including the Monday weekly scan).
+  #   Accepts secrets.NVD_API_KEY if configured to increase NVD throughput.
   # -----------------------------------------------------------------------
   sca-dependency-check:
     name: SCA - OWASP Dependency Check
@@ -34,29 +37,55 @@ jobs:
       - name: Checkout Codebase
         uses: actions/checkout@v4
 
+      - name: Set up Python for Suppressions Governance Linter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Mechanically Lint Suppressions Governance Policy
+        run: |
+          python3 .github/scripts/validate-suppressions.py .github/owasp-suppressions.xml
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          # Deliberately NOT restoring the Maven cache here so the NVD data
-          # directory inside ~/.m2 is always empty and the plugin fetches fresh
-          # CVE data from NVD on every run.
 
-      - name: Run OWASP Dependency Check (fresh NVD fetch)
+      - name: Get Current Date Stamp (24h Rolling Window)
+        id: cache-date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache NVD CVE Database (24h Rolling Cache)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/nvd-cache
+          key: nvd-cache-${{ steps.cache-date.outputs.date }}
+          restore-keys: |
+            nvd-cache-
+
+      - name: Run OWASP Dependency Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          # Use a job-local, non-cached directory for the NVD database.
-          # This guarantees a fresh CVE feed download on every CI trigger
-          # (both scheduled and push/PR) and prevents stale data from
-          # being silently reused from a restored Maven cache.
+          mkdir -p /tmp/nvd-cache
+          API_KEY_ARG=""
+          if [ -n "$NVD_API_KEY" ]; then
+            echo "[INFO] NVD_API_KEY secret detected; using authenticated NVD feed."
+            API_KEY_ARG="-DnvdApiKey=$NVD_API_KEY"
+          else
+            echo "[WARN] No NVD_API_KEY secret configured; using cached/free-tier feed with 24h rolling cache."
+          fi
+
           mvn -f pom.xml \
             org.owasp:dependency-check-maven:10.0.3:check \
             -DfailBuildOnCVSS=9 \
             -DsuppressionsFile=.github/owasp-suppressions.xml \
             -Dformat=HTML \
             -DoutputDirectory=target/dependency-check-report \
-            -DdataDirectory=/tmp/nvd-cache-${{ github.run_id }} \
+            -DdataDirectory=/tmp/nvd-cache \
             -DautoUpdate=true \
+            $API_KEY_ARG \
             -Dfrontend.skip=true \
             --no-transfer-progress \
             -B
@@ -75,22 +104,14 @@ jobs:
   #
   # OS-level coverage:
   #   vuln-type: os,library covers BOTH:
-  #     - OS packages installed in the base image (eclipse-temurin:21-jre-alpine)
-  #       e.g. musl, busybox, libssl, libcrypto installed by Alpine's apk
-  #     - Application library JARs on the classpath (Spring, HAPI FHIR, etc.)
-  #   The scan runs against the final runtime image, not the builder stage,
-  #   so only what ships to production is evaluated.
+  #     - OS packages in the base image (eclipse-temurin:21-jre-alpine)
+  #       e.g. musl, busybox, libssl, libcrypto installed via apk
+  #     - Application library JARs on the classpath
   #
-  # CVE database freshness:
-  #   Trivy downloads its vulnerability database to /tmp/trivy-db-$RUN_ID,
-  #   a unique path that is never cached between runs. This forces a fresh
-  #   database pull on every trigger including scheduled weekly scans.
-  #
-  # Gate policy:
-  #   Table scan:  report HIGH and CRITICAL, exit 0 (advisory only).
-  #   SARIF scan:  report CRITICAL only, exit 1 (blocking gate).
-  #   ignore-unfixed: true — CVEs with no available fix are excluded from
-  #   the blocking gate to avoid noise on Alpine rolling packages.
+  # Rate-Limiting & Freshness:
+  #   Uses a 24-hour rolling cache for Trivy DB (/tmp/trivy-cache). This
+  #   prevents hitting GHCR pull rate limits across frequent PR builds while
+  #   ensuring daily and Monday scheduled scans pull fresh vulnerability DBs.
   # -----------------------------------------------------------------------
   trivy-container-scan:
     name: CNAST - Trivy Container Vulnerability Scan
@@ -101,8 +122,21 @@ jobs:
       - name: Checkout Codebase
         uses: actions/checkout@v4
 
+      - name: Get Current Date Stamp (24h Rolling Window)
+        id: trivy-date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache Trivy Vulnerability Database (24h Rolling Cache)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/trivy-cache
+          key: trivy-cache-${{ steps.trivy-date.outputs.date }}
+          restore-keys: |
+            trivy-cache-
+
       - name: Build Docker Image (no push)
         run: |
+          mkdir -p /tmp/trivy-cache
           docker build \
             --tag medbuilds-emr:scan-${{ github.sha }} \
             --file Dockerfile \
@@ -115,14 +149,9 @@ jobs:
           format: table
           exit-code: '0'
           ignore-unfixed: true
-          # os: Alpine OS packages (musl, libssl, etc.)
-          # library: JVM classpath JARs
           vuln-type: os,library
           severity: CRITICAL,HIGH
-          # Use a unique cache dir per run so the vuln DB is always fresh.
-          # Stale Trivy DB on a scheduled scan would miss CVEs published
-          # since the last cache write.
-          cache-dir: /tmp/trivy-cache-${{ github.run_id }}
+          cache-dir: /tmp/trivy-cache
 
       - name: Run Trivy - Blocking gate (CRITICAL CVEs only, SARIF output)
         uses: aquasecurity/trivy-action@0.28.0
@@ -134,7 +163,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: CRITICAL
-          cache-dir: /tmp/trivy-cache-${{ github.run_id }}
+          cache-dir: /tmp/trivy-cache
         continue-on-error: true
 
       - name: Upload Trivy SARIF Report
@@ -148,21 +177,9 @@ jobs:
   # -----------------------------------------------------------------------
   # Job 3: Hadolint Dockerfile Linting
   #
-  # Failure threshold rationale:
-  #   failure-threshold: error  (blocks CI only on true errors)
-  #   Warnings are reported but do not block the build.
-  #
-  #   Rationale: The base image (eclipse-temurin:21-jre-alpine) uses Alpine
-  #   Linux with apk, not apt-get. DL3008/DL3018 are ignored (apk variant).
-  #   Remaining Hadolint warnings on Alpine Dockerfiles are style suggestions
-  #   (e.g. COPY preferred over ADD) that are useful to surface but should not
-  #   block PRs — developers addressing a clinical feature should not have CI
-  #   fail on advisory Dockerfile style notes. Genuine errors (e.g. missing
-  #   FROM, invalid instruction syntax) remain blocking.
-  #
-  #   If the team decides to enforce warnings as errors, change to:
-  #     failure-threshold: warning
-  #   and document the decision here.
+  # Failure threshold:
+  #   failure-threshold: error (blocks CI only on genuine syntax/structural errors)
+  #   Warnings are advisory to avoid blocking PRs on Alpine-specific style idioms.
   # -----------------------------------------------------------------------
   hadolint-dockerfile-lint:
     name: Dockerfile Lint (Hadolint)
@@ -175,10 +192,6 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
-          # DL3008: pin apt-get versions  - N/A, Alpine uses apk not apt-get
-          # DL3018: pin apk versions      - Relaxed for build-stage base image
           ignore: DL3008,DL3018
-          # Block CI only on genuine errors; warnings are advisory.
           failure-threshold: error
-          # Output format includes line number and rule ID for traceability.
           format: tty
