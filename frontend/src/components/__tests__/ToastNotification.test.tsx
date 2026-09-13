@@ -88,7 +88,7 @@ describe('Medbuilds EMR Toast Notification System', () => {
     expect(handleRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('5. Dismisses toast when clicking close button ✕', () => {
+  it('5. Dismisses toast when clicking close button', () => {
     render(<ToastContainer />);
 
     act(() => {

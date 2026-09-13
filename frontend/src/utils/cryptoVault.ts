@@ -46,7 +46,7 @@ export async function initializeSessionCrypto(sessionEntropy: string): Promise<v
       ['encrypt', 'decrypt']
     );
 
-    console.info('🔒 [cryptoVault] Session Web Crypto AES-256-GCM key derived & locked in volatile memory.');
+    console.info('[cryptoVault] Session Web Crypto AES-256-GCM key derived & locked in volatile memory.');
   } catch (err) {
     console.error('[cryptoVault] Failed to derive session key:', err);
     volatileKey = null;
@@ -133,5 +133,5 @@ export function purgeCryptoVault(): void {
     volatileSalt = null;
   }
   volatileKey = null;
-  console.info('🧹 [cryptoVault] All volatile cryptographic session keys purged and zeroized from memory.');
+  console.info('[cryptoVault] All volatile cryptographic session keys purged and zeroized from memory.');
 }

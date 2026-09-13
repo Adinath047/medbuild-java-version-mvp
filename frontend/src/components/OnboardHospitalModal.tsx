@@ -75,7 +75,7 @@ export default function OnboardHospitalModal({ onClose, onSuccess }: OnboardHosp
               </p>
             </div>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close modal">✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">&times;</button>
         </div>
 
         {successData ? (

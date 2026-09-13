@@ -342,7 +342,7 @@ export default function App() {
     );
   }, [dismissPrintRequest]);
 
-  // 🔔 Centralized Notification Store polling & real-time synchronization
+  // [Notifications] Centralized Notification Store polling & real-time synchronization
   useEffect(() => {
     if (!user) return;
     fetchNotifications(user.role);
@@ -405,7 +405,7 @@ export default function App() {
     }
   }
 
-  // ⏱️ Auto-Logout Inactivity Monitor (15 Minutes Wall-Clock Aware for Device Sleep/Wake)
+  // [Inactivity] Auto-Logout Inactivity Monitor (15 Minutes Wall-Clock Aware for Device Sleep/Wake)
   useEffect(() => {
     if (!user) return;
 
@@ -460,7 +460,7 @@ export default function App() {
     };
   }, [user, logout]);
 
-  // 🔌 Secure WebSocket connection for real-time changes
+  // [WebSocket] Secure WebSocket connection for real-time changes
   useEffect(() => {
     if (!user) return;
 
@@ -715,7 +715,7 @@ export default function App() {
                   />
                   {searchQuery && (
                     <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} aria-label="Clear patient search" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '0 2px' }}>
-                      ✕
+                      &times;
                     </button>
                   )}
                 </div>

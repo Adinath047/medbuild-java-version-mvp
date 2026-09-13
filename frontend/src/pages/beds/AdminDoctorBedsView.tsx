@@ -1011,7 +1011,7 @@ function AddBedModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
       <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Add New Bed</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1138,7 +1138,7 @@ function EditBedModal({ bed, onClose, onDone }: { bed: Bed; onClose: () => void;
       <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Edit Room {bed.room} ({bed.bed_number})</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1290,7 +1290,7 @@ function AllocateBedModal({ bed, onClose, onDone }: { bed: Bed; onClose: () => v
       <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Allocate Room {bed.room} ({bed.bed_number})</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1388,7 +1388,7 @@ function RecordVitalsModal({ bed, onClose, onDone }: { bed: Bed; onClose: () => 
       <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Record Vitals for {bed.patient_name}</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1529,7 +1529,7 @@ function AdmissionHistoryModal({ onClose }: { onClose: () => void }) {
             <div className="modal-title" style={{ fontSize: 18, fontWeight: 700 }}>Bed Admission & Occupancy History</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Complete audit trail of inpatient bed admissions and discharges</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Filter Bar: Search + Months Filter */}
@@ -1690,7 +1690,7 @@ function VitalsLogModal({ bed, list, loading, onClose }: { bed: Bed; list: any[]
             <div className="modal-title" style={{ fontSize: 17, fontWeight: 700 }}>Vitals History: {bed.patient_name}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Room {bed.room} ({bed.bed_number}) · {bed.ward} Ward</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body" style={{ padding: '16px 20px' }}>
           {loading ? (
@@ -1837,7 +1837,7 @@ function VacateBedBillModal({ bed, onClose, onDone }: {
             <div className="modal-title" style={{ fontSize: 17, fontWeight: 700 }}>Discharge & Bed Billing</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Vacate Room {bed.room} ({bed.bed_number}) and create IPD invoice</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
 
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

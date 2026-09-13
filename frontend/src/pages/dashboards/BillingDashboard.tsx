@@ -368,7 +368,7 @@ export default function BillingDashboard({ onNavigate }: { onNavigate: (p: strin
         <div style={{ padding: 0 }}>
           {pendingBills.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 24px' }}>
-              <div style={{ fontSize: 32, marginBottom: 8, color: 'var(--success)' }}>✓</div>
+              <div style={{ fontSize: 32, marginBottom: 8, color: 'var(--success)' }}>OK</div>
               <h3 style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>All Bills Settled</h3>
               <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>There are no outstanding invoices requiring payment collection.</p>
             </div>

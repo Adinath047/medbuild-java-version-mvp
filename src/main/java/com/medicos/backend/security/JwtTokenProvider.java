@@ -70,10 +70,10 @@ public class JwtTokenProvider {
                 "[SECURITY] jwt.secret is too short (minimum 32 characters). Use a cryptographically random value.");
         }
         if (INSECURE_DEFAULT_SECRET.equals(jwtSecret)) {
-            log.warn("⚠️  [SECURITY WARNING] Using the default JWT secret. " +
+            log.warn("[SECURITY WARNING] Using the default JWT secret. " +
                      "Set JWT_SECRET environment variable before deploying to production!");
         } else {
-            log.info("✅ JWT secret is configured and meets minimum length requirements.");
+            log.info("[OK] JWT secret is configured and meets minimum length requirements.");
         }
     }
 

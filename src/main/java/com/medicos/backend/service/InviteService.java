@@ -423,9 +423,9 @@ public class InviteService {
     @jakarta.annotation.PostConstruct
     public void init() {
         if (fromEmail != null && !fromEmail.isBlank() && mailSender != null) {
-            log.info("[InviteService] ✅ SMTP Mail Dispatcher initialized with sender: {}", fromEmail);
+            log.info("[InviteService] [OK] SMTP Mail Dispatcher initialized with sender: {}", fromEmail);
         } else {
-            log.info("[InviteService] ℹ️ SMTP credentials not set (EMAIL_USER is empty). Invite links will be output to server logs.");
+            log.info("[InviteService] [INFO] SMTP credentials not set (EMAIL_USER is empty). Invite links will be output to server logs.");
         }
     }
 
@@ -444,9 +444,9 @@ public class InviteService {
             helper.setSubject("You have been invited to Medbuilds EMR — " + hospitalName + " (" + hospitalId + ")");
             helper.setText(buildHtmlEmail(name, role, hospitalName, hospitalId, inviteLink, inviterName), true);
             mailSender.send(message);
-            log.info("[InviteService] ✅ Invite email dispatched successfully to {} (hospital={})", to, hospitalId);
+            log.info("[InviteService] [OK] Invite email dispatched successfully to {} (hospital={})", to, hospitalId);
         } catch (Exception e) {
-            log.error("[InviteService] ❌ Failed to dispatch email to {}: {}", to, e.getMessage());
+            log.error("[InviteService] [ERROR] Failed to dispatch email to {}: {}", to, e.getMessage());
             log.warn("[InviteService][FALLBACK] Direct invite link: {}", inviteLink);
             log.info("[InviteService][TIP] For Gmail SMTP, ensure you use a 16-character App Password (without spaces) and 2-Step Verification enabled.");
         }

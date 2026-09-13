@@ -26,7 +26,7 @@ public class MedicosJavaBackendApplication {
         SpringApplication.run(MedicosJavaBackendApplication.class, args);
         System.out.println("\n" +
                 "======================================================================\n" +
-                "  🩺 MEDICOS HOSPITAL EMR — JAVA SPRING BOOT BACKEND STARTED         \n" +
+                "  MEDBUILDS HOSPITAL EMR - JAVA SPRING BOOT BACKEND STARTED          \n" +
                 "  ACID Transactions : Enabled (Atomicity, Consistency, Isolation, Durability)\n" +
                 "  Telemetry Safety Net: Active (Catch & Report Loop Connected)        \n" +
                 "  Database         : PostgreSQL                                       \n" +

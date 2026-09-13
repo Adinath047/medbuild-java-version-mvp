@@ -136,7 +136,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
           <div className="modal" style={{ maxWidth:660 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">New Pharmacy Bill</div>
-              <button className="modal-close" onClick={resetForm}>✕</button>
+              <button className="modal-close" onClick={resetForm}>&times;</button>
             </div>
             <form onSubmit={submit}>
               <div className="modal-body">
@@ -197,7 +197,7 @@ export default function PharmacyBillingPage({ onNavigate }: { onNavigate:(p:stri
                         ₹{(m.quantity * m.unit_price).toFixed(0)}</div>
                       <button type="button" className="btn btn-ghost btn-sm btn-icon"
                         onClick={() => setMeds(x => x.filter((_, j) => j !== i))}
-                        disabled={meds.length === 1}>✕</button>
+                        disabled={meds.length === 1}>&times;</button>
                     </div>
                   ))}
 

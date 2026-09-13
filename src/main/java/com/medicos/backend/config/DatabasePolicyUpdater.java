@@ -61,12 +61,12 @@ public class DatabasePolicyUpdater implements CommandLineRunner {
                                 "USING (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true)) " +
                                 "WITH CHECK (current_setting('app.current_hospital_id', true) = 'GLOBAL' OR hospital_id = current_setting('app.current_hospital_id', true));");
                     }
-                    log.info("[DatabasePolicyUpdater] ✅ Synchronized RLS policy on table '{}'", table);
+                    log.info("[DatabasePolicyUpdater] [OK] Synchronized RLS policy on table '{}'", table);
                 } catch (Exception ex) {
                     log.warn("[DatabasePolicyUpdater] Could not update policy on table '{}': {}", table, ex.getMessage());
                 }
             }
-            log.info("[DatabasePolicyUpdater] ✅ PostgreSQL RLS policy synchronization completed successfully.");
+            log.info("[DatabasePolicyUpdater] [OK] PostgreSQL RLS policy synchronization completed successfully.");
         } catch (Exception e) {
             log.warn("[DatabasePolicyUpdater] RLS synchronization encountered non-fatal error: {}", e.getMessage());
         }

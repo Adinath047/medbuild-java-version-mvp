@@ -104,10 +104,10 @@ export default function AuditLogViewer() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-secondary btn-sm" onClick={fetchLogs} disabled={loading}>
-            🔄 Refresh Logs
+            Refresh Logs
           </button>
           <button className="btn btn-primary btn-sm" onClick={exportCSV} disabled={!filteredLogs.length}>
-            📥 Export CSV Audit Report
+            Export CSV Audit Report
           </button>
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function AuditLogViewer() {
           flex: 1,
           maxWidth: 360
         }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>🔍</span>
+          
           <input
             placeholder="Search by user, action, UHID, IP..."
             value={search}

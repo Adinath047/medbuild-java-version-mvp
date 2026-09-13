@@ -165,7 +165,7 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
 
   function FieldErr({ k }: { k: string }) {
     return fieldErrors[k]
-      ? <div style={{ color:'var(--danger)', fontSize:11, marginTop:2 }}>⚠ {fieldErrors[k]}</div>
+      ? <div style={{ color:'var(--danger)', fontSize:11, marginTop:2 }}>{fieldErrors[k]}</div>
       : null;
   }
 
@@ -231,7 +231,7 @@ export default function VitalsPage({ onNavigate, data, mode }: { onNavigate:(p:s
                   <span style={{alignSelf:'center',color:'var(--text-muted)'}} />
                   <input className="input" type="number" placeholder="Dia" min={20} max={200} value={form.bp_d} onChange={e=>set('bp_d',e.target.value)} style={fs('bp_d')} />
                 </div>
-                {(fieldErrors.bp_s || fieldErrors.bp_d) && <div style={{color:'var(--danger)',fontSize:11,marginTop:2}}>⚠ {fieldErrors.bp_s || fieldErrors.bp_d}</div>}
+                {(fieldErrors.bp_s || fieldErrors.bp_d) && <div style={{color:'var(--danger)',fontSize:11,marginTop:2}}>{fieldErrors.bp_s || fieldErrors.bp_d}</div>}
               </div>
               {/* HR */}
               <div className="form-group">

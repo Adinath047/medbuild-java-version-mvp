@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    OWASP Dependency Check CVE Suppressions
+    =========================================
+    Add entries here ONLY for false positives that have been reviewed
+    and verified to be non-exploitable in the Medbuilds EMR context.
+
+    Format:
+        <suppress>
+            <notes>Rationale for suppression - reviewer + date</notes>
+            <cve>CVE-YYYY-NNNNN</cve>
+        </suppress>
+
+    WARNING: Never suppress CRITICAL CVEs without explicit security team sign-off.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+        Placeholder: Remove this comment and add real suppressions as needed.
+        No suppressions are active by default. The security gate will fail on
+        any dependency with CVSS >= 9.0 (CRITICAL).
+    -->
+</suppressions>
