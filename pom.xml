@@ -170,6 +170,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Security Test (@WithMockUser, SecurityMockMvcRequestPostProcessors) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- ── HAPI FHIR R4 ──────────────────────────────────────────────────────
              hapi-fhir-base       : core context, parsers, type system
              hapi-fhir-structures-r4 : typed R4 resource classes (Patient, etc.)

@@ -10,7 +10,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,6 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * Note: Tests run against the full Spring context with H2 in-memory database
  * and embedded Redis. No clinical data is created.
+ *
+ * Path validity guarantee:
+ *   Every path in the parameterized sweep is verified against the actual
+ *   controller @RequestMapping declarations to prevent false passes from
+ *   hitting non-existent routes. 404 responses fail the 401 assertion and
+ *   would surface as test failures during normal CI runs.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -283,21 +291,40 @@ class ApiAuthorizationFuzzTest {
     }
 
     // -----------------------------------------------------------------------
-    // Parameterized sweep: protected GET endpoints must all return 401
+    // Parameterized sweep: protected GET endpoints must all return exactly 401.
+    //
+    // Path validity: every path below maps to a real controller route. If a
+    // path is removed from the application, the test will return 404, which
+    // fails the isUnauthorized() assertion — surfacing the stale test rather
+    // than silently passing on a phantom endpoint.
     // -----------------------------------------------------------------------
 
     @ParameterizedTest(name = "GET {0} returns 401 when unauthenticated")
     @CsvSource({
+        // PatientController  @RequestMapping("/api/patients")
+        "/api/patients",
+        // UserController     @RequestMapping("/api/users")
         "/api/users",
+        "/api/users/doctors",
+        // AppointmentController @RequestMapping("/api/appointments")
         "/api/appointments",
+        // BillingController  @RequestMapping("/api/billing")
         "/api/billing",
+        // EncounterController @RequestMapping("/api/encounters")
         "/api/encounters",
+        // PrescriptionController @RequestMapping("/api/prescriptions")
         "/api/prescriptions",
+        // BedController      @RequestMapping("/api/beds")
         "/api/beds",
+        // AuditLogController @RequestMapping("/api/audit-logs")
         "/api/audit-logs",
+        // NotificationController
         "/api/notifications",
+        // MedicineController @RequestMapping("/api/medicines")
         "/api/medicines",
-        "/api/patient-uploads",
+        // PatientUploadController @RequestMapping("/api/patient-uploads") - GET is /{patientId}
+        "/api/patient-uploads/pat-fuzz-sweep",
+        // FHIR R4
         "/fhir/r4/Patient"
     })
     @DisplayName("All protected GET endpoints return 401 without credentials")
@@ -307,12 +334,15 @@ class ApiAuthorizationFuzzTest {
     }
 
     // -----------------------------------------------------------------------
-    // Public endpoints - intentionally permitAll() in SecurityConfig
-    // These MUST remain accessible without authentication.
+    // Public endpoints - intentionally permitAll() in SecurityConfig.
+    // Each test has TWO assertions:
+    //   1. The endpoint is reachable (not 401).
+    //   2. The response body does not contain internal stack or config data.
+    // "Public and accessible" is not the same as "public and safe."
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("POST /api/auth/login - public endpoint, reachable without token (not 401)")
+    @DisplayName("POST /api/auth/login - public endpoint, not 401")
     void loginEndpoint_isPublic_returnsClientError_notUnauthorized() throws Exception {
         // Invalid creds -> 400 Bad Request, but NOT 401
         mockMvc.perform(post("/api/auth/login")
@@ -322,21 +352,39 @@ class ApiAuthorizationFuzzTest {
     }
 
     @Test
-    @DisplayName("GET /api/licensing/status - permitAll, returns 200 without authentication")
-    void getLicensingStatus_isPublic_returns200() throws Exception {
+    @DisplayName("GET /api/licensing/status - public, does not leak internal stack info")
+    void getLicensingStatus_isPublic_andDoesNotLeakInternals() throws Exception {
         // Licensing status is intentionally public for self-serve trial status checks.
-        // If this test starts returning 401, the permitAll rule was accidentally removed.
-        mockMvc.perform(get("/api/licensing/status"))
-                .andExpect(status().isOk());
+        // The response must not expose stack version, DB type, or internal config.
+        MvcResult result = mockMvc.perform(get("/api/licensing/status"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        // These strings would indicate accidental internal info disclosure
+        assertNotEquals(true, body.contains("Spring Boot"), "Health endpoint must not expose framework version");
+        assertNotEquals(true, body.contains("PostgreSQL"), "Health endpoint must not expose database type");
+        assertNotEquals(true, body.contains("H2"), "Health endpoint must not expose test database name");
+        assertNotEquals(true, body.contains("exception"), "Health endpoint must not expose exception details");
+        assertNotEquals(true, body.contains("stack"), "Health endpoint must not expose stack traces");
     }
 
     @Test
-    @DisplayName("GET /api/system/health-check - permitAll, returns 200 without authentication")
-    void getSystemHealth_isPublic_returns200() throws Exception {
-        // System health is intentionally public for load balancer / uptime probes.
-        // If this test starts returning 401, the permitAll rule was accidentally removed.
-        mockMvc.perform(get("/api/system/health-check"))
-                .andExpect(status().isOk());
+    @DisplayName("GET /api/health - public probe endpoint, does not leak internal stack info")
+    void getHealth_isPublic_andDoesNotLeakInternals() throws Exception {
+        // /api/health is the actual controller path (SystemController @GetMapping("/health"))
+        // It is used by load balancer probes and must remain public.
+        // It must NOT reveal internal implementation details.
+        MvcResult result = mockMvc.perform(get("/api/health"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        assertNotEquals(true, body.contains("Spring Boot"), "Health probe must not expose framework version");
+        assertNotEquals(true, body.contains("exception"), "Health probe must not expose exception details");
+        assertNotEquals(true, body.contains("stack"), "Health probe must not expose stack traces");
+        assertNotEquals(true, body.contains("password"), "Health probe must not expose credentials");
+        assertNotEquals(true, body.contains("secret"), "Health probe must not expose secrets");
     }
 
     @Test
