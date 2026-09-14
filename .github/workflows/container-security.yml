@@ -143,7 +143,7 @@ jobs:
             .
 
       - name: Run Trivy - Advisory scan (OS + library, HIGH and CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: medbuilds-emr:scan-${{ github.sha }}
           format: table
@@ -154,7 +154,7 @@ jobs:
           cache-dir: /tmp/trivy-cache
 
       - name: Run Trivy - Blocking gate (CRITICAL CVEs only, SARIF output)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: medbuilds-emr:scan-${{ github.sha }}
           format: sarif
