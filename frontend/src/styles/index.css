@@ -213,6 +213,8 @@ ul { list-style: none; }
 .btn-lg { padding: 12px 24px; font-size: 15px; }
 .btn-outline { background: var(--surface); border-color: var(--border); color: var(--text-sec); }
 .btn-outline:hover { background: var(--surface-alt); border-color: var(--text-light); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-sec); }
+.btn-ghost:hover { background: var(--surface-alt); color: var(--text); }
 .btn-teal-outline { background: #e6f4f1; border-color: #80cbd4; color: #009688; }
 .btn-purple { background: #8b5cf6; color: #fff; }
 .btn-purple-outline { background: #f5f3ff; border-color: #ddd6fe; color: #8b5cf6; }

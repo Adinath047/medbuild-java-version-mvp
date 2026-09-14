@@ -80,7 +80,7 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({
               borderRadius: 6,
             }}
           >
-            ✕
+            &times;
           </button>
         </div>
 

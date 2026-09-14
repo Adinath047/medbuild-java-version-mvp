@@ -51,7 +51,7 @@ function AddUserModal({ onClose, onDone }: { onClose:()=>void; onDone:(u:any)=>v
       <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Add Staff Member</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body">
@@ -148,7 +148,7 @@ function EditUserModal({ user, onClose, onDone }: { user:any; onClose:()=>void; 
             <div className="modal-title">{user.name}</div>
             <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{user.email} · <span className={`badge ${ROLE_COLORS[user.role]}`}>{ROLE_LABELS[user.role]}</span></div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={save}>
           <div className="modal-body">
@@ -256,7 +256,7 @@ function AddMedicineModal({ onClose, onDone }: { onClose:()=>void; onDone:(m:any
       <div className="modal" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Add New Medicine</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{display:'flex', flexDirection:'column', gap:12}}>
@@ -322,7 +322,7 @@ function EditMedicineModal({ medicine, onClose, onDone, onDelete }: { medicine:a
       <div className="modal" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Edit Medicine</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{display:'flex', flexDirection:'column', gap:12}}>
@@ -968,7 +968,7 @@ export default function SettingsPage({ onNavigate }: { onNavigate?: (p: string, 
                             style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,255,255,0.9)', color: 'var(--danger)', padding: '2px 6px', minHeight: 'auto', border: '1px solid #fee2e2' }}
                             onClick={() => setProfileForm(f => ({ ...f, letterhead: '' }))}
                           >
-                            ✕ Remove
+                            Remove
                           </button>
                         </div>
                       </div>

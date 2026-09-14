@@ -876,7 +876,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
           <div className="modal" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">Record Payment Installment</div>
-              <button className="modal-close" onClick={() => setRecordPaymentBill(null)}>✕</button>
+              <button className="modal-close" onClick={() => setRecordPaymentBill(null)}>&times;</button>
             </div>
             <form onSubmit={handleRecordPaymentSubmit}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -950,7 +950,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
           <div className="modal" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">Payment Installment History</div>
-              <button className="modal-close" onClick={() => setViewHistoryBill(null)}>✕</button>
+              <button className="modal-close" onClick={() => setViewHistoryBill(null)}>&times;</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ background: 'var(--surface-alt)', padding: 12, borderRadius: 8 }}>
@@ -1001,7 +1001,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
           <div className="modal" style={{ maxWidth: 740 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">Create Hospital Invoice</div>
-              <button className="modal-close" onClick={() => setShowAdd(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowAdd(false)}>&times;</button>
             </div>
             <form onSubmit={handleCreateBill}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '76vh', overflowY: 'auto' }}>
@@ -1253,7 +1253,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                           style={{ color: 'var(--danger)', padding: '4px 8px' }}
                           onClick={() => setItems(items.filter((_, idx) => idx !== i))}
                         >
-                          ✕
+                          &times;
                         </button>
                       )}
                     </div>
@@ -1354,7 +1354,7 @@ export default function FinanceBillingView({ onNavigate, data }: { onNavigate: (
                   )}
                   {paidVal >= netPayable && netPayable > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--success)', marginLeft: 8, fontWeight: 600 }}>
-                      ✓ Paid in Full
+                      Paid in Full
                     </span>
                   )}
                 </div>

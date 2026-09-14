@@ -198,13 +198,26 @@ export default function LoginPage() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} aria-label="Staff Login Form">
-            <div style={{ background: 'var(--surface-alt)', padding: 10, borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center', marginBottom: 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>HOSPITAL</div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--primary)' }}>{hospitalName}</div>
+            <div style={{ background: 'var(--surface-alt)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', textAlign: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-muted)' }}>HOSPITAL</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--primary)', margin: '2px 0 8px' }}>{hospitalName}</div>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: 11, padding: 0, minHeight: 'auto', marginTop: 4, color: 'var(--danger)' }}
+                className="btn btn-outline btn-sm"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '5px 14px',
+                  borderRadius: 20,
+                  color: 'var(--primary)',
+                  borderColor: 'var(--border)',
+                  background: 'var(--surface)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all var(--transition)'
+                }}
                 onClick={() => {
                   setStep('hospital');
                   setHospitalCode('');
@@ -215,6 +228,9 @@ export default function LoginPage() {
                 }}
                 aria-label="Change Selected Hospital"
               >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/>
+                </svg>
                 Change Hospital
               </button>
             </div>

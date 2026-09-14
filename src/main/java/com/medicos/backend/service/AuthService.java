@@ -238,7 +238,7 @@ public class AuthService {
         if (tokenProvider.isTokenBlacklisted(refreshToken)) {
             String userId = tokenProvider.getUserIdFromToken(refreshToken);
             if (userId != null) {
-                log.warn("🚨 [SECURITY ALERT] Refresh token reuse detected for user {}! Revoking entire token family and terminating all active sessions.", userId);
+                log.warn("[SECURITY ALERT] Refresh token reuse detected for user {}! Revoking entire token family and terminating all active sessions.", userId);
                 tokenProvider.revokeAllUserTokens(userId);
             }
             throw new UnauthorizedException("Security Alert: Token reuse detected. All active sessions for this account have been terminated. Please log in again.");

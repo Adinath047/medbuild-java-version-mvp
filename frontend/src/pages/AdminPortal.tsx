@@ -97,7 +97,7 @@ function AddModal({ onClose, onDone }: { onClose: () => void; onDone: (u: any) =
             <div className="modal-title">Register New Staff Member</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Provision credentials and set role permissions</div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body">
@@ -242,12 +242,12 @@ function EditModal({ staff, onClose, onDone }: { staff: any; onClose: () => void
               </span> · {staff.email}
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={save}>
           <div className="modal-body">
             {error && <div className="alert alert-danger">{error}</div>}
-            {ok    && <div className="alert alert-success">✓ {ok}</div>}
+            {ok    && <div className="alert alert-success">{ok}</div>}
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               <div style={{ gridColumn:'1/-1' }} className="form-group">
@@ -436,14 +436,14 @@ function PatientErasureTab() {
       </div>
 
       {actionError && <div className="alert alert-danger" style={{ marginBottom: 16 }}>{actionError}</div>}
-      {successMsg && <div className="alert alert-success" style={{ marginBottom: 16 }}>✓ {successMsg}</div>}
+      {successMsg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{successMsg}</div>}
 
       <div style={{ display:'flex', gap:12, marginBottom:16, alignItems:'center' }}>
         <div className="search-bar" style={{ flex:1, margin: 0 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input placeholder="Search patients by Name, UHID, or Phone…" value={search} onChange={e => setSearch(e.target.value)} />
           {search && (
-            <button type="button" onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 4px' }}>✕</button>
+            <button type="button" onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 4px' }}>&times;</button>
           )}
         </div>
       </div>
@@ -502,7 +502,7 @@ function PatientErasureTab() {
           <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
               <div className="modal-title" style={{ color: 'var(--danger)', fontWeight: 700 }}>Critical: Absolute Patient Erasure</div>
-              <button className="modal-close" onClick={() => setErasingPat(null)}>✕</button>
+              <button className="modal-close" onClick={() => setErasingPat(null)}>&times;</button>
             </div>
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 14 }}>
               <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--radius)', fontSize: 12.5, color: '#991b1b', lineHeight: 1.5 }}>
@@ -566,7 +566,7 @@ function HospitalConfigTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {saved && <div className="alert alert-success">✓ Hospital configuration updated successfully!</div>}
+      {saved && <div className="alert alert-success">Hospital configuration updated successfully!</div>}
       <div className="card" style={{ padding: '24px 28px', boxShadow: 'var(--shadow-sm)' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Hospital Profile & Master Settings</h3>
         <p style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 20 }}>General institutional details used on patient invoices, OPD slips, and prescriptions.</p>
@@ -1063,7 +1063,7 @@ export default function AdminPortal() {
                         alignItems: 'center', justifyContent: 'center',
                         fontSize: 11, fontWeight: 700, lineHeight: 1,
                       }}
-                    >✕</button>
+                    >&times;</button>
                   )}
                 </div>
 
@@ -1136,7 +1136,7 @@ export default function AdminPortal() {
 
             {/* Staff Directory Table Card */}
             <div className="card" style={{ boxShadow: 'var(--shadow-sm)', overflow: 'hidden', padding: 0 }}>
-              {error && <div className="alert alert-warning" style={{ margin: 16 }}>⚠ {error}</div>}
+              {error && <div className="alert alert-warning" style={{ margin: 16 }}>{error}</div>}
               {loading ? (
                 <div style={{ padding: 60, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }}/> Loading staff directory...</div>
               ) : filtered.length === 0 ? (

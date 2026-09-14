@@ -151,7 +151,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
         </p>
       </div>
 
-      {/* Top-Right Dismiss ✕ Button */}
+      {/* Top-Right Dismiss Button */}
       <button
         type="button"
         onClick={() => removeToast(toast.id)}

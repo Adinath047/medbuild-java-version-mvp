@@ -442,7 +442,7 @@ function MedAutocomplete({ value, onChange, onSelect, medicinesList }: {
         <button type="button"
           onClick={() => { onChange(''); setOpen(true); inputRef.current?.focus(); }}
           style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:14, lineHeight:1, padding:2 }}
-        >✕</button>
+        >&times;</button>
       )}
 
       {/* Dropdown */}
@@ -546,7 +546,7 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
           <button type="button" onClick={onDelete} style={{
             background:'none', border:'none', cursor:'pointer', color:'var(--danger)',
             fontSize:13, padding:'2px 6px', borderRadius:4
-          }}>✕ Remove</button>
+          }}>Remove</button>
         )}
       </div>
 
@@ -598,7 +598,7 @@ function MedRow({ med, index, onUpdate, onDelete, canDelete, patientAllergies, m
           )}
           {!allergyMatch && drugInfo && (
             <div style={{ fontSize:10, color:'var(--primary)', marginTop:2 }}>
-              ✓ {drugInfo.category} · Brands: {drugInfo.generics.slice(0,3).join(', ')}
+              {drugInfo.category} · Brands: {drugInfo.generics.slice(0,3).join(', ')}
             </div>
           )}
         </div>
@@ -2333,7 +2333,7 @@ export default function PrescriptionPage({ onNavigate, data }: { onNavigate:(p:s
                         const isClean = !!(parsed.name && (parsed.strength || parsed.frequency || parsed.duration));
                         return (
                           <div key={idx} style={{ fontSize: 11.5, marginTop: 3 }}>
-                            {isClean ? '✓' : '!'} Line {idx+1}: {parsed.name || 'Unknown'} 
+                            {isClean ? 'OK' : '!' } Line {idx+1}: {parsed.name || 'Unknown'} 
                             {parsed.strength && ` · ${parsed.strength}`}
                             {parsed.frequency && ` · ${parsed.frequency}`}
                             {parsed.duration && ` · ${parsed.duration}`}

@@ -230,7 +230,7 @@ export default function NewEncounter({ onNavigate, data }: { onNavigate:(p:strin
                 {diagnoses.map((d,i)=>(
                   <div key={i} style={{display:'flex',alignItems:'center',gap:6,background:'var(--primary-light)',border:'1px solid var(--primary-mid)',borderRadius:'var(--radius-full)',padding:'4px 12px'}}>
                     <span style={{fontSize:13,fontWeight:600,color:'var(--primary)'}}>{d.name}</span>
-                    <button type="button" style={{background:'none',border:'none',cursor:'pointer',color:'var(--primary)',fontSize:14}} onClick={()=>setDiagnoses(x=>x.filter((_,j)=>j!==i))}>✕</button>
+                    <button type="button" style={{background:'none',border:'none',cursor:'pointer',color:'var(--primary)',fontSize:14}} onClick={()=>setDiagnoses(x=>x.filter((_,j)=>j!==i))}>&times;</button>
                   </div>
                 ))}
               </div>

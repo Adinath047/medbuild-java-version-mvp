@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    OWASP Dependency Check CVE Suppressions
+    =======================================
+    PURPOSE:
+    This file lists CVE identifiers that are deliberately excluded from the
+    OWASP Dependency Check failing gate. Suppressions must NEVER be added
+    silently or unilaterally.
+
+    PROCESS (all three conditions required before adding any entry):
+      1. SECURITY REVIEW: The false-positive or non-applicability rationale
+         must be documented in a GitHub Issue tagged "security-review".
+      2. DUAL SIGN-OFF: At least two team members with the "security-reviewer"
+         GitHub role must approve the PR that adds the suppression.
+      3. EXPIRY DATE: Every suppression entry MUST include an 'until' date attribute
+         no more than 90 days in the future (YYYY-MM-DD). Suppressions with no until
+         date or past their expiry are rejected by the CI validation script.
+
+    TEMPLATE (copy this block for each new suppression):
+
+        <suppress until="YYYY-MM-DD">
+            <notes>
+                ISSUE: https://github.com/Adinath047/medbuild-java-version-mvp/issues/XXX
+                Reviewed by: @reviewer1, @reviewer2
+                RATIONALE: Detailed justification explaining why this CVE is
+                non-exploitable in the Medbuilds EMR environment.
+            </notes>
+            <cve>CVE-YYYY-NNNNN</cve>
+        </suppress>
+
+    WARNING:
+      Never suppress CRITICAL CVEs (CVSS >= 9.0) without explicit written
+      authorization from the Engineering Lead and documented in the GitHub
+      Issue referenced above.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- Clean baseline: zero active suppressions -->
+</suppressions>

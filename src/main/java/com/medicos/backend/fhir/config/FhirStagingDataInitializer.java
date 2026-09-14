@@ -6,12 +6,15 @@ import com.medicos.backend.entity.User;
 import com.medicos.backend.repository.HospitalRepository;
 import com.medicos.backend.repository.PatientRepository;
 import com.medicos.backend.repository.UserRepository;
+import com.medicos.backend.config.TenantSessionBinder;
+import com.medicos.backend.security.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,21 +31,29 @@ public class FhirStagingDataInitializer implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TenantSessionBinder tenantSessionBinder;
 
     public FhirStagingDataInitializer(HospitalRepository hospitalRepository,
                                        UserRepository userRepository,
                                        PatientRepository patientRepository,
-                                       PasswordEncoder passwordEncoder) {
+                                       PasswordEncoder passwordEncoder,
+                                       TenantSessionBinder tenantSessionBinder) {
         this.hospitalRepository = hospitalRepository;
         this.userRepository = userRepository;
         this.patientRepository = patientRepository;
         this.passwordEncoder = passwordEncoder;
+        this.tenantSessionBinder = tenantSessionBinder;
     }
 
     @Override
+    @Transactional
     public void run(ApplicationArguments args) {
-        // 1. Ensure Hospital hsp-001
-        if (hospitalRepository.findById("hsp-001").isEmpty()) {
+        try {
+            TenantContext.setTenantId("GLOBAL");
+            tenantSessionBinder.bindTenant("GLOBAL");
+
+            // 1. Ensure Hospital hsp-001
+            if (hospitalRepository.findById("hsp-001").isEmpty()) {
             Hospital h = new Hospital();
             h.setId("hsp-001");
             h.setName("Medbuilds General Hospital");
@@ -86,5 +97,8 @@ public class FhirStagingDataInitializer implements ApplicationRunner {
             patientRepository.save(p);
             log.info("[FhirStagingDataInitializer] Provisioned staging patient pat-fhir-001 (John Smith)");
         }
+    } finally {
+        TenantContext.clear();
     }
+}
 }

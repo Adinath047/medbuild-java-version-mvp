@@ -163,7 +163,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
         detail: { patientId: targetPatId, order: updatedOrder } 
       }));
 
-      setLabSuccessMsg(`✓ Lab Results for ${targetPat?.name || 'Patient'} saved & synced in real-time with attending doctors!`);
+      setLabSuccessMsg(`Lab Results for ${targetPat?.name || 'Patient'} saved & synced in real-time with attending doctors!`);
       toast.success('Lab Results Saved!', `Results for ${targetPat?.name || 'Patient'} saved and synced to EHR`);
       setTimeout(() => {
         setShowLabResultModal(false);
@@ -745,7 +745,7 @@ export default function LabTechnicianDashboard({ onNavigate }: { onNavigate: (p:
               <div className="modal-footer" style={{ background: '#f8fafc', borderTop: '1px solid var(--border)', padding: '12px 20px' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowLabResultModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={syncingLab}>
-                  {syncingLab ? 'Syncing to Doctor...' : '✓ Save & Sync Live with Doctor'}
+                  {syncingLab ? 'Syncing to Doctor...' : 'Save & Sync Live with Doctor'}
                 </button>
               </div>
             </form>

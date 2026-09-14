@@ -212,7 +212,7 @@ export default function PrintRequestModal({ data, onClose }: PrintRequestModalPr
               fontWeight: 700
             }}
           >
-            ✕
+            &times;
           </button>
         </div>
 

@@ -374,10 +374,10 @@ export default function AcceptInvitePage() {
                         ))}
                       </div>
                       <div style={{ fontSize: 11, color: '#64748b', display: 'flex', gap: 12 }}>
-                        <span style={{ color: hasMinLength ? '#10b981' : '#94a3b8' }}>✓ 8+ chars</span>
-                        <span style={{ color: hasUpper ? '#10b981' : '#94a3b8' }}>✓ Uppercase</span>
-                        <span style={{ color: hasLower ? '#10b981' : '#94a3b8' }}>✓ Lowercase</span>
-                        <span style={{ color: hasNumber ? '#10b981' : '#94a3b8' }}>✓ Number</span>
+                        <span style={{ color: hasMinLength ? '#10b981' : '#94a3b8' }}>8+ chars</span>
+                        <span style={{ color: hasUpper ? '#10b981' : '#94a3b8' }}>Uppercase</span>
+                        <span style={{ color: hasLower ? '#10b981' : '#94a3b8' }}>Lowercase</span>
+                        <span style={{ color: hasNumber ? '#10b981' : '#94a3b8' }}>Number</span>
                       </div>
                     </div>
                   )}
@@ -397,7 +397,7 @@ export default function AcceptInvitePage() {
                   />
                   {confirmPassword.length > 0 && (
                     <div style={{ fontSize: 11, marginTop: 4, color: isMatch ? '#10b981' : '#ef4444' }}>
-                      {isMatch ? '✓ Passwords match' : '✕ Passwords do not match'}
+                      {isMatch ? 'Passwords match' : 'Passwords do not match'}
                     </div>
                   )}
                 </div>

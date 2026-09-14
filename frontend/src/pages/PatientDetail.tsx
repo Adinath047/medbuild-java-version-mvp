@@ -1409,7 +1409,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                 ...(p.abha_number ? [
                   ['ABHA Number', p.abha_number],
                   ['ABHA Address', p.abha_address],
-                  ['ABDM Status', p.abha_status ? 'Verified ✓' : 'Unlinked']
+                  ['ABDM Status', p.abha_status ? 'Verified' : 'Unlinked']
                 ] : [])
               ].map(([l,v])=>(
                 <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',padding:'7px 0',borderBottom:'1px solid var(--border-light)',gap:12}}>
@@ -1442,7 +1442,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                 justifyContent: 'space-between'
               }}>
                 <div style={{ fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>🇮🇳</span> National Health Authority (NHA)
+                  National Health Authority (NHA)
                 </div>
                 <div style={{ fontSize: 10, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
                   SANDBOX
@@ -1468,7 +1468,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                       </div>
                       
                       <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>✓</span> EMR Data Linkage Active (M1 Compliance)
+                        EMR Data Linkage Active (M1 Compliance)
                       </div>
                     </div>
                     
@@ -1548,7 +1548,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
               style={{ background: 'var(--primary)', borderColor: 'var(--primary-dark)', padding: '6px 14px', minHeight: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
               onClick={() => setShowUploadModal(true)}
             >
-              ➕ Upload Document/Photo
+              + Upload Document/Photo
             </button>
           </div>
           <div className="card-body">
@@ -1650,7 +1650,7 @@ export default function PatientDetail({ onNavigate, data }: { onNavigate:(p:stri
                 Print
               </button>
             )}
-            <button className="modal-close" onClick={() => setPreviewDoc(null)}>✕</button>
+            <button className="modal-close" onClick={() => setPreviewDoc(null)}>&times;</button>
           </div>
         </div>
         <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f1f5f9' }}>
@@ -1787,9 +1787,9 @@ function AbhaVerificationModal({ onClose, onLinked }: { onClose: () => void; onL
       <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>🇮🇳</span> NHA Sandbox Verification
+            NHA Sandbox Verification
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         
         {step === 1 && (
@@ -1885,7 +1885,7 @@ function AbhaVerificationModal({ onClose, onLinked }: { onClose: () => void; onL
         {step === 3 && profile && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '6px 4px 18px 4px' }}>
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: 14, borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>✓ NHA Sandbox Verified Profile</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#166534' }}>NHA Sandbox Verified Profile</div>
               
               <div style={{ display: 'flex', gap: 12, marginTop: 10, alignItems: 'center' }}>
                 <div style={{
@@ -2044,7 +2044,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
       <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">Edit Patient Profile</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body">
@@ -2062,7 +2062,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 18 }}>🇮🇳</span> Ayushman Bharat Digital Mission (ABDM)
+                    Ayushman Bharat Digital Mission (ABDM)
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                     Link EMR profile to ABHA ID for government sandbox EMR data sharing.
@@ -2081,7 +2081,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
               {form.abha_number && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)', display: 'flex', gap: 10, alignItems: 'center' }}>
                   <span style={{ fontSize: 10, fontWeight: 800, background: '#166534', color: '#fff', padding: '2px 8px', borderRadius: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    ✓ Linked
+                    Linked
                   </span>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     <strong>ABHA No:</strong> <span style={{ color: 'var(--text)' }}>{form.abha_number}</span> | <strong>ABHA Address:</strong> <span style={{ color: 'var(--text)' }}>{form.abha_address}</span>
@@ -2227,7 +2227,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
                   onKeyDown={e=>{ if(e.key==='Enter'&&customAllergyInput.trim()){ setAllergies(x=>[...x,customAllergyInput.trim()]); setCustomAllergyInput(''); e.preventDefault(); }}} />
                 <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{ if(customAllergyInput.trim()){ setAllergies(x=>[...x,customAllergyInput.trim()]); setCustomAllergyInput(''); }}}>Add</button>
               </div>
-              {allergies.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>{allergies.map(a=><span key={a} className="tag tag-red">{a} <button type="button" style={{background:'none',border:'none',cursor:'pointer',padding:0,marginLeft:3,color:'inherit'}} onClick={()=>setAllergies(x=>x.filter(i=>i!==a))}>✕</button></span>)}</div>}
+              {allergies.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:6}}>{allergies.map(a=><span key={a} className="tag tag-red">{a} <button type="button" style={{background:'none',border:'none',cursor:'pointer',padding:0,marginLeft:3,color:'inherit'}} onClick={()=>setAllergies(x=>x.filter(i=>i!==a))}>&times;</button></span>)}</div>}
             </div>
 
             {/* Chronic conditions */}
@@ -2273,7 +2273,7 @@ function EditPatientModal({ patient, onClose, onDone }: { patient: any; onClose:
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? <><div className="spinner spinner-sm"/>Saving…</> : '✓ Save Changes'}
+              {saving ? <><div className="spinner spinner-sm"/>Saving…</> : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -2359,7 +2359,7 @@ function UploadDocModal({ patientId, onClose, onDone }: { patientId: string; onC
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             Upload Document or Photo
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={submit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -2403,7 +2403,7 @@ function UploadDocModal({ patientId, onClose, onDone }: { patientId: string; onC
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving || !fileData}>
-              {saving ? <div className="spinner spinner-sm" /> : '✓ Upload'}
+              {saving ? <div className="spinner spinner-sm" /> : 'Upload'}
             </button>
           </div>
         </form>

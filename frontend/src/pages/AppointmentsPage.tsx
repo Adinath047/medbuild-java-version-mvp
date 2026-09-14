@@ -330,7 +330,7 @@ export default function AppointmentsPage({ onNavigate, data }: { onNavigate:(p:s
       {showAdd && (
         <div className="modal-overlay" onClick={()=>setShowAdd(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header"><div className="modal-title">Book Appointment</div><button className="modal-close" onClick={()=>setShowAdd(false)}>✕</button></div>
+            <div className="modal-header"><div className="modal-title">Book Appointment</div><button className="modal-close" onClick={()=>setShowAdd(false)}>&times;</button></div>
             <form onSubmit={bookAppt}>
               <div className="modal-body">
                 {bookError && <div className="alert alert-danger" style={{marginBottom:12, display: 'flex', alignItems: 'center', gap: 6}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> {bookError}</div>}

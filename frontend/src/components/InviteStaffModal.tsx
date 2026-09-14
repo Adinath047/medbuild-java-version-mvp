@@ -87,7 +87,7 @@ export default function InviteStaffModal({ onClose, onSuccess }: InviteStaffModa
               </p>
             </div>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close modal">✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">&times;</button>
         </div>
 
         {success ? (
